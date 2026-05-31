@@ -18,10 +18,15 @@ Usage:
   python3 sword23_backtest.py                 # BTCUSDT, 30 Tage, 0.055% Taker
   python3 sword23_backtest.py BTCUSDT 60      # 60 Tage
   python3 sword23_backtest.py ETHUSDT 30 0.06 # anderes Symbol/Fee
+  python3 sword23_backtest.py --file btc_1m.csv   # eigene 1m-Daten (kein Netz)
   python3 sword23_backtest.py --selftest      # synthetische Daten, kein Netz
+
+Datei-Format (--file): CSV oder JSON mit 1m-Kerzen.
+  CSV-Header: date,open,high,low,close,volume  (Zeit = ISO oder Epoch s/ms)
+  JSON: Liste von [ts,open,high,low,close,volume] ODER Dicts mit diesen Keys.
 """
 
-import math, time, sys, random
+import math, time, sys, random, json, csv as csvmod
 from datetime import datetime, timezone, timedelta
 
 PI = math.pi
@@ -173,6 +178,60 @@ def fetch_all(symbol, interval, days):
         k = d["date"].isoformat()
         if k not in seen: seen.add(k); uniq.append(d)
     return sorted(uniq, key=lambda x: x["date"])
+
+def _parse_ts(v):
+    """ISO-String oder Epoch (s/ms) → aware UTC datetime."""
+    if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace(".", "").isdigit()):
+        x = float(v)
+        if x > 1e12: x /= 1000.0   # ms → s
+        return datetime.fromtimestamp(x, tz=timezone.utc)
+    dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+def load_file(path):
+    """Lade 1m-Kerzen aus CSV oder JSON. Tolerant bei Spalten-Reihenfolge."""
+    rows = []
+    if path.lower().endswith(".json"):
+        with open(path) as f:
+            data = json.load(f)
+        for x in data:
+            if isinstance(x, dict):
+                rows.append({"date": _parse_ts(x.get("date") or x.get("timestamp") or x.get("ts")),
+                             "open": float(x["open"]), "high": float(x["high"]),
+                             "low": float(x["low"]), "close": float(x["close"]),
+                             "vol": float(x.get("volume", x.get("vol", 0)))})
+            else:  # Liste: [ts,o,h,l,c,v]
+                rows.append({"date": _parse_ts(x[0]), "open": float(x[1]),
+                             "high": float(x[2]), "low": float(x[3]),
+                             "close": float(x[4]), "vol": float(x[5]) if len(x) > 5 else 0.0})
+    else:  # CSV
+        with open(path, newline="") as f:
+            sample = f.read(2048); f.seek(0)
+            has_header = csvmod.Sniffer().has_header(sample)
+            reader = csvmod.reader(f)
+            header = [h.strip().lower() for h in next(reader)] if has_header else None
+            def col(r, names, idx):
+                if header:
+                    for n in names:
+                        if n in header: return r[header.index(n)]
+                return r[idx]
+            for r in reader:
+                if not r: continue
+                rows.append({
+                    "date": _parse_ts(col(r, ["date","timestamp","ts","time"], 0)),
+                    "open": float(col(r, ["open","o"], 1)),
+                    "high": float(col(r, ["high","h"], 2)),
+                    "low":  float(col(r, ["low","l"], 3)),
+                    "close":float(col(r, ["close","c"], 4)),
+                    "vol":  float(col(r, ["volume","vol","v"], 5)),
+                })
+    rows = sorted(rows, key=lambda x: x["date"])
+    # Dedup auf Minute
+    seen, uniq = set(), []
+    for d in rows:
+        k = d["date"].isoformat()
+        if k not in seen: seen.add(k); uniq.append(d)
+    return uniq
 
 def aggregate(base, factor):
     """Nicht-überlappende Blöcke: factor Basis-Kerzen → eine höhere Kerze."""
@@ -385,6 +444,20 @@ if __name__ == "__main__":
     print(f"{'='*70}")
     print(f"THE SWORD 23 — 23/77 BACKTEST (Minuten-Scale, fee-aware)")
     print(f"{'='*70}")
+
+    if len(sys.argv) > 2 and sys.argv[1] == "--file":
+        path = sys.argv[2]
+        fee = float(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_TAKER_FEE
+        print(f"Datei: {path} | Taker {fee}%/Seite\n")
+        data = load_file(path)
+        if len(data) < 81*20:
+            print(f"Nur {len(data)} Kerzen — π auf 81m braucht viel History "
+                  f"(~{81*20} 1m-Kerzen). Läuft, aber Gate öffnet evtl. selten.")
+        print(f"Geladen: {len(data)} 1m-Kerzen "
+              f"({data[0]['date'].strftime('%d.%m %H:%M')} – {data[-1]['date'].strftime('%d.%m %H:%M')})")
+        res = run_backtest(data, taker_fee=fee)
+        report(res, f"[{path}]")
+        sys.exit(0)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
         print("SELFTEST: 8000 synthetische 1m-Kerzen (kein Netz)\n")
