@@ -204,12 +204,20 @@ def load_file(path):
                 rows.append({"date": _parse_ts(x[0]), "open": float(x[1]),
                              "high": float(x[2]), "low": float(x[3]),
                              "close": float(x[4]), "vol": float(x[5]) if len(x) > 5 else 0.0})
-    else:  # CSV
-        with open(path, newline="") as f:
-            sample = f.read(2048); f.seek(0)
-            has_header = csvmod.Sniffer().has_header(sample)
-            reader = csvmod.reader(f)
-            header = [h.strip().lower() for h in next(reader)] if has_header else None
+    else:  # CSV  (utf-8-sig schluckt BOM; Delimiter , ; \t | wird gesnifft)
+        with open(path, newline="", encoding="utf-8-sig") as f:
+            sample = f.read(4096); f.seek(0)
+            try:
+                dialect = csvmod.Sniffer().sniff(sample, delimiters=",;\t|")
+                delim = dialect.delimiter
+            except csvmod.Error:
+                delim = ";" if sample.count(";") > sample.count(",") else ","
+            try:
+                has_header = csvmod.Sniffer().has_header(sample)
+            except csvmod.Error:
+                has_header = True
+            reader = csvmod.reader(f, delimiter=delim)
+            header = [h.strip().lower().strip('"') for h in next(reader)] if has_header else None
             def col(r, names, idx):
                 if header:
                     for n in names:
