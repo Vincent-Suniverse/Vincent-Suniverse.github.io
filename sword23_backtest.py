@@ -15,7 +15,9 @@ Backtestet die 23/77-Mechanik aus sword_23_77.py — aber sauber:
   - Taker-Fees im PnL — bei einem Flip-Stil DIE entscheidende Größe.
 
 Usage:
-  python3 sword23_backtest.py                 # BTCUSDT, 30 Tage, 0.055% Taker
+  python3 sword23_backtest.py --study 90      # Maker-Fees / Churn-Bremse / Gate-Ablation (KEIN VPS)
+  python3 sword23_backtest.py --github 90     # echte 1m-Daten von GitHub, 90 Tage (KEIN VPS)
+  python3 sword23_backtest.py                 # BTCUSDT, 30 Tage, 0.055% Taker (braucht Bybit-Zugang)
   python3 sword23_backtest.py BTCUSDT 60      # 60 Tage
   python3 sword23_backtest.py ETHUSDT 30 0.06 # anderes Symbol/Fee
   python3 sword23_backtest.py --file btc_1m.csv   # eigene 1m-Daten (kein Netz)
@@ -36,6 +38,12 @@ BASE_INTERVAL = "1"        # Bybit-Kline-Intervall der Basis
 DECISION_EVERY = 9         # alle 9 Basiseinheiten ein Vote (= 9 Minuten)
 DEFAULT_TAKER_FEE = 0.055  # % pro Seite (Bybit Perp Taker)
 MAX_HOLD_MIN = 4 * 60      # Sicherheits-Exit nach 4h (wie Live)
+
+# Echte 1-Minuten-BTC/USD-History (Bitstamp), lückenlos, via GitHub —
+# der einzige Host, den die Web-Sandbox erreichen darf. Kein VPS nötig.
+GITHUB_DATA_URL = ("https://raw.githubusercontent.com/ff137/"
+                   "bitstamp-btcusd-minute-data/main/data/updates/"
+                   "btcusd_bitstamp_1min_latest.csv")
 
 # ============================================================
 # DECISION-CORE — 1:1 aus sword_23_77.py
@@ -241,6 +249,29 @@ def load_file(path):
         if k not in seen: seen.add(k); uniq.append(d)
     return uniq
 
+def load_github(days=None):
+    """Echte 1m-BTC/USD-Kerzen direkt von GitHub ziehen (kein VPS, kein Netz-Setup).
+    Format: timestamp(Epoch-s),open,high,low,close,volume. Optional letzte N Tage."""
+    import requests
+    print(f"Lade echte 1m-Daten von GitHub (Bitstamp BTC/USD)...")
+    r = requests.get(GITHUB_DATA_URL, timeout=60)
+    r.raise_for_status()
+    lines = r.text.splitlines()
+    rows = []
+    for ln in lines[1:]:                       # erste Zeile = Header
+        p = ln.split(",")
+        if len(p) < 6: continue
+        try:
+            rows.append({"date": _parse_ts(p[0]), "open": float(p[1]),
+                         "high": float(p[2]), "low": float(p[3]),
+                         "close": float(p[4]), "vol": float(p[5])})
+        except (ValueError, IndexError):
+            continue
+    rows.sort(key=lambda x: x["date"])
+    if days:
+        rows = rows[-int(days) * 1440:]        # 1440 Minuten/Tag
+    return rows
+
 def aggregate(base, factor):
     """Nicht-überlappende Blöcke: factor Basis-Kerzen → eine höhere Kerze."""
     out = []
@@ -260,10 +291,16 @@ def aggregate(base, factor):
 # DETERMINISTISCHER REPLAY DER 23/77-STATE-MACHINE
 # ============================================================
 
-def run_backtest(base_1m, taker_fee=DEFAULT_TAKER_FEE, max_hold_min=MAX_HOLD_MIN):
+def run_backtest(base_1m, taker_fee=DEFAULT_TAKER_FEE, max_hold_min=MAX_HOLD_MIN,
+                 min_hold_min=0, exit_confirm=1, gates=("pi", "vol", "vote")):
     """
     Spielt den SLEEP/ACTIVE-Automaten kausal über die History.
     Entscheidung an jedem abgeschlossenen 9m-Block j.
+
+    min_hold_min  Mindesthaltezeit, bevor ein Instabilitäts-Exit (UNSTABLE/FLIP) greift.
+    exit_confirm  Anzahl aufeinanderfolgender instabiler Votes vor Instabilitäts-Exit (Hysterese).
+    gates         Aktive ENTRY-Bedingungen aus {"pi","vol","vote"}; inaktive gelten als erfüllt.
+                  Exits bleiben unverändert (Ablation isoliert nur den Entry-Beitrag).
     """
     c3  = aggregate(base_1m, 3)
     c9  = aggregate(base_1m, 9)
@@ -276,6 +313,7 @@ def run_backtest(base_1m, taker_fee=DEFAULT_TAKER_FEE, max_hold_min=MAX_HOLD_MIN
     trades = []
     capital = 100.0
     active_blocks = 0   # 9m-Blöcke im Markt (für Zeit-im-Markt-Quote)
+    unstable_count = 0  # aufeinanderfolgende instabile Votes (Churn-Hysterese)
 
     n_blocks = len(c9)
     for j in range(n_blocks):
@@ -300,22 +338,34 @@ def run_backtest(base_1m, taker_fee=DEFAULT_TAKER_FEE, max_hold_min=MAX_HOLD_MIN
         is_stable, stable_dir = vote_stable(vote_history)
 
         if state == "SLEEP":
-            # Alle drei Bedingungen → IMPULS
-            if pi_active and vol_phase == "aufbau" and is_stable and stable_dir:
+            # ENTRY-Gates (inaktive Gates = immer erfüllt) → IMPULS
+            pi_ok  = pi_active             if "pi"  in gates else True
+            vol_ok = (vol_phase == "aufbau") if "vol" in gates else True
+            if "vote" in gates:
+                vote_ok = bool(is_stable and stable_dir)
+                direction = stable_dir
+            else:
+                s = sum(vote_history[-9:])
+                direction = "LONG" if s >= 0 else "SHORT"
+                vote_ok = True
+            if pi_ok and vol_ok and vote_ok and direction:
                 state = "ACTIVE"
-                position = stable_dir
+                position = direction
                 entry_price = price
                 entry_j = j
+                unstable_count = 0
         else:  # ACTIVE
             active_blocks += 1
+            held_min = (j - entry_j) * DECISION_EVERY
+            instability = (not is_stable) or (is_stable and stable_dir != position)
+            unstable_count = unstable_count + 1 if instability else 0
+
             exit_reason = None
             if volume_exhausted(c9_avail):
                 exit_reason = "VOL_EXHAUST"
-            elif not is_stable:
-                exit_reason = "VOTE_UNSTABLE"
-            elif is_stable and stable_dir != position:
-                exit_reason = "VOTE_FLIP"
-            elif (j - entry_j) * DECISION_EVERY >= max_hold_min:
+            elif instability and held_min >= min_hold_min and unstable_count >= exit_confirm:
+                exit_reason = "VOTE_FLIP" if (is_stable and stable_dir != position) else "VOTE_UNSTABLE"
+            elif held_min >= max_hold_min:
                 exit_reason = "MAX_HOLD"
 
             if exit_reason:
@@ -343,7 +393,92 @@ def run_backtest(base_1m, taker_fee=DEFAULT_TAKER_FEE, max_hold_min=MAX_HOLD_MIN
         "trades": trades, "capital": capital,
         "active_blocks": active_blocks, "total_blocks": n_blocks,
         "taker_fee": taker_fee,
+        "cfg": {"fee": taker_fee, "min_hold": min_hold_min,
+                "confirm": exit_confirm, "gates": "+".join(gates) if gates else "none"},
     }
+
+# ============================================================
+# STUDIE — prinzipieller Vergleich (kein Hand-Tuning)
+# ============================================================
+
+def _summary(res):
+    """Kompakte Kennzahlen eines Laufs (netto)."""
+    trades = res["trades"]; total = len(trades)
+    cap = res["capital"]
+    mkt = res["active_blocks"] / res["total_blocks"] * 100 if res["total_blocks"] else 0
+    if not total:
+        return {"trades": 0, "net": cap-100, "wr": 0, "vs_rand": None, "mkt": mkt, "top": "-"}
+    wins = sum(1 for t in trades if t["pnl_net"] > 0)
+    fee = res["taker_fee"]
+    rbetter = 0
+    for _ in range(200):
+        rc = 100.0
+        for t in trades:
+            g = t["pnl_gross"] if random.random() < 0.5 else -t["pnl_gross"]
+            rc *= (1 + (g - 2*fee)/100)
+        if rc >= cap: rbetter += 1
+    reasons = {}
+    for t in trades:
+        reasons[t["reason"]] = reasons.get(t["reason"], 0) + 1
+    top = max(reasons, key=reasons.get)
+    return {"trades": total, "net": cap-100, "wr": wins/total*100,
+            "vs_rand": 100 - rbetter/2, "mkt": mkt, "top": top}
+
+def run_study(days=90):
+    print(f"{'='*78}")
+    print(f"SWORD 23 — STUDIE (netto, echte Daten). KEIN Hand-Tuning, nur Ablesen.")
+    print(f"{'='*78}")
+    recent = load_github(days)
+    older  = load_github(days * 2)[:len(recent)]   # davorliegendes Fenster = Out-of-Sample
+    print(f"In-Sample:      {recent[0]['date'].strftime('%d.%m.%y')} – {recent[-1]['date'].strftime('%d.%m.%y')} ({len(recent)} 1m)")
+    print(f"Out-of-Sample:  {older[0]['date'].strftime('%d.%m.%y')} – {older[-1]['date'].strftime('%d.%m.%y')} ({len(older)} 1m)")
+
+    hdr = f"{'Config':<34}{'Trades':>7}{'Netto%':>9}{'WR%':>7}{'vsRand':>8}{'Markt%':>8}  {'TopExit'}"
+
+    def row(label, **kw):
+        s = _summary(run_backtest(recent, **kw))
+        vr = f"{s['vs_rand']:.0f}%" if s['vs_rand'] is not None else "—"
+        print(f"{label:<34}{s['trades']:>7}{s['net']:>+8.1f}%{s['wr']:>6.0f}%{vr:>8}{s['mkt']:>7.1f}%  {s['top']}")
+
+    # 1) FEES: Taker vs Maker (Baseline-Config)
+    print(f"\n--- 1) GEBÜHREN (Baseline: alle Gates, kein Churn-Filter) ---")
+    print(hdr)
+    row("Taker 0.055%", taker_fee=0.055)
+    row("Maker 0.000%", taker_fee=0.0)
+
+    # 2) CHURN-BREMSE (Maker, damit der Effekt nicht von Fees überdeckt wird)
+    print(f"\n--- 2) CHURN-BREMSE (Maker 0%) — min_hold (Dreierpotenzen) × exit_confirm ---")
+    print(hdr)
+    for mh in (0, 9, 27, 81):
+        for ec in (1, 2, 3):
+            row(f"min_hold={mh:>2}m confirm={ec}", taker_fee=0.0, min_hold_min=mh, exit_confirm=ec)
+
+    # 3) GATE-ABLATION: welches ENTRY-Gate trägt den Edge? (Maker, sonst Baseline)
+    print(f"\n--- 3) GATE-ABLATION (Maker 0%) — welches Gate trägt den Edge? ---")
+    print(hdr)
+    for label, g in [("full (pi+vol+vote)", ("pi","vol","vote")),
+                     ("no-pi  (vol+vote)",  ("vol","vote")),
+                     ("no-vol (pi+vote)",   ("pi","vote")),
+                     ("pi+vote",            ("pi","vote")),
+                     ("vote-only",          ("vote",))]:
+        row(label, taker_fee=0.0, gates=g)
+
+    # 4) OUT-OF-SAMPLE: dieselben Configs aufs ältere Fenster
+    print(f"\n--- 4) OUT-OF-SAMPLE (älteres Fenster, Maker 0%) ---")
+    print(hdr)
+    def row_oos(label, **kw):
+        s = _summary(run_backtest(older, **kw))
+        vr = f"{s['vs_rand']:.0f}%" if s['vs_rand'] is not None else "—"
+        print(f"{label:<34}{s['trades']:>7}{s['net']:>+8.1f}%{s['wr']:>6.0f}%{vr:>8}{s['mkt']:>7.1f}%  {s['top']}")
+    row_oos("Maker baseline", taker_fee=0.0)
+    row_oos("no-vol (pi+vote)", taker_fee=0.0, gates=("pi","vote"))
+    row_oos("vote-only", taker_fee=0.0, gates=("vote",))
+
+    print(f"\n{'='*78}")
+    print("⚠ OVERFITTING-WARNUNG: nur ~%d/%d Tage Daten. Eine Config, die nur In-Sample" % (days, days*2))
+    print("  glänzt und Out-of-Sample einbricht, ist Rauschen — nicht Edge. Vergleiche beide.")
+    print("  Lese-Schlüssel: Trägt 'vote-only' allein schon den Edge, ist π/Volume kosmetisch.")
+    print(f"{'='*78}")
 
 # ============================================================
 # AUSWERTUNG
@@ -452,6 +587,27 @@ if __name__ == "__main__":
     print(f"{'='*70}")
     print(f"THE SWORD 23 — 23/77 BACKTEST (Minuten-Scale, fee-aware)")
     print(f"{'='*70}")
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--study":
+        days = int(sys.argv[2]) if len(sys.argv) > 2 else 90
+        run_study(days)
+        sys.exit(0)
+
+    if len(sys.argv) > 1 and sys.argv[1] == "--github":
+        days = int(sys.argv[2]) if len(sys.argv) > 2 else 90
+        fee = float(sys.argv[3]) if len(sys.argv) > 3 else DEFAULT_TAKER_FEE
+        print(f"Quelle: GitHub (Bitstamp BTC/USD 1m) | letzte {days} Tage | Taker {fee}%/Seite")
+        print("Hinweis: Bitstamp-Spot als Proxy für Bybit BTCUSDT — echte BTC-Minutenstruktur,\n"
+              "         Fee-Annahme bleibt Bybit-Taker.\n")
+        data = load_github(days)
+        if not data:
+            print("Keine Daten geladen. GitHub-URL/Netz prüfen.")
+            sys.exit(1)
+        print(f"Geladen: {len(data)} 1m-Kerzen "
+              f"({data[0]['date'].strftime('%d.%m.%y %H:%M')} – {data[-1]['date'].strftime('%d.%m.%y %H:%M')})")
+        res = run_backtest(data, taker_fee=fee)
+        report(res, f"[GitHub Bitstamp BTC/USD, {days}d]")
+        sys.exit(0)
 
     if len(sys.argv) > 2 and sys.argv[1] == "--file":
         path = sys.argv[2]
