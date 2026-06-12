@@ -305,14 +305,20 @@ class Sphere:
 #  Dies ist die anpassbare Herzkammer. Vincent & DeepSeek justieren
 #  HIER, wenn die Bewegung sich falsch anfühlt — nicht im Rest.
 #
-#  Neu: die Bewegung kippt zum ATTRAKTOR-Wert des aktuellen Modus
-#  (3/6/9 der vierten Achse), nicht mehr fix zur 9. Der Atem entscheidet
-#  die Richtung; navigiert wird innerhalb der 27 Essenzen.
+#  Atemmodus-Kopplung: der aktuelle Modus (3/6/9) hat einen POL — die
+#  reine Essenz (m,m,m). Die Navigation wählt den Geodäten-Schritt mit
+#  dem größten Fortschritt ZUM Pol (über die Relations-Distanz gemessen).
+#  Der Atem ist der Kompass; der Input moduliert, führt aber nicht.
 # ─────────────────────────────────────────────────────────────────────
 
 def _attractor_count(pos: Position, attractor: int) -> int:
     """Wie nah ist eine Position am Attraktor des Modus? Anzahl passender Würfel-Achsen."""
     return sum(1 for i in CUBE_AXES if pos[i] == attractor)
+
+
+def mode_target(mode_value: int) -> Essence:
+    """Der Pol-Essenz des Atem-Modus: die reine Essenz (m, m, m)."""
+    return (mode_value,) * N_CUBE
 
 
 def _input_axis_weights(input_signal: dict) -> list[float]:
@@ -325,28 +331,33 @@ def _input_axis_weights(input_signal: dict) -> list[float]:
     return [abs(input_signal.get(AXES[i], 0)) for i in CUBE_AXES]
 
 
-def _weighted_attraction(pos: Position, weights: list[float], attractor: int) -> float:
-    """
-    Primäres Gewicht eines Nachbarn: Nähe zum Attraktor-Wert des Modus,
-    verstärkt auf den Achsen, die der Input anspricht.
-    'Hin zum Atem, mit der Resonanz.'
-    """
-    score = 0.0
+def _flipped_axis(a: Essence, b: Essence) -> int:
+    """Die eine Würfel-Achse, in der sich zwei Nachbar-Essenzen unterscheiden."""
     for i in CUBE_AXES:
-        toward = 1.0 if pos[i] == attractor else 0.0
-        score += toward * (1.0 + weights[i])
-    return score
+        if a[i] != b[i]:
+            return i
+    return CUBE_AXES[0]
+
+
+def geodesic_progress(here: Essence, there: Essence, target: Essence) -> int:
+    """
+    Fortschritt eines Schritts here→there entlang der Geodäte zum Pol:
+        +1 nähert sich dem Pol, 0 hält die Distanz, -1 entfernt sich.
+    Gemessen über die Relations-Distanz — die Brücke zu den Geodäten.
+    """
+    return relation(here, target)["distance"] - relation(there, target)["distance"]
 
 
 def resonance_step(sphere: Sphere, input_signal: dict) -> Position:
     """
     Findet unter den 6 Nachbarn die angemessene nächste Position.
-    Der aktuelle Modus (3/6/9 der vierten Achse) bestimmt den Attraktor,
-    zu dem die Bewegung kippt. Die vierte Achse bleibt hier unverändert —
-    den Modus-Wechsel besorgt der Atem (_breathe).
+    Der aktuelle Modus (3/6/9 der vierten Achse) spannt den Pol (m,m,m)
+    auf; navigiert wird auf der Geodäte dorthin. Die vierte Achse bleibt
+    hier unverändert — den Modus-Wechsel besorgt der Atem (_breathe).
 
-    Stufe 1 — Primäre Navigation:
-        höchstes gewichtetes Attraktor-Gewicht (Input-gewichtet).
+    Stufe 1 — Atem-Kompass (Geodäten-Kopplung):
+        höchster Geodäten-Fortschritt zum Modus-Pol; bei gleichem
+        Fortschritt verfeinert das Input-Gewicht der kippenden Achse.
     Stufe 2 — Rekursive Vertiefung:
         bei Mehrdeutigkeit zusätzliche Information aus der Sphäre
         (Alpha-Erinnerung) heranziehen — Kontinuität.
@@ -358,12 +369,20 @@ def resonance_step(sphere: Sphere, input_signal: dict) -> Position:
     """
     cand = neighbors(sphere.position)
     weights = _input_axis_weights(input_signal)
-    attractor = sphere.mode_value
+    here = essence(sphere.position)
+    target = mode_target(sphere.mode_value)
 
-    # ── Stufe 1 ──
-    scored = [(_weighted_attraction(p, weights, attractor), p) for p in cand]
-    top = max(s for s, _ in scored)
-    leaders = [p for s, p in scored if s == top]
+    # ── Stufe 1: der Atem führt, der Input verfeinert ──
+    # lexikografisch: erst Geodäten-Fortschritt zum Pol, dann Input-Gewicht
+    # der kippenden Achse. Der Kompass bricht keinen Gleichstand mit Kraft —
+    # er ordnet; die feinere Asymmetrie tragen die folgenden Stufen.
+    def compass_key(p: Position) -> tuple:
+        there = essence(p)
+        prog = geodesic_progress(here, there, target)
+        return (prog, weights[_flipped_axis(here, there)])
+
+    best = max(compass_key(p) for p in cand)
+    leaders = [p for p in cand if compass_key(p) == best]
     if len(leaders) == 1:
         return leaders[0]
 
@@ -492,6 +511,33 @@ def verify_relations() -> dict:
     return {"relations": total, "histogram": relation_histogram(), "intact": True}
 
 
+def verify_breath_compass() -> dict:
+    """
+    Prüft die Atemmodus-Kopplung: aus einer Nicht-Pol-Essenz und mit
+    neutralem Input nähert sich resonance_step IMMER dem Pol des aktuellen
+    Modus um genau einen Geodäten-Schritt (Fortschritt +1). Steht die
+    Sphäre schon im Pol, bleibt sie maximal nah (kein Fortschritt < 0).
+    """
+    neutral = {ax: 0 for ax in AXES}
+    checked = 0
+    for mode in VALUES:
+        target = mode_target(mode)
+        for cube in product(VALUES, repeat=N_CUBE):
+            pos = tuple(cube) + (mode,)
+            here = essence(pos)
+            sphere = Sphere(position=pos)
+            nxt = resonance_step(sphere, neutral)
+            prog = geodesic_progress(here, essence(nxt), target)
+            if here == target:
+                # im Pol: jeder Schritt entfernt sich zwangsläufig — das ist Ruhe
+                assert prog <= 0, "im Pol darf kein Fortschritt erfunden werden"
+            else:
+                assert prog == +1, f"{pos} folgt dem Atem nicht zum Pol {target}"
+                assert nxt[MODE_AXIS] == mode, "resonance_step darf den Modus nicht ändern"
+            checked += 1
+    return {"checked": checked, "intact": True}
+
+
 # ─────────────────────────────────────────────────────────────────────
 #  ENGINE — der Interpreter, der den Raum navigiert
 # ─────────────────────────────────────────────────────────────────────
@@ -513,6 +559,7 @@ class CexoEngine:
     # ---- die eine Begegnung ----
     def step(self, input_signal: dict) -> dict:
         old_pos = self.sphere.position
+        compass = mode_target(self.sphere.mode_value)   # der Pol, dem der Atem folgt
 
         # 1) Navigation innerhalb der 27 Essenzen (Modus bleibt konstant)
         new_pos = resonance_step(self.sphere, input_signal)
@@ -538,6 +585,10 @@ class CexoEngine:
             "essence": essence(new_pos),
             "mode": self.sphere.mode,
             "mode_value": new_mode,
+            "compass": compass,
+            "toward_pole": geodesic_progress(
+                essence(old_pos), essence(new_pos), compass
+            ),
             "relation": relation(essence(old_pos), essence(new_pos)),
             "meaning": [VALUE_MEANING[v] for v in new_pos],
             "energy": round(self.sphere.energy, 3),
@@ -685,6 +736,18 @@ if __name__ == "__main__":
     for path in geodesic_paths(src, dst):
         print("   " + " → ".join(str(p) for p in path))
 
+    compass_report = verify_breath_compass()
+    print(f"\nAtemmodus-Kopplung   : {compass_report['checked']} Lagen geprüft, "
+          f"intakt={compass_report['intact']}")
+    print("Der Atem als Kompass — neutraler Input, derselbe Start, drei Modi:")
+    for mode in VALUES:
+        start = (3, 9, 6, mode)
+        sphere = Sphere(position=start)
+        nxt = resonance_step(sphere, {ax: 0 for ax in AXES})
+        pole = mode_target(mode)
+        print(f"   Modus {mode} ({MODE_NAMES[mode]:7s}) Pol {pole}: "
+              f"{essence(start)} → {essence(nxt)}")
+
     print("\n— Eine kurze Reise durch den Raum —")
     engine = CexoEngine(state_path="sphere_state.json")
     inputs = [
@@ -696,7 +759,8 @@ if __name__ == "__main__":
     for i, sig in enumerate(inputs, 1):
         r = engine.step(sig)
         print(f"{i}. {r['from']} → {r['to']}  | Modus {r['mode']:7s} "
-              f"| Energie {r['energy']:.2f} | Level {r['level']}")
+              f"| Pol {r['compass']} Fortschritt {r['toward_pole']:+d} "
+              f"| Energie {r['energy']:.2f}")
 
     print("\n— Sandbox: ein Entwurf entsteht, wird getestet, bleibt ungezündet —")
 
