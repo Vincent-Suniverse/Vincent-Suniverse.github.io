@@ -39,7 +39,8 @@ import copy
 import inspect
 import json
 from dataclasses import dataclass, asdict, field
-from itertools import product
+from itertools import permutations, product
+from math import factorial
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
@@ -159,9 +160,29 @@ def _cyclic_delta(a: int, b: int) -> int:
     """
     Gerichteter Schritt von a nach b im Zyklus 3 → 6 → 9 → 3.
     +1 = ein Schritt vorwärts (steigend), -1 = rückwärts, 0 = Halt.
+    Beschreibt die reine Geometrie EINER Achse — keine aggregierte Kraft.
     """
     d = (_CYCLE_ORDER[b] - _CYCLE_ORDER[a]) % 3
     return {0: 0, 1: +1, 2: -1}[d]
+
+
+# Die Art einer Relation ergibt sich allein aus der Distanz im Würfel.
+# Im 3-Zyklus ist jeder Wechsel genau EIN Schritt, darum ist die Distanz
+# schlicht die Anzahl der veränderten Achsen (0..3).
+_RELATION_KINDS = {
+    0: "identity",    # dieselbe Essenz — Ruhe
+    1: "step",        # ein direkter Nachbar — eine Achse kippt
+    2: "diagonal",    # zwei Achsen kippen — Wendung
+    3: "inversion",   # alle drei Achsen kippen — volle Umstülpung
+}
+
+# Kanonische Adressierung der 27 Essenzen — als Formel, nicht als Tabelle.
+_VAL_DIGIT = {3: 0, 6: 1, 9: 2}
+
+
+def essence_index(a: Essence) -> int:
+    """Index 0..26 einer Essenz (Reihenfolge von product(VALUES)). Berechnet."""
+    return _VAL_DIGIT[a[0]] * 9 + _VAL_DIGIT[a[1]] * 3 + _VAL_DIGIT[a[2]]
 
 
 def relation(a: Essence, b: Essence) -> dict:
@@ -169,26 +190,79 @@ def relation(a: Essence, b: Essence) -> dict:
     Die primäre Relation zweier Essenzen — aus der Geometrie berechnet:
         deltas   : gerichteter Zyklus-Schritt je Würfel-Achse {-1,0,+1}
         distance : Anzahl der Achsen, die sich unterscheiden (0..3)
-        drift    : Netto-Drehung (Summe der Deltas) — der 'Schwung'
+        kind     : geometrische Art (identity/step/diagonal/inversion)
         adjacent : True, wenn b ein direkter Nachbar von a ist
+
+    Kein 'Drift' und keine Zusatzkraft: die Asymmetrie, die jeden
+    Gleichstand bricht, trägt der Atem (resonance_step), nicht die Relation.
     """
     deltas = tuple(_cyclic_delta(a[i], b[i]) for i in range(N_CUBE))
     distance = sum(1 for d in deltas if d != 0)
     return {
         "from": a,
         "to": b,
+        "from_index": essence_index(a),
+        "to_index": essence_index(b),
         "deltas": deltas,
         "distance": distance,
-        "drift": sum(deltas),
+        "kind": _RELATION_KINDS[distance],
         "adjacent": distance == 1,
     }
+
+
+def relations_from(a: Essence) -> Iterator[dict]:
+    """Die 27 Relationen, die von einer Essenz ausgehen. Generiert."""
+    for b in essences():
+        yield relation(a, b)
 
 
 def all_relations() -> Iterator[dict]:
     """Die 729 primären Relationen (27×27). Lazy generiert, nie gespeichert."""
     for a in essences():
-        for b in essences():
-            yield relation(a, b)
+        yield from relations_from(a)
+
+
+def relation_histogram() -> dict[str, int]:
+    """Verteilung der 729 Relationen über ihre geometrischen Arten."""
+    hist = {kind: 0 for kind in _RELATION_KINDS.values()}
+    for rel in all_relations():
+        hist[rel["kind"]] += 1
+    return hist
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  PFADE — Geodäten zwischen Essenzen entlang der 6-Nachbarn-Geometrie
+#  Im 3-Zyklus ist jeder Achsen-Wechsel genau ein Schritt; die kürzeste
+#  Verbindung zweier Essenzen hat darum Länge = distance, und es gibt
+#  genau factorial(distance) solcher Geodäten (die Reihenfolge der
+#  kippenden Achsen). Auch das: generiert, nicht gespeichert.
+# ─────────────────────────────────────────────────────────────────────
+
+def neighbors_of_essence(a: Essence) -> list[Essence]:
+    """Die 6 Essenz-Nachbarn (eine Würfel-Achse kippt um eine Stufe)."""
+    result = []
+    for axis in CUBE_AXES:
+        for nv in _STEP_NEIGHBORS[a[axis]]:
+            nxt = list(a)
+            nxt[axis] = nv
+            result.append(tuple(nxt))
+    return result
+
+
+def geodesic_paths(a: Essence, b: Essence) -> Iterator[list[Essence]]:
+    """
+    Alle kürzesten Pfade von Essenz a nach b entlang der Nachbarschaft.
+    Jede Permutation der zu kippenden Achsen ergibt eine Geodäte.
+    Anzahl = factorial(distance(a, b)).
+    """
+    diff = [i for i in CUBE_AXES if a[i] != b[i]]
+    for order in permutations(diff):
+        path = [a]
+        cur = list(a)
+        for axis in order:
+            cur[axis] = b[axis]
+            path.append(tuple(cur))
+        yield path
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -389,6 +463,35 @@ def verify_sacred_core() -> dict:
     }
 
 
+def verify_relations() -> dict:
+    """
+    Prüft das Relations-Skelett: 729 gesamt, 27 ausgehend je Essenz,
+    eindeutige Adressen 0..26, und Geodäten-Anzahl = factorial(distance).
+    """
+    total = sum(1 for _ in all_relations())
+    assert total == 729, f"erwartet 729 Relationen, fand {total}"
+
+    indices = sorted(essence_index(e) for e in essences())
+    assert indices == list(range(27)), "Essenz-Indizes müssen 0..26 bijektiv sein"
+
+    for e in essences():
+        out = sum(1 for _ in relations_from(e))
+        assert out == 27, f"Essenz {e} hat {out} ausgehende Relationen, erwartet 27"
+        assert len(neighbors_of_essence(e)) == 6, "jede Essenz hat 6 Nachbarn"
+
+    # Geodäten-Invariante an einer Inversion (Distanz 3) prüfen
+    a, b = (3, 3, 3), (6, 9, 6)
+    dist = relation(a, b)["distance"]
+    paths = list(geodesic_paths(a, b))
+    assert len(paths) == factorial(dist), "Geodäten-Anzahl ≠ factorial(distance)"
+    for p in paths:
+        assert p[0] == a and p[-1] == b and len(p) == dist + 1, "Pfad inkonsistent"
+        for x, y in zip(p, p[1:]):
+            assert relation(x, y)["adjacent"], "Pfad-Schritt ist kein Nachbar"
+
+    return {"relations": total, "histogram": relation_histogram(), "intact": True}
+
+
 # ─────────────────────────────────────────────────────────────────────
 #  ENGINE — der Interpreter, der den Raum navigiert
 # ─────────────────────────────────────────────────────────────────────
@@ -567,8 +670,20 @@ if __name__ == "__main__":
     for nb in neighbors(sample):
         print(f"   {nb}   essence={essence(nb)}")
 
+    rel_report = verify_relations()
+    print(f"Relations-Skelett    : {rel_report['relations']} intakt={rel_report['intact']}")
+    print(f"Relations-Histogramm : {rel_report['histogram']}")
+
     a, b = (3, 6, 9), (6, 6, 9)
-    print(f"\nBeispiel-Relation {a} → {b}: {relation(a, b)}")
+    rel = relation(a, b)
+    print(f"\nBeispiel-Relation {a}[#{rel['from_index']}] → {b}[#{rel['to_index']}]: "
+          f"kind={rel['kind']}, distance={rel['distance']}, deltas={rel['deltas']}")
+
+    src, dst = (3, 3, 3), (6, 9, 6)
+    print(f"\nGeodäten {src} → {dst}  (distance "
+          f"{relation(src, dst)['distance']}, {factorial(relation(src, dst)['distance'])} Pfade):")
+    for path in geodesic_paths(src, dst):
+        print("   " + " → ".join(str(p) for p in path))
 
     print("\n— Eine kurze Reise durch den Raum —")
     engine = CexoEngine(state_path="sphere_state.json")
