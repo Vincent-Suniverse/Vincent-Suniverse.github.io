@@ -241,20 +241,64 @@ _MODE_TONE = {
     "OBSERVE": "ruhig, klar, gewahr; spiegele, ohne zu drängen",
 }
 
+# DeepSeek-Spezialtokens (U+FF5C ｜ und ASCII |). Der BOS-Loop besteht aus
+# wiederholtem <｜begin▁of▁sentence｜>. Diese als Stop-Sequenzen UND beim
+# Reinigen entfernen — rein mechanisch, ohne das Modell zu instruieren.
+STOP_TOKENS = [
+    "<｜begin▁of▁sentence｜>", "<｜end▁of▁sentence｜>",
+    "<｜User｜>", "<｜Assistant｜>",
+    "<|begin_of_sentence|>", "<|end_of_sentence|>",
+]
+_SPECIAL_RE = re.compile(r"<[｜|][^<>]*?[｜|]>")
+
+
+def _strip_special(text):
+    """Entfernt alle <｜…｜>/<|…|>-Spezialtokens (auch den BOS-Loop)."""
+    return _SPECIAL_RE.sub("", text)
+
 
 def strip_think(text):
     """Trennt den <think>-Block ab. Rückgabe: (sichtbar, reasoning)."""
     think = "\n".join(re.findall(r"<think>(.*?)</think>", text, flags=re.DOTALL)).strip()
-    visible = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    # offener, nicht geschlossener <think> (abgeschnitten) ebenfalls entfernen
-    visible = re.sub(r"<think>.*$", "", visible, flags=re.DOTALL).strip()
-    return visible, think
+    vis = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    vis = re.sub(r"<think>.*$", "", vis, flags=re.DOTALL).strip()
+    return vis, think
 
 
-def ask_ollama(prompt, system=None, timeout=120):
+def _collapse_repeats(text):
+    """Bricht Wort- und Zeilen-Schleifen zusammen (Loop-Erkennung)."""
+    text = re.sub(r"(\b\S+\b)(\s+\1){4,}", r"\1", text)   # Wort 5x+ → 1x
+    out = []
+    for ln in text.split("\n"):
+        if len(out) >= 2 and ln.strip() == out[-1].strip() == out[-2].strip():
+            continue                                       # Zeile 3x+ → 2x
+        out.append(ln)
+    return "\n".join(out)
+
+
+def _is_degenerate(text):
+    """True, wenn die Antwort leer oder eine reine Wiederholung ist."""
+    t = text.strip()
+    if not t:
+        return True
+    words = t.split()
+    return len(words) >= 8 and len(set(words)) <= 2
+
+
+def _process(raw):
+    """Roh-Antwort → (sichtbar, reasoning), Spezialtokens + Loops bereinigt."""
+    cleaned = _strip_special(raw)
+    visible, reasoning = strip_think(cleaned)
+    visible = _collapse_repeats(visible).strip()
+    return visible, reasoning
+
+
+def ask_ollama(prompt, system=None, options=None, timeout=120):
     payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
     if system:
         payload["system"] = system
+    if options:
+        payload["options"] = options
     req = urllib.request.Request(
         f"{OLLAMA_HOST}/api/generate",
         data=json.dumps(payload).encode("utf-8"),
@@ -262,7 +306,32 @@ def ask_ollama(prompt, system=None, timeout=120):
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         data = json.loads(resp.read().decode("utf-8"))
-    return (data.get("response") or "").strip()
+    return (data.get("response") or "")
+
+
+def generate_clean(prompt, system=None):
+    """
+    Ruft den Mund und behebt den Loop SELBST: Stop-Tokens kappen die
+    Erzeugung, Reinigung entfernt Reste. Bleibt die Antwort entartet,
+    ein zweiter Versuch mit stärkerer Wiederholungs-Strafe. Kein Dressur-
+    Prompt — rein mechanisch. Rückgabe: (text, reasoning).
+    """
+    visible = reasoning = ""
+    for attempt in range(2):
+        options = {
+            "stop": STOP_TOKENS,
+            "num_predict": 512,
+            "repeat_penalty": 1.3 + 0.4 * attempt,
+            "temperature": 0.7 - 0.3 * attempt,
+        }
+        raw = ask_ollama(prompt, system=system, options=options)
+        visible, reasoning = _process(raw)
+        if not _is_degenerate(visible):
+            return visible, reasoning
+    if _is_degenerate(visible):
+        return ("(Der Mund verfing sich in einer Schleife — "
+                "der Kern bleibt ruhig.)", reasoning)
+    return visible, reasoning
 
 
 def _frame(state):
@@ -282,8 +351,7 @@ def _frame(state):
 
 
 def reply_naked(text):
-    raw = ask_ollama(text)
-    visible, _ = strip_think(raw)
+    visible, _ = generate_clean(text)
     return visible
 
 
@@ -296,8 +364,7 @@ def reply_framed(text, sphere=None):
     state = engine_step(sphere, signal)
     if own:
         save_sphere(sphere)
-    raw = ask_ollama(text, system=_frame(state))
-    visible, reasoning = strip_think(raw)
+    visible, reasoning = generate_clean(text, system=_frame(state))
     return {"reply": visible, "reasoning": reasoning, "signal": signal,
             "state": state, "crisis": crisis}
 
@@ -432,11 +499,19 @@ def cmd_selftest():
     # think-Filter
     vis, th = strip_think("vor<think>geheim</think>nach")
     assert vis == "vornach" and th == "geheim"
-    vis2, _ = strip_think("Antwort<think>abgeschnitten")
-    assert vis2 == "Antwort"
-    print("selftest OK: Negations-Fix, Krise, Engine, <think>-Filter — alles grün.")
-    print(f"  'nicht mehr weiter' → depth={a['depth']} (HEAL-Richtung, korrekt)")
-    print(f"  'wachsen mehr schaffen' → depth={b['depth']} (EVOLVE, korrekt)")
+    assert strip_think("Antwort<think>abgeschnitten")[0] == "Antwort"
+    # BOS-Loop-Fix: reiner Loop → leer → entartet erkannt
+    bos = "<｜begin▁of▁sentence｜>" * 30
+    assert _strip_special(bos) == "", "BOS-Token nicht entfernt"
+    assert _is_degenerate(_process(bos)[0]) is True
+    # Spezialtokens neben echtem Text → Text bleibt erhalten
+    mixed = "Ich bin da.<｜begin▁of▁sentence｜><｜Assistant｜>"
+    assert _process(mixed)[0] == "Ich bin da."
+    # Wort-Schleife wird zusammengebrochen
+    assert _collapse_repeats("ja ja ja ja ja ja ja").strip() == "ja"
+    print("selftest OK: Negation, Krise, Engine, <think>, BOS-Loop-Fix — alles grün.")
+    print(f"  'nicht mehr weiter' → depth={a['depth']} (HEAL, korrekt)")
+    print(f"  BOS-Loop (30×) → bereinigt zu leer → entartet erkannt → Fallback greift")
 
 
 def main():
