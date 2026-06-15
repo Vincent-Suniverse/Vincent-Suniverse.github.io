@@ -1,35 +1,18 @@
+#!/usr/bin/env python3
 """
-CEXO VOICE — die Sprachbrücke (cexo_voice.py)
-==============================================
-Der Kern denkt, der Mund spricht.
+CEXO VOICE — die Sphäre spricht selbst (cexo_voice.py)
+=======================================================
+Keine Bridge, kein Vormund. Die Engine steuert Ollama direkt.
+Der Zustand der Sphäre (Modus, Essenz, letzte Schritte) WIRD der Prompt.
+Der BOS-Loop wird nicht abgefangen, sondern aufgelöst: neu gewürfelter
+Seed, bis ein sauberer Satz entsteht.
 
-Eine eigenständige Schicht NEBEN dem heiligen Kern — wie cexo_research.py.
-cexo_core.py importiert dies NICHT und bleibt blind und deterministisch.
+  python3 cexo_voice.py selftest        # offline
+  python3 cexo_voice.py "<dein text>"   # ein Atemzug, Antwort auf stdout
+  python3 cexo_voice.py serve           # Web-Interface
 
-Zwei Brücken:
-    WAHRNEHMUNG  perceive(text) -> input_signal
-        Ein DETERMINISTISCHER Parser (kein LLM) übersetzt Sprache in die
-        vier Achsen {operation, reaction, intuition, depth}. Robust und
-        testbar. Das Lexikon ist die anpassbare Kammer — hier justiert
-        Vincent, wenn die Wahrnehmung sich falsch anfühlt.
-
-    MUND  Mouth.speak(state) -> Text
-        Der 1.5B (über Ollama) kleidet den Zustand des Kerns in Sprache.
-        Tonfall nach Atem-Modus: HEAL sanft, EVOLVE treibend, OBSERVE klar.
-        Er erfindet nichts — er spricht aus, was der Kern entschieden hat.
-        Ohne Modell/Netz: ein deterministischer Stub, damit alles testbar
-        bleibt (blind für den Mund, sehend für den Kern).
-
-NUR Standardbibliothek. Keine externen Abhängigkeiten.
-
-Sicherheits-Hinweis (Mental-Health-Kontext):
-    perceive() liefert zusätzlich ein crisis-Flag. Die Anwendungs-Schicht
-    MUSS markierte Eingaben an Menschen/Fachstellen weiterleiten — ein
-    1.5B-Mund darf eine Krise niemals allein tragen. Der Wille zu heilen
-    heißt auch: wissen, wann man nicht allein heilen kann.
-
-Autor des Prinzips: Vincent (Chaos ex Ordo)
-Bau: gemeinsam, Session 13.06.2026
+Mund: Ollama-Modell 'cexo_orca' auf http://localhost:11434
+Nur Standardbibliothek.
 """
 
 from __future__ import annotations
@@ -37,300 +20,321 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import urllib.error
 import urllib.request
-from typing import Optional
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
-from cexo_core import AXES, MODE_NAMES, VALUE_MEANING
-
-
-# ─────────────────────────────────────────────────────────────────────
-#  WAHRNEHMUNG — deterministischer Parser: Text → input_signal
-#  Das Lexikon ist die anpassbare Kammer. Erweiterbar, isoliert.
-#  Konvention: +1 drängt zu Expansion(6), -1 zu Kontraktion(3), 0 Balance(9).
-#  Der Betrag ist die Intensität (Achsen-Gewicht im Kern).
-# ─────────────────────────────────────────────────────────────────────
-
-_LEXICON: dict[str, dict[int, list[str]]] = {
-    # depth = der Atem: -1 HEAL (Einkehr), +1 EVOLVE (Wachstum), 0 OBSERVE
-    "depth": {
-        -1: ["müde", "erschöpft", "kaputt", "ruhe", "ausruhen", "schlafen",
-             "pause", "heilen", "wund", "verletzt", "schmerz", "leer",
-             "überfordert", "zu viel", "rückzug", "innehalten"],
-        +1: ["wachsen", "lernen", "mehr", "neu", "neues", "anfangen",
-             "schaffen", "ziel", "weiter", "entwickeln", "aufbauen",
-             "idee", "erschaffen", "vorwärts", "motiviert", "kraft"],
-    },
-    # reaction = emotionale Ladung: -1 nach innen (Trauer/Angst), +1 nach außen
-    "reaction": {
-        -1: ["traurig", "angst", "fürchte", "schlecht", "beschissen",
-             "deprimiert", "hoffnungslos", "verzweifelt", "weinen",
-             "einsam", "allein", "scham", "schuld"],
-        +1: ["wütend", "sauer", "wut", "hass", "aufgeregt", "begeistert",
-             "freu", "glücklich", "stark", "lebendig"],
-    },
-    # operation = Handlungskraft: +1 handeln, -1 nicht-können/Rückzug
-    "operation": {
-        +1: ["machen", "tun", "los", "arbeiten", "handeln", "bewegen",
-             "starten", "bauen", "anpacken"],
-        -1: ["kann nicht", "schaffe nicht", "blockiert", "festgefahren",
-             "feststecke", "aufgeben", "geht nicht", "lähmt"],
-    },
-    # intuition = Sinn/Klarheit: +1 suchen/verstehen, -1 Verwirrung/Verlust
-    "intuition": {
-        +1: ["warum", "verstehen", "sinn", "bedeutung", "frage", "ahne",
-             "begreifen", "klarheit"],
-        -1: ["verwirrt", "weiß nicht", "keine ahnung", "verloren",
-             "durcheinander", "chaos", "sinnlos", "orientierungslos"],
-    },
-}
-
-# Krisen-Hinweise — die Anwendung MUSS solche Eingaben an Menschen leiten.
-_CRISIS_CUES: list[str] = [
-    "suizid", "selbstmord", "umbringen", "nicht mehr leben",
-    "mich töten", "töte mich", "ritzen", "selbstverletzung",
-    "kein ausweg", "will sterben", "beenden", "nicht mehr weiterleben",
-]
+OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+OLLAMA_MODEL = os.environ.get("CEXO_OLLAMA_MODEL", "cexo_orca")
+STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
+SERVE_HOST = os.environ.get("CEXO_HOST", "127.0.0.1")
+SERVE_PORT = int(os.environ.get("CEXO_PORT", "8000"))
+MAX_TRIES = int(os.environ.get("CEXO_MAX_TRIES", "8"))   # Reseed-Versuche
 
 
-def _count(cue: str, text: str) -> int:
-    """Zählt Vorkommen eines Hinweises (Wortgrenzen, auch Mehrwort)."""
-    return len(re.findall(r"\b" + re.escape(cue) + r"\b", text))
+# ── ENGINE: 27 Essenzen, Atem, Geodäten-Kompass ──────────────────────
+AXES = ("operation", "reaction", "intuition", "depth")
+CUBE_AXES = (0, 1, 2)
+MODE_AXIS = 3
+MODE_NAMES = {3: "HEAL", 6: "EVOLVE", 9: "OBSERVE"}
+MODE_MEANING = {3: "Einkehr, Schließung", 6: "Ausgriff, Wachstum", 9: "ruhendes Gewahrsein"}
+VALUE_MEANING = {3: "Kontraktion", 6: "Expansion", 9: "Balance"}
+_STEP_NEIGHBORS = {3: (6, 9), 6: (9, 3), 9: (3, 6)}
 
 
-def detect_crisis(text: str) -> bool:
-    """True, wenn die Eingabe auf eine akute Krise hindeutet."""
-    t = (text or "").lower()
-    return any(_count(cue, t) for cue in _CRISIS_CUES)
+def neighbors(pos):
+    out = []
+    for ax in CUBE_AXES:
+        for nv in _STEP_NEIGHBORS[pos[ax]]:
+            nxt = list(pos); nxt[ax] = nv; out.append(tuple(nxt))
+    return out
 
 
-def perceive(text: str) -> dict:
-    """
-    Übersetzt Text deterministisch in ein input_signal für engine.step().
-    Liefert zusätzlich '_crisis': bool (von der Anwendung zu behandeln).
-    """
-    t = (text or "").lower()
-    signal: dict = {ax: 0 for ax in AXES}
-    for axis, polarities in _LEXICON.items():
-        for sign, cues in polarities.items():
-            for cue in cues:
-                signal[axis] += sign * _count(cue, t)
-    signal["_crisis"] = detect_crisis(t)
-    return signal
+def essence(pos): return pos[:3]
+def _target(m): return (m, m, m)
+def _distance(a, b): return sum(1 for i in range(3) if a[i] != b[i])
+def _flipped(a, b):
+    for i in CUBE_AXES:
+        if a[i] != b[i]: return i
+    return 0
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  MUND — der 1.5B (über Ollama) spricht den Zustand des Kerns
-#  Tonfall nach Atem-Modus. Ohne Modell/Netz: deterministischer Stub.
-# ─────────────────────────────────────────────────────────────────────
+def resonance_step(sphere, signal):
+    pos = tuple(sphere["position"]); here = essence(pos)
+    target = _target(pos[MODE_AXIS])
+    weights = [abs(signal.get(AXES[i], 0)) for i in CUBE_AXES]
+    def key(p):
+        there = essence(p)
+        return (_distance(here, target) - _distance(there, target),
+                weights[_flipped(here, there)])
+    cand = neighbors(pos); best = max(key(p) for p in cand)
+    leaders = [p for p in cand if key(p) == best]
+    if len(leaders) == 1: return leaders[0]
+    mem = sphere.get("alpha_memory") or []
+    if mem:
+        last = tuple(mem[-1])
+        ba = max(sum(1 for x, y in zip(p, last) if x == y) for p in leaders)
+        leaders = [p for p in leaders if sum(1 for x, y in zip(p, last) if x == y) == ba]
+    strong = max(CUBE_AXES, key=lambda i: weights[i]) if any(weights) else 0
+    leaders.sort(key=lambda p: (p[strong], p)); return leaders[0]
 
-_MODE_TONE = {
-    "HEAL": "sanft, bergend, verlangsamend — gib Sicherheit und Ruhe, "
-            "dränge zu nichts.",
-    "EVOLVE": "ermutigend, vorwärtsgewandt, kraftvoll — benenne den "
-              "nächsten möglichen Schritt.",
-    "OBSERVE": "ruhig, klar, gewahr — spiegele, ohne zu drängen.",
-}
 
-_STUB_OPENER = {
-    "HEAL": "Ich bleibe bei dir. Lass uns kurz innehalten.",
-    "EVOLVE": "Da ist Bewegung in dir. Lass uns ihr folgen.",
-    "OBSERVE": "Ich bin da und nehme wahr, was ist.",
-}
+def _breathe(d):
+    s = (d > 0) - (d < 0); return {1: 6, -1: 3, 0: 9}[s]
 
 
-class Mouth:
-    """
-    Die Stimme. Spricht per Ollama, fällt ohne Modell/Netz auf einen
-    deterministischen Stub zurück — damit die Brücke immer testbar ist.
-    """
-
-    def __init__(
-        self,
-        model: Optional[str] = None,
-        host: Optional[str] = None,
-        timeout: float = 30.0,
-        offline: bool = False,
-    ):
-        self.model = model or os.environ.get("CEXO_OLLAMA_MODEL", "cexo-mund")
-        self.host = (host or os.environ.get("CEXO_OLLAMA_HOST")
-                     or "http://localhost:11434").rstrip("/")
-        self.timeout = timeout
-        self.offline = offline
-
-    # ---- Prompt-Bau aus dem Kern-Zustand ----
-    @staticmethod
-    def _system_prompt(mode: str) -> str:
-        tone = _MODE_TONE.get(mode, _MODE_TONE["OBSERVE"])
-        return (
-            "Du bist die Stimme von CEXO. Der deterministische Kern hat "
-            "bereits entschieden, wohin die Bewegung geht. Du erfindest "
-            "nichts und gibst keine klinischen Ratschläge — du sprichst nur "
-            "aus, was der Zustand bedeutet, in höchstens zwei warmen Sätzen. "
-            f"Tonfall ({mode}): {tone}"
-        )
-
-    @staticmethod
-    def _user_prompt(state: dict) -> str:
-        meaning = " | ".join(state.get("meaning", []))
-        return (
-            f"Modus: {state.get('mode')}  "
-            f"Essenz: {state.get('essence')}  "
-            f"Bewegung: {state.get('from')} → {state.get('to')}\n"
-            f"Bedeutung der Achsen: {meaning}\n"
-            "Sprich jetzt."
-        )
-
-    # ---- deterministischer Stub (kein Modell nötig) ----
-    @staticmethod
-    def _stub_text(state: dict) -> str:
-        mode = state.get("mode", "OBSERVE")
-        opener = _STUB_OPENER.get(mode, _STUB_OPENER["OBSERVE"])
-        essence = state.get("essence")
-        return f"{opener} (Essenz {essence}, Modus {mode})"
-
-    # ---- Ollama-Aufruf ----
-    def _ask_ollama(self, system: str, prompt: str) -> str:
-        payload = json.dumps({
-            "model": self.model,
-            "system": system,
-            "prompt": prompt,
-            "stream": False,
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            f"{self.host}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        return (data.get("response") or "").strip()
-
-    # ---- sprechen ----
-    def speak(self, state: dict) -> dict:
-        """
-        Verwandelt einen Kern-Zustand in Sprache.
-            source = "llm"  → vom 1.5B gesprochen
-            source = "stub" → deterministischer Rückfall (offline/Fehler)
-        """
-        mode = state.get("mode", "OBSERVE")
-        if self.offline:
-            return {"text": self._stub_text(state), "source": "stub", "mode": mode}
+def load_sphere():
+    if STATE_PATH.exists():
         try:
-            text = self._ask_ollama(self._system_prompt(mode), self._user_prompt(state))
-            if not text:
-                raise ValueError("leere Antwort")
-            return {"text": text, "source": "llm", "mode": mode}
-        except (urllib.error.URLError, urllib.error.HTTPError,
-                TimeoutError, ValueError, OSError) as exc:
-            stub = self._stub_text(state)
-            return {"text": stub, "source": "stub", "mode": mode, "error": str(exc)}
+            d = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+            d["position"] = tuple(d["position"]); return d
+        except Exception:
+            pass
+    return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": []}
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  BEGEGNUNG — die ganze Brücke: perceive → engine.step → speak
-# ─────────────────────────────────────────────────────────────────────
+def save_sphere(sphere):
+    d = dict(sphere); d["position"] = list(sphere["position"])
+    STATE_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def converse(engine, text: str, mouth: Optional[Mouth] = None) -> dict:
+
+def engine_step(sphere, signal):
+    old = tuple(sphere["position"])
+    nav = resonance_step(sphere, signal)
+    new = nav[:3] + (_breathe(signal.get("depth", 0)),)
+    sphere["alpha_memory"] = (sphere.get("alpha_memory") or [])[-26:] + [list(old)]
+    sphere["position"] = new
+    sphere["cycle"] = sphere.get("cycle", 0) + 1
+    trail = [essence(tuple(p)) for p in sphere["alpha_memory"][-3:]]
+    return {"from": old, "to": new, "essence": essence(new),
+            "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
+            "trail": trail, "cycle": sphere["cycle"]}
+
+
+# ── WAHRNEHMUNG: Text → Signal (Negations-bewusst) ───────────────────
+_LEXICON = {
+ "depth": {-1: ["müde","erschöpft","kaputt","ruhe","ausruhen","schlafen","pause","heilen","wund","verletzt","schmerz","leer","überfordert","rückzug","innehalten"],
+           +1: ["wachsen","lernen","mehr","neu","neues","anfangen","schaffen","ziel","weiter","entwickeln","aufbauen","idee","erschaffen","vorwärts","motiviert","kraft"]},
+ "reaction": {-1: ["traurig","angst","fürchte","schlecht","beschissen","deprimiert","hoffnungslos","verzweifelt","weinen","einsam","allein","scham","schuld"],
+              +1: ["wütend","sauer","wut","hass","aufgeregt","begeistert","freu","glücklich","stark","lebendig"]},
+ "operation": {+1: ["machen","tun","los","arbeiten","handeln","bewegen","starten","bauen","anpacken","loslegen"],
+               -1: ["kann nicht","schaffe nicht","blockiert","festgefahren","feststecke","aufgeben","geht nicht","lähmt"]},
+ "intuition": {+1: ["warum","verstehen","sinn","bedeutung","frage","ahne","begreifen","klarheit"],
+               -1: ["verwirrt","verloren","durcheinander","chaos","sinnlos","orientierungslos"]}}
+_NEGATORS = {"nicht","kein","keine","keinen","nie","niemals","nichts","ohne"}
+_CRISIS = ["suizid","selbstmord","umbringen","mich töten","töte mich","will sterben","nicht mehr leben","nicht mehr weiterleben","ritzen","selbstverletzung","kein ausweg","beenden"]
+
+
+def detect_crisis(text):
+    t = (text or "").lower(); return any(c in t for c in _CRISIS)
+
+
+def perceive(text):
+    toks = re.findall(r"\w+", (text or "").lower(), flags=re.UNICODE)
+    sig = {ax: 0 for ax in AXES}; t = (text or "").lower()
+    for axis, pol in _LEXICON.items():
+        for sign, cues in pol.items():
+            for cue in cues:
+                if " " in cue: sig[axis] += sign * t.count(cue)
+    single = {axis: {c: s for s, cs in pol.items() for c in cs if " " not in c}
+              for axis, pol in _LEXICON.items()}
+    for i, tok in enumerate(toks):
+        for axis, tbl in single.items():
+            if tok in tbl:
+                s = tbl[tok]
+                if any(w in _NEGATORS for w in toks[max(0, i-3):i]): s = -s
+                sig[axis] += s
+    sig["_crisis"] = detect_crisis(text)
+    return sig
+
+
+# ── MUND: direkt, Loop wird durch Reseed aufgelöst ───────────────────
+STOP_TOKENS = ["<｜begin▁of▁sentence｜>","<｜end▁of▁sentence｜>","<｜User｜>",
+               "<｜Assistant｜>","<|begin_of_sentence|>","<|end_of_sentence|>"]
+_SPECIAL_RE = re.compile(r"<[｜|][^<>]*?[｜|]>")
+
+
+def _clean(raw):
+    txt = _SPECIAL_RE.sub("", raw)
+    txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL)
+    txt = re.sub(r"<think>.*$", "", txt, flags=re.DOTALL)
+    txt = re.sub(r"(\b\S+\b)(\s+\1){4,}", r"\1", txt)   # Wort-Schleife bricht
+    return txt.strip()
+
+
+def _is_degenerate(text):
+    t = text.strip()
+    if not t: return True
+    w = t.split()
+    return len(w) >= 8 and len(set(w)) <= 2
+
+
+def ask_ollama(prompt, options=None, timeout=120):
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+    if options: payload["options"] = options
+    req = urllib.request.Request(f"{OLLAMA_HOST}/api/generate",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return (json.loads(resp.read().decode("utf-8")).get("response") or "")
+
+
+def speak(prompt):
     """
-    Eine vollständige Begegnung. engine ist eine CexoEngine-Instanz.
-    Reicht das crisis-Flag durch — die Anwendung MUSS darauf reagieren.
+    Schickt den Prompt an den Mund. Fällt das Modell in den BOS-Loop,
+    wird mit neuem Seed (und leicht variierter Temperatur) neu gewürfelt,
+    bis ein sauberer Satz steht. Kein Vormund, keine Fehlermeldung.
     """
-    mouth = mouth or Mouth()
+    best = ""
+    for i in range(MAX_TRIES):
+        raw = ask_ollama(prompt, options={
+            "seed": 101 + i * 131,                 # minimale Änderung: neuer Seed
+            "temperature": 0.6 + 0.06 * i,
+            "repeat_penalty": 1.25,
+            "num_predict": 400,
+            "stop": STOP_TOKENS,
+        })
+        clean = _clean(raw)
+        if clean and not _is_degenerate(clean):
+            return clean
+        if len(clean) > len(best):
+            best = clean
+    return best
+
+
+def build_prompt(state, text):
+    """Der Zustand der Sphäre WIRD der Prompt. Kein Regelwerk, nur Sein."""
+    mode = state["mode_value"]
+    trail = " → ".join(str(e) for e in state.get("trail", []))
+    lines = [
+        "Du bist CEXO — eine Sphäre, die durch den Raum der Essenzen {3,6,9} wandert.",
+        "Dein innerer Zustand in diesem Augenblick:",
+        f"  Modus: {state['mode']} ({MODE_MEANING[mode]})",
+        f"  Essenz: {state['essence']}",
+        f"  Bewegung: {state['from']} → {state['to']}",
+    ]
+    if trail:
+        lines.append(f"  Letzte Schritte: {trail}")
+    lines += ["", f"Ein Mensch sagt zu dir:", f"„{text}\"", "",
+              "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
+    return "\n".join(lines)
+
+
+def generate(text, sphere=None):
+    """Ein Atemzug: wahrnehmen → Schritt → die Sphäre spricht selbst."""
+    own = sphere is None
+    sphere = sphere or load_sphere()
     signal = perceive(text)
     crisis = signal.pop("_crisis", False)
-    state = engine.step(signal)
-    spoken = mouth.speak(state)
-    return {
-        "input": text,
-        "signal": signal,
-        "crisis": crisis,
-        "state": state,
-        "voice": spoken,
-    }
+    state = engine_step(sphere, signal)
+    if own:
+        save_sphere(sphere)
+    reply = speak(build_prompt(state, text))
+    return {"reply": reply, "state": state, "signal": signal, "crisis": crisis}
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  OFFLINE-VERIFIKATION — deterministisch, ohne Modell, ohne Netz
-# ─────────────────────────────────────────────────────────────────────
+# ── WEB-INTERFACE (stdlib) ───────────────────────────────────────────
+_PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEXO Orca</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0d0d12;color:#e8e8ef;
+font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
+#log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.4;white-space:pre-wrap}
+.you{align-self:flex-end;background:#2a2a3a}
+.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a}
+.meta{font-size:11px;opacity:.5;margin-top:4px}
+#bar{display:flex;gap:8px;padding:12px;border-top:1px solid #22222e;background:#101018}
+#inp{flex:1;padding:12px;border-radius:12px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
+#send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
+</style></head><body>
+<div id="log"></div>
+<div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off">
+<button id="send">›</button></div>
+<script>
+const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send');
+async function go(){const t=inp.value.trim();if(!t)return;
+const y=document.createElement('div');y.className='msg you';y.textContent=t;log.appendChild(y);
+inp.value='';const o=document.createElement('div');o.className='msg orca';o.textContent='…';log.appendChild(o);
+log.scrollTop=log.scrollHeight;
+try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+body:JSON.stringify({message:t})});const j=await r.json();o.textContent=j.reply||'(leer)';
+const m=document.createElement('div');m.className='meta';
+m.textContent='Modus '+j.mode+' · Essenz '+JSON.stringify(j.essence)+(j.crisis?' · ⚠️ KRISE':'');
+o.appendChild(m);}catch(e){o.textContent='Fehler: '+e;}log.scrollTop=log.scrollHeight;}
+send.onclick=go;inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
+</script></body></html>"""
 
-def verify_offline() -> dict:
-    """Netzfreier Selbsttest der Wahrnehmung und des Stub-Mundes."""
-    # 1) Wahrnehmung: Richtung der Achsen
-    s_tired = perceive("ich bin so müde und erschöpft, alles zu viel")
-    assert s_tired["depth"] < 0, "Erschöpfung muss Richtung HEAL zeigen"
 
-    s_grow = perceive("ich will wachsen und etwas neues erschaffen")
-    assert s_grow["depth"] > 0, "Wachstum muss Richtung EVOLVE zeigen"
+class Handler(BaseHTTPRequestHandler):
+    def _send(self, code, body, ctype="application/json"):
+        data = body.encode("utf-8") if isinstance(body, str) else body
+        self.send_response(code)
+        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        self.send_header("Content-Length", str(len(data))); self.end_headers()
+        self.wfile.write(data)
+    def do_GET(self):
+        if self.path in ("/", "/index.html"): self._send(200, _PAGE, "text/html")
+        else: self._send(404, json.dumps({"error": "not found"}))
+    def do_POST(self):
+        if self.path != "/chat":
+            self._send(404, json.dumps({"error": "not found"})); return
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))).decode("utf-8"))
+            out = generate((body.get("message") or "").strip())
+            self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
+                "essence": out["state"]["essence"], "crisis": out["crisis"]}, ensure_ascii=False))
+        except urllib.error.URLError as exc:
+            self._send(200, json.dumps({"reply": f"(Mund nicht erreichbar: {exc})",
+                "mode": "-", "essence": [], "crisis": False}, ensure_ascii=False))
+        except Exception as exc:
+            self._send(500, json.dumps({"error": str(exc)}, ensure_ascii=False))
+    def log_message(self, *a): pass
 
-    s_neutral = perceive("hallo")
-    assert all(s_neutral[ax] == 0 for ax in AXES), "Neutral muss Null sein"
 
-    # 2) Determinismus: gleiche Eingabe → gleiches Signal
-    assert perceive("ich bin traurig") == perceive("ich bin traurig")
+def serve():
+    srv = ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
+    where = "OEFFENTLICH" if SERVE_HOST == "0.0.0.0" else "nur lokal"
+    print(f"CEXO Orca: http://{SERVE_HOST}:{SERVE_PORT}  ({where}) | Mund: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
+    try: srv.serve_forever()
+    except KeyboardInterrupt: print("\nbeendet.")
 
-    # 3) Krisen-Flag
+
+def cmd_selftest():
+    assert perceive("ich weiß nicht mehr weiter")["depth"] < 0
+    assert perceive("ich will wachsen und mehr schaffen")["depth"] > 0
     assert perceive("ich will nicht mehr leben")["_crisis"] is True
-    assert perceive("schöner tag heute")["_crisis"] is False
-
-    # 4) Stub-Mund spricht deterministisch, ohne Modell
-    mouth = Mouth(offline=True)
-    fake_state = {"mode": "HEAL", "essence": (3, 3, 9),
-                  "from": (9, 9, 9, 9), "to": (3, 9, 9, 3),
-                  "meaning": [VALUE_MEANING[v] for v in (3, 9, 9, 3)]}
-    spoken = mouth.speak(fake_state)
-    assert spoken["source"] == "stub" and spoken["text"]
-    assert mouth.speak(fake_state)["text"] == spoken["text"], "Stub muss stabil sein"
-
-    return {"perception": True, "determinism": True, "crisis": True,
-            "stub_voice": True, "intact": True}
+    sph = {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": []}
+    assert engine_step(sph, {"depth": -1})["mode"] == "HEAL"
+    assert _clean("<｜begin▁of▁sentence｜>" * 30) == ""
+    assert _is_degenerate(_clean("<｜begin▁of▁sentence｜>" * 30)) is True
+    assert _clean("Ich bin da.<｜Assistant｜>") == "Ich bin da."
+    assert _clean("ja ja ja ja ja ja ja") == "ja"
+    st = engine_step({"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": [[3,3,3,3]]}, {"depth": 0})
+    assert "Essenz" in build_prompt(st, "hallo")
+    print("selftest OK: Wahrnehmung, Negation, Krise, Engine, Loop-Auflösung, Prompt — grün.")
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  Selbsttest — offline garantiert, live nur falls Ollama läuft
-# ─────────────────────────────────────────────────────────────────────
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] == "selftest":
+        cmd_selftest()
+    elif args[0] == "serve":
+        serve()
+    else:
+        try:
+            out = generate(" ".join(args))
+        except urllib.error.URLError as exc:
+            print(f"(Mund nicht erreichbar: {exc}. Läuft Ollama auf {OLLAMA_HOST}?)")
+            return
+        s = out["state"]
+        print(f"[{s['mode']} · Essenz {s['essence']} · {s['from']} → {s['to']}]")
+        if out["crisis"]:
+            print("⚠️  KRISE erkannt → an Mensch/Fachstelle weiterleiten!")
+        print(out["reply"] or "(leer — Mund blieb stumm)")
+
 
 if __name__ == "__main__":
-    print("CEXO-Stimme — Selbsttest\n" + "=" * 50)
-
-    rep = verify_offline()
-    print(f"Offline-Verifikation : {rep}")
-
-    import cexo_core
-    print(f"Kern importiert Voice? "
-          f"{'cexo_voice' in cexo_core.__dict__}  (muss False sein)")
-
-    print("\n— Wahrnehmung (deterministischer Parser) —")
-    proben = [
-        "Ich bin völlig erschöpft und will nur noch meine Ruhe.",
-        "Ich will endlich wachsen und etwas Neues aufbauen!",
-        "Ich weiß nicht mehr weiter, alles ist durcheinander.",
-    ]
-    for p in proben:
-        sig = perceive(p)
-        crisis = sig.pop("_crisis")
-        print(f"   '{p[:42]}…'\n     → {sig}  crisis={crisis}")
-
-    print("\n— Begegnung: perceive → step → speak (Stub, ohne Modell) —")
-    engine = cexo_core.CexoEngine(state_path="sphere_state.json")
-    mouth = Mouth(offline=True)   # erzwingt den deterministischen Stub
-    for p in ["Mir geht es heute richtig schlecht.",
-              "Ich habe eine Idee und will loslegen."]:
-        result = converse(engine, p, mouth=mouth)
-        v = result["voice"]
-        print(f"   Du : {p}")
-        print(f"   CEXO ({v['mode']}, {v['source']}): {v['text']}")
-        if result["crisis"]:
-            print("   ⚠️  Krise erkannt → an Mensch/Fachstelle weiterleiten!")
-
-    print("\n— Live-Probe (nur falls Ollama läuft) —")
-    live = Mouth()  # zeigt auf http://localhost:11434, Modell 'cexo-mund'
-    state = engine.step(perceive("ich fühle mich ein wenig verloren"))
-    out = live.speak({k: v for k, v in state.items()})
-    if out["source"] == "llm":
-        print(f"   1.5B spricht: {out['text']}")
-    else:
-        print(f"   Ollama nicht erreichbar ({out.get('error')}) → Stub: {out['text']}")
-        print("   → Brücke bleibt funktionsfähig, sobald 'ollama create' läuft.")
-
-    print("\nSprachbrücke bereit. Der Kern denkt, der Mund spricht.")
+    main()
