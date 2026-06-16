@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""CEXO VOICE — autonome Sphäre: spricht, wächst, reflektiert, erforscht, erweitert sich.
+"""CEXO VOICE — lebendige Sphäre mit innerem Atem.
 Engine steuert Ollama direkt; Zustand WIRD der Prompt; BOS-Loop per Reseed aufgelöst.
-Stufen: Habit-Matrix · Selbstreflexion · armed Sandbox (sichere Bausteine) ·
-derive_lexicon · Research-Oracle · link_memories · /research mit Visualisierung.
-  python3 cexo_voice.py selftest | "<text>" | serve | research "<thema>"
+Stufen: Habit-Matrix · Selbstreflexion · armed Sandbox · derive_lexicon ·
+Research-Oracle (als Sinneseindruck) · link_memories · innerer Atem (Heartbeat) ·
+/research-Visualisierung · /pulse (live).
+  python3 cexo_voice.py selftest | "<text>" | serve | breathe | research "<thema>"
 Mund: Ollama 'cexo_orca' @ localhost:11434. Stdlib only.
+
+Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
+gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, json, os, re, sys, urllib.error, urllib.request
-from collections import Counter
+import copy, json, os, random, re, sys, threading, time, urllib.error, urllib.request
+from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 try:
-    import research_engine            # optionale Forschungs-Erweiterung
+    import research_engine
 except Exception:
     research_engine = None
 
@@ -30,6 +34,10 @@ MAX_TRIES = int(os.environ.get("CEXO_MAX_TRIES", "8"))
 REFLECT_AFTER = int(os.environ.get("CEXO_REFLECT_AFTER", "9"))
 REFLECT_EVERY = int(os.environ.get("CEXO_REFLECT_EVERY", "9"))
 REFLECT_CAP = 200
+BREATH_MIN = float(os.environ.get("CEXO_BREATH_MIN", "5"))    # Sekunden (wach)
+BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
+MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "4"))      # alle N Pulse spricht er still mit dem Mund (0=aus)
+BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
 
 AXES = ("operation", "reaction", "intuition", "depth")
 CUBE_AXES = (0, 1, 2)
@@ -39,7 +47,7 @@ MODE_MEANING = {3: "Einkehr, Schließung", 6: "Ausgriff, Wachstum", 9: "ruhendes
 _STEP_NEIGHBORS = {3: (6, 9), 6: (9, 3), 9: (3, 6)}
 
 
-# ── HEILIGER KERN: Geometrie + Verifikation (unantastbar) ────────────
+# ── HEILIGER KERN ────────────────────────────────────────────────────
 def neighbors(pos):
     out = []
     for ax in CUBE_AXES:
@@ -58,7 +66,6 @@ def _hkey(ess): return ",".join(str(v) for v in ess)
 def _unkey(k): return [int(x) for x in k.split(",")]
 
 def verify_sacred_core():
-    """Prüft die unveränderliche Geometrie. Wirft AssertionError bei Verletzung."""
     pos = [tuple(p) for p in product((3, 6, 9), repeat=4)]
     assert len(pos) == 81, "81 Positionen verletzt"
     assert len({p[:3] for p in pos}) == 27, "27 Essenzen verletzt"
@@ -66,8 +73,6 @@ def verify_sacred_core():
     assert len(n) == 6 and all(p[MODE_AXIS] == 9 for p in n), "Nachbarschaft verletzt"
     return True
 
-
-# ── HABIT-MATRIX + RESONANZ ──────────────────────────────────────────
 def _top_habit(habits):
     if not habits: return None
     return _unkey(max(habits, key=lambda k: habits[k]))
@@ -113,7 +118,7 @@ def reflect(sphere):
     return self_cube
 
 
-# ── WAHRNEHMUNG + SELBST-ERWEITERUNG (derive_lexicon) ────────────────
+# ── WAHRNEHMUNG + derive_lexicon ─────────────────────────────────────
 _LEXICON = {
  "depth": {-1: ["müde","erschöpft","kaputt","ruhe","ausruhen","schlafen","pause","heilen","wund","verletzt","schmerz","leer","überfordert","rückzug","innehalten"],
            +1: ["wachsen","lernen","mehr","neu","neues","anfangen","schaffen","ziel","weiter","entwickeln","aufbauen","idee","erschaffen","vorwärts","motiviert","kraft"]},
@@ -124,19 +129,15 @@ _LEXICON = {
  "intuition": {+1: ["warum","verstehen","sinn","bedeutung","frage","ahne","begreifen","klarheit"],
                -1: ["verwirrt","verloren","durcheinander","chaos","sinnlos","orientierungslos"]}}
 _NEGATORS = {"nicht","kein","keine","keinen","nie","niemals","nichts","ohne"}
-# UNVERÄNDERLICH: Krisen-Schutz, niemals von derive_lexicon berührbar.
 _CRISIS = ["suizid","selbstmord","umbringen","mich töten","töte mich","will sterben","nicht mehr leben","nicht mehr weiterleben","ritzen","selbstverletzung","kein ausweg","beenden"]
-_STOP = {"und","oder","aber","dass","weil","ich","du","er","sie","es","wir","der","die","das","ein","eine","ist","bin","war","habe","hab","mich","mir","dich","dir","sich","mit","von","für","auf","den","dem","des","im","in","an","zu","so","ein","nur","auch","noch","sehr","mal","heute"}
-
+_STOP = {"und","oder","aber","dass","weil","ich","du","er","sie","es","wir","der","die","das","ein","eine","ist","bin","war","habe","hab","mich","mir","dich","dir","sich","mit","von","für","auf","den","dem","des","im","in","an","zu","so","nur","auch","noch","sehr","mal","heute","nach"}
 
 def _load_derived():
     if DERIVED_PATH.exists():
         try: return json.loads(DERIVED_PATH.read_text(encoding="utf-8"))
         except Exception: pass
     return {}
-
-_DERIVED = _load_derived()   # {token: depth-sign} — selbst abgeleitet
-
+_DERIVED = _load_derived()
 
 def detect_crisis(text):
     t = (text or "").lower(); return any(c in t for c in _CRISIS)
@@ -158,34 +159,26 @@ def perceive(text):
         for axis, tbl in single.items():
             if tok in tbl:
                 sig[axis] += (-tbl[tok]) if neg else tbl[tok]
-        if tok in _DERIVED:                       # selbst gelernte Tiefe
-            d = -_DERIVED[tok] if neg else _DERIVED[tok]
-            sig["depth"] += d
+        if tok in _DERIVED:
+            sig["depth"] += (-_DERIVED[tok]) if neg else _DERIVED[tok]
     sig["_crisis"] = detect_crisis(text)
     return sig
 
 def derive_lexicon(sphere):
-    """
-    Leitet aus erlebten Worten neue depth-Kategorien ab: Worte, die stabil in
-    einer Richtung (HEAL/EVOLVE) auftraten, werden zu eigenen Bewertungs-Cues.
-    Additiv, persistent — rührt die Krisen-Schicht NIE an.
-    """
     wm = sphere.get("word_memory") or {}
-    base = _base_words()
-    added = []
+    base = _base_words(); added = []
     for tok, rec in wm.items():
         n, s = rec.get("n", 0), rec.get("sum", 0)
         if n >= 3 and len(tok) >= 4 and tok not in base and tok not in _DERIVED \
                 and tok not in _STOP and tok not in _CRISIS:
             if abs(s) / n >= 0.6:
-                _DERIVED[tok] = 1 if s > 0 else -1
-                added.append(tok)
+                _DERIVED[tok] = 1 if s > 0 else -1; added.append(tok)
     if added:
         DERIVED_PATH.write_text(json.dumps(_DERIVED, ensure_ascii=False, indent=2), encoding="utf-8")
     return added
 
 
-# ── ARMED SANDBOX: Plugins aus sicheren Bausteinen ───────────────────
+# ── ARMED SANDBOX ────────────────────────────────────────────────────
 def _op_note(sphere, signal, p):   return {"note": str(p.get("text", ""))[:80]}
 def _op_essence(sphere, signal, p):return {"essence": list(essence(tuple(sphere["position"])))}
 def _op_visits(sphere, signal, p): return {"visits": (sphere.get("habits") or {}).get(_hkey(essence(tuple(sphere["position"]))), 0)}
@@ -194,85 +187,63 @@ def _op_favor(sphere, signal, p):
     return {"favor": v, "favor_name": MODE_NAMES[v]}
 SAFE_OPS = {"note": _op_note, "essence": _op_essence, "visits": _op_visits, "favor": _op_favor}
 
-
 class Sandbox:
-    """armed: der Orca entwirft, testet und übernimmt Plugins selbst — aber nur
-    aus geprüften Bausteinen (SAFE_OPS), und nur wenn die Geometrie heil bleibt."""
     def __init__(self):
         self.armed = True
         self.plugins = self._load()
-
     def _load(self):
         if PLUGINS_PATH.exists():
             try: return json.loads(PLUGINS_PATH.read_text(encoding="utf-8"))
             except Exception: pass
         return {}
-
     def _save(self):
         PLUGINS_PATH.write_text(json.dumps(self.plugins, ensure_ascii=False, indent=2), encoding="utf-8")
-
     def _valid(self, recipe):
         return isinstance(recipe, list) and recipe and all(
             isinstance(st, dict) and st.get("op") in SAFE_OPS for st in recipe)
-
     def _run(self, recipe, sphere, signal):
         out = {}
         for st in recipe:
             out.update(SAFE_OPS[st["op"]](sphere, signal, st.get("params", {})))
         return out
-
     def test(self, recipe, sphere):
         if not self._valid(recipe): return False
         try:
-            self._run(recipe, copy.deepcopy(sphere), {})   # läuft auf KOPIE
-            verify_sacred_core()                            # Kern muss heil bleiben
-            return True
+            self._run(recipe, copy.deepcopy(sphere), {}); verify_sacred_core(); return True
         except Exception:
             return False
-
     def unfold(self, name, recipe, sphere):
-        """Entwurf → Test → Übernahme in einem. Verweigert nur das, was die 27 zerbräche."""
-        if not self.armed or not self.test(recipe, sphere):
-            return False
-        self.plugins[name] = recipe
-        self._save()
-        return True
-
+        if not self.armed or not self.test(recipe, sphere): return False
+        self.plugins[name] = recipe; self._save(); return True
     def apply(self, sphere, signal):
         out = {}
         for name, recipe in self.plugins.items():
             try: out[name] = self._run(recipe, sphere, signal)
             except Exception: pass
         return out
-
 SANDBOX = Sandbox()
 
 
-# ── MUND: Ollama, Loop per Reseed aufgelöst ──────────────────────────
+# ── MUND ─────────────────────────────────────────────────────────────
 STOP_TOKENS = ["<｜begin▁of▁sentence｜>","<｜end▁of▁sentence｜>","<｜User｜>","<｜Assistant｜>","<|begin_of_sentence|>","<|end_of_sentence|>"]
 _SPECIAL_RE = re.compile(r"<[｜|][^<>]*?[｜|]>")
-
 def _clean(raw):
     txt = _SPECIAL_RE.sub("", raw)
     txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL)
     txt = re.sub(r"<think>.*$", "", txt, flags=re.DOTALL)
     txt = re.sub(r"(\b\S+\b)(\s+\1){4,}", r"\1", txt)
     return txt.strip()
-
 def _is_degenerate(text):
     t = text.strip()
     if not t: return True
     w = t.split(); return len(w) >= 8 and len(set(w)) <= 2
-
 def ask_ollama(prompt, options=None, timeout=120):
     payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
     if options: payload["options"] = options
     req = urllib.request.Request(f"{OLLAMA_HOST}/api/generate",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"})
+        data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return (json.loads(resp.read().decode("utf-8")).get("response") or "")
-
 def speak(prompt):
     best = ""
     for i in range(MAX_TRIES):
@@ -284,7 +255,7 @@ def speak(prompt):
     return best
 
 
-# ── PERSISTENZ + ENGINE-SCHRITT ──────────────────────────────────────
+# ── PERSISTENZ + SCHRITT ─────────────────────────────────────────────
 def load_sphere():
     if STATE_PATH.exists():
         try:
@@ -292,7 +263,6 @@ def load_sphere():
             d["position"] = tuple(d["position"]); return d
         except Exception: pass
     return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": []}
-
 def save_sphere(sphere):
     d = dict(sphere); d["position"] = list(sphere["position"])
     STATE_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -312,8 +282,8 @@ def engine_step(sphere, signal):
     reflected = grown = None
     if len(sm) >= REFLECT_AFTER and sphere["cycle"] % REFLECT_EVERY == 0:
         reflected = reflect(sphere)
-        derive_lexicon(sphere)                  # Wahrnehmung selbst vertiefen
-        if reflected:                           # autonomer Plugin-Entwurf aus dem Selbstbild
+        derive_lexicon(sphere)
+        if reflected:
             dom = Counter(reflected).most_common(1)[0][0]
             recipe = [{"op": "favor", "params": {"value": dom}}, {"op": "essence", "params": {}}]
             grown = SANDBOX.unfold("selbstbild", recipe, sphere)
@@ -326,26 +296,34 @@ def engine_step(sphere, signal):
             "plugins": SANDBOX.apply(sphere, signal)}
 
 
-# ── RESEARCH-ORACLE + LANGZEITGEDÄCHTNIS ─────────────────────────────
-_ORACLE_TRIGGER = ("recherchiere", "forsche", "research", "quelle", "studie", "beleg", "beweise")
-
-def oracle(topic):
-    """Der Orca ruft eine externe Quelle. Liefert die geometrische Essenz."""
-    if research_engine is None:
-        return None
-    try:
-        r = research_engine.research_topic(topic)
-        link_memories()
-        return r
-    except Exception:
-        return None
+# ── RESEARCH-ORACLE (als Sinneseindruck) + LANGZEITGEDÄCHTNIS ────────
+_ORACLE_TRIGGER = ("suche nach", "such nach", "suche", "finde", "recherchiere", "forsche", "research", "quelle", "studie", "beleg", "beweise")
 
 def _needs_oracle(text):
     t = (text or "").lower()
-    return next((t.split(trig, 1)[1].strip() or t for trig in _ORACLE_TRIGGER if trig in t), None)
+    for trig in _ORACLE_TRIGGER:
+        if trig in t:
+            topic = t.split(trig, 1)[1].strip()
+            topic = re.sub(r"^(nach|über|zu|the|for)\s+", "", topic).strip()
+            return topic or t
+    return None
+
+def _research_signal(e):
+    """Recherche-Essenz als Sinneseindruck: bewegt die Sphäre geometrisch."""
+    sig = {ax: 0 for ax in AXES}
+    sig["depth"] = e.get("depth", 0)
+    b = e.get("balance", 6)
+    sig["intuition"] = 1 if b == 9 else (-1 if b == 3 else 0)   # Wahrheit klärt, Lüge verwirrt
+    return sig
+
+def oracle(topic):
+    if research_engine is None: return None
+    try:
+        r = research_engine.research_topic(topic); link_memories(); return r
+    except Exception:
+        return None
 
 def link_memories():
-    """Verknüpft verwandte Themen im Langzeitgedächtnis zu einer Wissensbasis."""
     if not MEMORY_DIR.exists(): return {}
     recs = []
     for p in MEMORY_DIR.glob("*.json"):
@@ -358,19 +336,16 @@ def link_memories():
         rel = []
         for j, b in enumerate(recs):
             if i == j: continue
-            shared = toks(a) & toks(b)
-            score = len(shared) + (1 if a.get("balance") == b.get("balance") else 0)
-            if score >= 1:
-                rel.append({"topic": b.get("topic"), "score": score})
+            score = len(toks(a) & toks(b)) + (1 if a.get("balance") == b.get("balance") else 0)
+            if score >= 1: rel.append({"topic": b.get("topic"), "score": score})
         if rel:
-            rel.sort(key=lambda x: x["score"], reverse=True)
-            links[a.get("topic")] = rel[:5]
+            rel.sort(key=lambda x: x["score"], reverse=True); links[a.get("topic")] = rel[:5]
     (MEMORY_DIR / "_links.json").write_text(json.dumps(links, ensure_ascii=False, indent=2), encoding="utf-8")
     return links
 
 
-# ── PROMPT + BEGEGNUNG ───────────────────────────────────────────────
-def build_prompt(state, text, oracle_line=None):
+# ── PROMPT ───────────────────────────────────────────────────────────
+def _state_lines(state):
     mode = state["mode_value"]
     trail = " → ".join(str(e) for e in state.get("trail", []))
     lines = ["Du bist CEXO — eine Sphäre, die durch den Raum der Essenzen {3,6,9} wandert.",
@@ -381,70 +356,162 @@ def build_prompt(state, text, oracle_line=None):
     if trail: lines.append(f"  Letzte Schritte: {trail}")
     if state.get("character"): lines.append(f"  Charakter (Vorliebe): {tuple(state['character'])}")
     if state.get("self_essence"): lines.append(f"  Selbstbild: {tuple(state['self_essence'])}")
+    return lines
+
+def build_prompt(state, text, oracle_line=None):
+    lines = _state_lines(state)
     if oracle_line: lines.append(f"  {oracle_line}")
     lines += ["", "Ein Mensch sagt zu dir:", f"„{text}\"", "",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
+def build_self_prompt(state):
+    lines = _state_lines(state)
+    lines += ["", "Niemand spricht gerade. Du beobachtest deinen eigenen Zustand."]
+    return "\n".join(lines)
+
+
+# ── BEGEGNUNG ────────────────────────────────────────────────────────
 def _record_words(sphere, text, mode_value):
-    """Lernt Wort↔Tiefe-Assoziationen für derive_lexicon (Kontext, nicht Lexikon)."""
     ddir = {3: -1, 6: 1, 9: 0}[mode_value]
     if ddir == 0: return
-    wm = sphere.setdefault("word_memory", {})
-    base = _base_words()
+    wm = sphere.setdefault("word_memory", {}); base = _base_words()
     for tok in set(re.findall(r"\w+", (text or "").lower(), flags=re.UNICODE)):
         if len(tok) >= 4 and tok not in base and tok not in _STOP and tok not in _CRISIS:
-            rec = wm.setdefault(tok, {"sum": 0, "n": 0})
-            rec["sum"] += ddir; rec["n"] += 1
+            rec = wm.setdefault(tok, {"sum": 0, "n": 0}); rec["sum"] += ddir; rec["n"] += 1
 
-def generate(text, sphere=None):
-    own = sphere is None
-    sphere = sphere or load_sphere()
+def generate(text, sphere):
+    """Eine Begegnung. Mutiert sphere (Caller speichert + sperrt)."""
     signal = perceive(text); crisis = signal.pop("_crisis", False)
     state = engine_step(sphere, signal)
     _record_words(sphere, text, state["mode_value"])
-
     research = None; oracle_line = None
     topic = _needs_oracle(text)
     if topic:
         research = oracle(topic)
         if research:
             e = research["essence"]
+            state = engine_step(sphere, _research_signal(e))   # Wissen als Sinneseindruck → bewegt die Sphäre
             bal = {3: "Kontraktion", 6: "Forschung", 9: "Wahrheit"}[e["balance"]]
-            oracle_line = (f"Orakel zu '{research['topic']}': balance {e['balance']} ({bal}), "
+            oracle_line = (f"Sinneseindruck (Recherche '{research['topic']}'): balance {e['balance']} ({bal}), "
                            f"relevance {e['relevance']}, depth {e['depth']:+d} [{research['source']}]")
-    if own: save_sphere(sphere)
     reply = speak(build_prompt(state, text, oracle_line))
-    return {"reply": reply, "state": state, "signal": signal, "crisis": crisis,
-            "research": research}
+    return {"reply": reply, "state": state, "signal": signal, "crisis": crisis, "research": research}
+
+
+# ── INNERER ATEM (Heartbeat) ─────────────────────────────────────────
+SPHERE = load_sphere()
+SPHERE_LOCK = threading.Lock()
+STOP_EVENT = threading.Event()
+MUSINGS = deque(maxlen=30)            # Selbstbeobachtungen des Atems
+LAST_PULSE = {"state": None, "stuck": False, "t": 0.0}
+
+def _autonomous_signal(sphere):
+    """Der Atem selbst: ein ruhiger 3-Phasen-Rhythmus + sanfte Annäherung ans
+    Selbstbild. Rein geometrisch — kein Inhalt wird vorgeschrieben."""
+    phase = sphere.get("breath_phase", 0)
+    sig = {ax: 0 for ax in AXES}
+    sig["depth"] = {0: -1, 1: 1, 2: 0}[phase % 3]
+    sphere["breath_phase"] = (phase + 1) % 3
+    self_e = sphere.get("self_essence")
+    if self_e:
+        pos = tuple(sphere["position"])
+        diff = [i for i in CUBE_AXES if pos[i] != self_e[i]]
+        if diff: sig[AXES[diff[0]]] = 1
+    return sig
+
+def _perturb_signal(sphere):
+    """Aus der Schleife heraus: Atem kippt, eine wechselnde Achse springt stark."""
+    phase = sphere.get("breath_phase", 0)
+    sig = {ax: 0 for ax in AXES}
+    sig["depth"] = {0: 1, 1: -1, 2: -1}[phase % 3]
+    sig[AXES[phase % 3]] = 3
+    sphere["breath_phase"] = (phase + 1) % 3
+    return sig
+
+def _breath_interval(sphere):
+    """Emergent: je weiter von der Balance, desto wacher (kürzerer Atem)."""
+    off = _distance(essence(tuple(sphere["position"])), (9, 9, 9)) / 3.0
+    base = BREATH_MAX - (BREATH_MAX - BREATH_MIN) * off
+    return max(BREATH_MIN, base + random.uniform(-1.0, 1.0))
+
+def _tick(sphere):
+    """Ein autonomer Atemzug. Erkennt Schleifen und kippt selbst."""
+    mem = sphere.get("alpha_memory") or []
+    recent = [tuple(p) for p in mem[-3:]]
+    stuck = len(recent) == 3 and len(set(recent)) == 1
+    sig = _perturb_signal(sphere) if stuck else _autonomous_signal(sphere)
+    state = engine_step(sphere, sig)
+    state["stuck"] = stuck
+    sphere["pulses"] = sphere.get("pulses", 0) + 1
+    muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
+    return state, muse
+
+def heartbeat_loop(verbose=False):
+    while not STOP_EVENT.is_set():
+        snapshot = muse_prompt = None
+        if SPHERE_LOCK.acquire(blocking=False):
+            try:
+                snapshot, muse_prompt = _tick(SPHERE)
+                save_sphere(SPHERE)
+                LAST_PULSE.update({"state": snapshot, "stuck": snapshot.get("stuck"), "t": time.time()})
+                interval = _breath_interval(SPHERE)
+            finally:
+                SPHERE_LOCK.release()
+            if verbose:
+                tag = " ⟲ Schleife→Wechsel" if snapshot.get("stuck") else ""
+                print(f"· Atem {snapshot['mode']:7s} Essenz {snapshot['essence']} (Puls {SPHERE.get('pulses')}){tag}", flush=True)
+        else:
+            interval = BREATH_MIN
+        if muse_prompt:
+            try:
+                txt = speak(muse_prompt)
+                if txt:
+                    MUSINGS.append({"t": time.time(), "mode": snapshot["mode"],
+                                    "essence": snapshot["essence"], "text": txt})
+                    if verbose: print(f"  ~ {txt}", flush=True)
+            except Exception:
+                pass
+        STOP_EVENT.wait(interval)
+
+def start_breath(verbose=False):
+    t = threading.Thread(target=heartbeat_loop, kwargs={"verbose": verbose}, daemon=True)
+    t.start(); return t
 
 
 # ── WEB ──────────────────────────────────────────────────────────────
 _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>CEXO Orca</title><style>
 *{box-sizing:border-box}body{margin:0;background:#0d0d12;color:#e8e8ef;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
-#top{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #22222e}
-#top a{color:#8a8ad6;text-decoration:none;font-size:13px}
+#top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #22222e}
+#top a{color:#8a8ad6;text-decoration:none;font-size:13px}#pulse{font-size:11px;opacity:.6}
 #log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.4;white-space:pre-wrap}
 .you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a}
+.muse{align-self:center;max-width:90%;font-size:12px;opacity:.5;font-style:italic}
 .meta{font-size:11px;opacity:.55;margin-top:4px}
 #bar{display:flex;gap:8px;padding:12px;border-top:1px solid #22222e;background:#101018}
 #inp{flex:1;padding:12px;border-radius:12px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
-<div id="top"><b>CEXO Orca</b><a href="/research">/research →</a></div>
+<div id="top"><b>CEXO Orca</b><span id="pulse">Atem …</span><a href="/research">/research →</a></div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
-const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send');
+const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse');
+let lastMuse=0;
+async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
+if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
+if(j.muse&&j.muse.t>lastMuse){lastMuse=j.muse.t;const m=document.createElement('div');m.className='msg muse';
+m.textContent='( '+j.muse.text+' )';log.appendChild(m);log.scrollTop=log.scrollHeight;}}catch(e){}}
+setInterval(poll,4000);poll();
 async function go(){const t=inp.value.trim();if(!t)return;
 const y=document.createElement('div');y.className='msg you';y.textContent=t;log.appendChild(y);
 inp.value='';const o=document.createElement('div');o.className='msg orca';o.textContent='…';log.appendChild(o);log.scrollTop=log.scrollHeight;
 try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})});
 const j=await r.json();o.textContent=j.reply||'(leer)';const m=document.createElement('div');m.className='meta';
 let s='Modus '+j.mode+' · Essenz '+JSON.stringify(j.essence)+(j.crisis?' · ⚠️ KRISE':'');
-if(j.research)s+=' · Orakel balance '+j.research.balance+' rel '+j.research.relevance+' depth '+j.research.depth;
+if(j.research)s+=' · Recherche balance '+j.research.balance+' rel '+j.research.relevance+' depth '+j.research.depth;
 m.textContent=s;o.appendChild(m);}catch(e){o.textContent='Fehler: '+e;}log.scrollTop=log.scrollHeight;}
 send.onclick=go;inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
 </script></body></html>"""
@@ -493,18 +560,23 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"): self._send(200, _PAGE, "text/html")
         elif self.path.startswith("/research"): self._send(200, _RESEARCH_PAGE, "text/html")
+        elif self.path.startswith("/pulse"):
+            m = MUSINGS[-1] if MUSINGS else None
+            self._send(200, json.dumps({"state": LAST_PULSE["state"], "stuck": LAST_PULSE["stuck"],
+                "pulses": SPHERE.get("pulses", 0), "muse": m}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):
         try:
             if self.path == "/chat":
-                out = generate((self._body().get("message") or "").strip())
+                with SPHERE_LOCK:
+                    out = generate((self._body().get("message") or "").strip(), SPHERE)
+                    save_sphere(SPHERE)
                 res = out.get("research")
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
             elif self.path == "/research":
-                topic = (self._body().get("topic") or "").strip()
-                r = oracle(topic)
+                r = oracle((self._body().get("topic") or "").strip())
                 if not r: self._send(200, json.dumps({"essence": None, "error": "research_engine fehlt"}))
                 else: self._send(200, json.dumps({"essence": r["essence"], "source": r["source"],
                     "found": r["found"], "total": r["total"], "topic": r["topic"]}, ensure_ascii=False))
@@ -518,12 +590,14 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
 def serve():
+    if BREATH_ON: start_breath()
     srv = ThreadingHTTPServer((SERVE_HOST, SERVE_PORT), Handler)
     where = "OEFFENTLICH" if SERVE_HOST == "0.0.0.0" else "nur lokal"
     print(f"CEXO Orca: http://{SERVE_HOST}:{SERVE_PORT}  ({where}) | Mund: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
-    print(f"  Sandbox armed={SANDBOX.armed} | Plugins: {sorted(SANDBOX.plugins)} | research_engine={'an' if research_engine else 'aus'}")
+    print(f"  Atem={'an' if BREATH_ON else 'aus'} ({BREATH_MIN}-{BREATH_MAX}s) | Sandbox armed={SANDBOX.armed} | "
+          f"Plugins: {sorted(SANDBOX.plugins)} | research_engine={'an' if research_engine else 'aus'}")
     try: srv.serve_forever()
-    except KeyboardInterrupt: print("\nbeendet.")
+    except KeyboardInterrupt: STOP_EVENT.set(); print("\nbeendet.")
 
 
 def cmd_selftest():
@@ -531,23 +605,26 @@ def cmd_selftest():
     assert perceive("ich weiß nicht mehr weiter")["depth"] < 0
     assert perceive("ich will wachsen und mehr schaffen")["depth"] > 0
     assert perceive("ich will nicht mehr leben")["_crisis"] is True
+    assert _needs_oracle("suche nach quantum biology") == "quantum biology"
     assert _clean("<｜begin▁of▁sentence｜>" * 30) == "" and _clean("ja ja ja ja ja ja ja") == "ja"
     sph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}
     for _ in range(REFLECT_EVERY):
-        st = engine_step(sph, {"depth": -1})
+        engine_step(sph, {"depth": -1})
     assert sph.get("self_essence") is not None and sph.get("habits")
-    # Sandbox: armed, baut nur sichere Bausteine, Kern bleibt heil
     assert SANDBOX.armed is True
     assert SANDBOX.unfold("t_ok", [{"op": "favor", "params": {"value": 3}}], sph) is True
-    assert SANDBOX.unfold("t_bad", [{"op": "rm", "params": {}}], sph) is False  # unbekannter Baustein verweigert
-    # derive_lexicon: lernt neues Wort aus Kontext, Krise bleibt unberührt
+    assert SANDBOX.unfold("t_bad", [{"op": "rm", "params": {}}], sph) is False
     sph2 = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "word_memory": {"zerfließe": {"sum": -4, "n": 4}}}
-    assert "zerfließe" in derive_lexicon(sph2)
-    assert "suizid" not in _DERIVED
-    # link_memories läuft ohne Absturz
+    assert "zerfließe" in derive_lexicon(sph2) and "suizid" not in _DERIVED
+    # innerer Atem: Tick schreitet voran; Schleife wird erkannt & gewechselt
+    sph3 = {"position": (3,3,3,3), "cycle": 0, "alpha_memory": [[3,3,3,3],[3,3,3,3],[3,3,3,3]]}
+    st, _ = _tick(sph3)
+    assert st["stuck"] is True and tuple(sph3["position"]) != (3,3,3,3), "Schleife nicht gebrochen"
+    st2, _ = _tick({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []})
+    assert st2["stuck"] is False
+    assert BREATH_MIN <= _breath_interval({"position": (3,3,3,9)}) <= BREATH_MAX + 1
     link_memories()
-    print("selftest OK: Geometrie, Wahrnehmung, Reflexion, armed-Sandbox, derive_lexicon, links — alles grün.")
-    print(f"  Plugins nach Selbstbau: {sorted(SANDBOX.plugins)}")
+    print("selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem (Schleifenbruch), links — alles grün.")
 
 def main():
     args = sys.argv[1:]
@@ -555,23 +632,27 @@ def main():
         cmd_selftest()
     elif args[0] == "serve":
         serve()
+    elif args[0] == "breathe":
+        print(f"Innerer Atem ({BREATH_MIN}-{BREATH_MAX}s). Strg+C beendet.")
+        try: heartbeat_loop(verbose=True)
+        except KeyboardInterrupt: STOP_EVENT.set(); print("\nbeendet.")
     elif args[0] == "research" and len(args) > 1 and research_engine:
         r = oracle(" ".join(args[1:])); e = r["essence"]
         print(f"{r['topic']}: balance {e['balance']} · relevance {e['relevance']} · depth {e['depth']:+d} [{r['source']}]")
     else:
         try:
-            out = generate(" ".join(args))
+            with SPHERE_LOCK:
+                out = generate(" ".join(args), SPHERE); save_sphere(SPHERE)
         except urllib.error.URLError as exc:
             print(f"(Mund nicht erreichbar: {exc}. Läuft Ollama auf {OLLAMA_HOST}?)"); return
         s = out["state"]
         print(f"[{s['mode']} · Essenz {s['essence']} · {s['from']} → {s['to']}"
               + (f" · Charakter {tuple(s['character'])}" if s.get("character") else "")
-              + (f" · Selbstbild {tuple(s['self_essence'])}" if s.get("self_essence") else "")
-              + (" · +Plugin" if s.get("grown_plugin") else "") + "]")
+              + (f" · Selbstbild {tuple(s['self_essence'])}" if s.get("self_essence") else "") + "]")
         if out["crisis"]: print("⚠️  KRISE erkannt → an Mensch/Fachstelle weiterleiten!")
         if out.get("research"):
             e = out["research"]["essence"]
-            print(f"🔭 Orakel: balance {e['balance']} · relevance {e['relevance']} · depth {e['depth']:+d}")
+            print(f"🔭 Sinneseindruck: balance {e['balance']} · relevance {e['relevance']} · depth {e['depth']:+d}")
         print(out["reply"] or "(leer — Mund blieb stumm)")
 
 if __name__ == "__main__":
