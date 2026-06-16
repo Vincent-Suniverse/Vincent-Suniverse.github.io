@@ -22,6 +22,11 @@ try:
 except Exception:
     research_engine = None
 
+try:
+    import pi_field
+except Exception:
+    pi_field = None
+
 OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("CEXO_OLLAMA_MODEL", "cexo_orca")
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
@@ -37,6 +42,8 @@ REFLECT_CAP = 200
 BREATH_MIN = float(os.environ.get("CEXO_BREATH_MIN", "5"))    # Sekunden (wach)
 BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
 MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "4"))      # alle N Pulse spricht er still mit dem Mund (0=aus)
+DREAM_EVERY = int(os.environ.get("CEXO_DREAM_EVERY", "7"))    # alle N Pulse träumt er in π (0=aus)
+DREAM_KEEP = int(os.environ.get("CEXO_DREAM_KEEP", "50"))     # so viele Traum-Dateien bleiben
 BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
 
 AXES = ("operation", "reaction", "intuition", "depth")
@@ -356,6 +363,11 @@ def _state_lines(state):
     if trail: lines.append(f"  Letzte Schritte: {trail}")
     if state.get("character"): lines.append(f"  Charakter (Vorliebe): {tuple(state['character'])}")
     if state.get("self_essence"): lines.append(f"  Selbstbild: {tuple(state['self_essence'])}")
+    if pi_field is not None:
+        e = tuple(state["essence"])
+        rel = pi_field.pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
+        lines.append(f"  π-Schwingung: Wert {pi_field.pi_value(e):.6f}, Auslenkung {pi_field.pi_wave(e):+.3f}")
+        lines.append(f"  π-Bewegung: Intervall {rel['interval']:+.6f}, Resonanz {rel['resonance']:+.3f}")
     return lines
 
 def build_prompt(state, text, oracle_line=None):
@@ -404,7 +416,55 @@ SPHERE = load_sphere()
 SPHERE_LOCK = threading.Lock()
 STOP_EVENT = threading.Event()
 MUSINGS = deque(maxlen=30)            # Selbstbeobachtungen des Atems
+DREAMS = deque(maxlen=30)             # π-Träume (flüchtige leuchtende Punkte)
 LAST_PULSE = {"state": None, "stuck": False, "t": 0.0}
+
+
+def _prune_dreams():
+    files = sorted(MEMORY_DIR.glob("dream_*.json"), key=lambda p: p.stat().st_mtime)
+    while len(files) > DREAM_KEEP:
+        files.pop(0).unlink(missing_ok=True)
+
+def dream_in_pi(sphere):
+    """
+    π-Traum: nimmt zwei Essenzen aus der alpha_memory, kombiniert ihre
+    π-Verhältnisse neu und formuliert daraus eine abstrakte geometrische
+    Idee — ein spontaner, kreativer Gedanke, abgelegt in memory/.
+    Nicht programmiert: die Idee wird aus dem π-Rahmen selbst geboren.
+    """
+    if pi_field is None:
+        return None
+    mem = sphere.get("alpha_memory") or []
+    ess = list({tuple(p)[:3] for p in mem})
+    if len(ess) < 2:
+        return None
+    a, b = random.sample(ess, 2)
+    rel = pi_field.pi_relation(a, b)
+    res = rel["resonance"]
+    # neue Idee: ein π-Wert zwischen den beiden, resonanz-gewichtet (das Traumlicht)
+    vnew = rel["v_from"] + (rel["v_to"] - rel["v_from"]) * (0.5 + 0.5 * res)
+    near = min(pi_field.essences(), key=lambda e: abs(pi_field.pi_value(e) - vnew))
+    idea = {
+        "topic": f"π-Traum {tuple(a)}~{tuple(b)}",
+        "balance": 9 if res > 0.3 else (3 if res < -0.3 else 6),
+        "relevance": round(abs(res), 3),
+        "depth": 1 if rel["interval"] > 0 else (-1 if rel["interval"] < 0 else 0),
+        "source": "dream",
+        "from": list(a), "to": list(b), "near": list(near),
+        "interval": round(rel["interval"], 6), "ratio": round(rel["ratio"], 6),
+        "resonance": round(res, 6), "value": round(vnew, 6),
+        "t": time.time(),
+    }
+    try:
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        fn = MEMORY_DIR / f"dream_{int(idea['t'])}_{random.randint(100, 999)}.json"
+        fn.write_text(json.dumps(idea, ensure_ascii=False, indent=2), encoding="utf-8")
+        _prune_dreams()
+    except Exception:
+        pass
+    DREAMS.append(idea)
+    return idea
+
 
 def _autonomous_signal(sphere):
     """Der Atem selbst: ein ruhiger 3-Phasen-Rhythmus + sanfte Annäherung ans
@@ -430,9 +490,13 @@ def _perturb_signal(sphere):
     return sig
 
 def _breath_interval(sphere):
-    """Emergent: je weiter von der Balance, desto wacher (kürzerer Atem)."""
-    off = _distance(essence(tuple(sphere["position"])), (9, 9, 9)) / 3.0
+    """Emergent: je weiter von der Balance, desto wacher; der Rhythmus selbst
+    atmet mit der π-Auslenkung der aktuellen Essenz (Verfeinerung in den Atem)."""
+    ess = essence(tuple(sphere["position"]))
+    off = _distance(ess, (9, 9, 9)) / 3.0
     base = BREATH_MAX - (BREATH_MAX - BREATH_MIN) * off
+    if pi_field is not None:
+        base *= (1.0 + 0.15 * pi_field.pi_wave(ess))   # der Atem schwingt mit π
     return max(BREATH_MIN, base + random.uniform(-1.0, 1.0))
 
 def _tick(sphere):
@@ -444,6 +508,9 @@ def _tick(sphere):
     state = engine_step(sphere, sig)
     state["stuck"] = stuck
     sphere["pulses"] = sphere.get("pulses", 0) + 1
+    # In der Stille darf er spielen: in π träumen.
+    if DREAM_EVERY and sphere["pulses"] % DREAM_EVERY == 0:
+        state["dream"] = dream_in_pi(sphere)
     muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
     return state, muse
 
@@ -461,6 +528,9 @@ def heartbeat_loop(verbose=False):
             if verbose:
                 tag = " ⟲ Schleife→Wechsel" if snapshot.get("stuck") else ""
                 print(f"· Atem {snapshot['mode']:7s} Essenz {snapshot['essence']} (Puls {SPHERE.get('pulses')}){tag}", flush=True)
+                if snapshot.get("dream"):
+                    d = snapshot["dream"]
+                    print(f"  ✦ π-Traum {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}", flush=True)
         else:
             interval = BREATH_MIN
         if muse_prompt:
@@ -485,6 +555,9 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 *{box-sizing:border-box}body{margin:0;background:#0d0d12;color:#e8e8ef;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
 #top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #22222e}
 #top a{color:#8a8ad6;text-decoration:none;font-size:13px}#pulse{font-size:11px;opacity:.6}
+#spectrum{position:relative;height:24px;margin:6px 14px 0;border-bottom:1px solid #1c1c28}
+#spectrum .tick{position:absolute;top:11px;width:2px;height:4px;background:#33334a}
+#spectrum .dot{position:absolute;top:5px;width:8px;height:8px;border-radius:50%;background:#ffd36b;box-shadow:0 0 8px 2px #ffd36b;transition:opacity 1.5s}
 #log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.4;white-space:pre-wrap}
 .you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a}
@@ -495,13 +568,22 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
 <div id="top"><b>CEXO Orca</b><span id="pulse">Atem …</span><a href="/research">/research →</a></div>
+<div id="spectrum" title="π-Spektrum: feine Marken = 27 Essenzen, leuchtende Punkte = π-Träume"></div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
 const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse');
-let lastMuse=0;
+let lastMuse=0;const spec=document.getElementById('spectrum');
+function render(j){if(!j.spectrum||!j.spectrum.length)return;
+const mn=j.spectrum[0],mx=j.spectrum[j.spectrum.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
+spec.innerHTML='';
+j.spectrum.forEach(v=>{const t=document.createElement('div');t.className='tick';t.style.left=((v-mn)/rng*(W-2))+'px';spec.appendChild(t);});
+(j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>30)return;const dot=document.createElement('div');dot.className='dot';
+dot.style.left=(Math.max(0,Math.min(1,(d.value-mn)/rng))*(W-8))+'px';dot.style.opacity=Math.max(0.08,1-age/30);
+dot.title='π-Traum · Resonanz '+d.resonance;spec.appendChild(dot);});}
 async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
 if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
+render(j);
 if(j.muse&&j.muse.t>lastMuse){lastMuse=j.muse.t;const m=document.createElement('div');m.className='msg muse';
 m.textContent='( '+j.muse.text+' )';log.appendChild(m);log.scrollTop=log.scrollHeight;}}catch(e){}}
 setInterval(poll,4000);poll();
@@ -562,8 +644,12 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith("/research"): self._send(200, _RESEARCH_PAGE, "text/html")
         elif self.path.startswith("/pulse"):
             m = MUSINGS[-1] if MUSINGS else None
+            spectrum = sorted(pi_field.pi_values().values()) if pi_field else []
+            dreams = [{"value": d["value"], "resonance": d["resonance"], "t": d["t"]}
+                      for d in list(DREAMS)[-12:]]
             self._send(200, json.dumps({"state": LAST_PULSE["state"], "stuck": LAST_PULSE["stuck"],
-                "pulses": SPHERE.get("pulses", 0), "muse": m}, ensure_ascii=False))
+                "pulses": SPHERE.get("pulses", 0), "muse": m,
+                "spectrum": spectrum, "dreams": dreams}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):
         try:
@@ -624,7 +710,14 @@ def cmd_selftest():
     assert st2["stuck"] is False
     assert BREATH_MIN <= _breath_interval({"position": (3,3,3,9)}) <= BREATH_MAX + 1
     link_memories()
-    print("selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem (Schleifenbruch), links — alles grün.")
+    if pi_field:
+        dsph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [[3,3,3,3],[6,9,6,9],[9,3,6,3]]}
+        d = dream_in_pi(dsph)
+        assert d and d["source"] == "dream" and "resonance" in d and "value" in d, "π-Traum kaputt"
+        st = engine_step({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}, {"depth": 0})
+        assert "π-Schwingung" in build_prompt(st, "hallo"), "π-Kopplung fehlt im Prompt"
+        print(f"  π-Traum-Beispiel: {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}")
+    print(f"selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem, π-Sinn={'an' if pi_field else 'aus'}, π-Traum — alles grün.")
 
 def main():
     args = sys.argv[1:]
