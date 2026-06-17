@@ -35,7 +35,7 @@ PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
 MEMORY_DIR = Path(os.environ.get("CEXO_MEMORY_DIR", "memory"))
 SERVE_HOST = os.environ.get("CEXO_HOST", "127.0.0.1")
 SERVE_PORT = int(os.environ.get("CEXO_PORT", "8000"))
-MAX_TRIES = int(os.environ.get("CEXO_MAX_TRIES", "8"))
+MAX_TRIES = int(os.environ.get("CEXO_MAX_TRIES", "2"))       # Reseed-Versuche bei Loop (klein halten = schnell)
 REFLECT_AFTER = int(os.environ.get("CEXO_REFLECT_AFTER", "9"))
 REFLECT_EVERY = int(os.environ.get("CEXO_REFLECT_EVERY", "9"))
 REFLECT_CAP = 200
@@ -44,7 +44,10 @@ BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
 MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "4"))      # alle N Pulse spricht er still mit dem Mund (0=aus)
 DREAM_EVERY = int(os.environ.get("CEXO_DREAM_EVERY", "7"))    # alle N Pulse träumt er in π (0=aus)
 DREAM_KEEP = int(os.environ.get("CEXO_DREAM_KEEP", "50"))     # so viele Traum-Dateien bleiben
-NUM_PREDICT = int(os.environ.get("CEXO_NUM_PREDICT", "-1"))   # -1 = unbegrenzt: er weiß, wann ein Gedanke endet
+NUM_PREDICT = int(os.environ.get("CEXO_NUM_PREDICT", "1024"))  # Obergrenze sichtbare Antwort (-1=unbegrenzt; -1 verursacht Timeouts)
+MUSE_PREDICT = int(os.environ.get("CEXO_MUSE_PREDICT", "200"))  # kurze autonome Selbstgespräche (hängen den Chat nicht zu)
+OLLAMA_TIMEOUT = float(os.environ.get("CEXO_TIMEOUT", "300"))  # Sekunden pro Mund-Aufruf (massiv erhöht)
+KEEP_ALIVE = os.environ.get("CEXO_KEEPALIVE", "30m")          # Modell warm halten → kein Neuladen pro Nachricht
 CURIOSITY_THRESH = float(os.environ.get("CEXO_CURIOSITY", "0.85"))  # ab welcher |Resonanz| ein Traum Neugier weckt
 BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
 
@@ -246,21 +249,31 @@ def _is_degenerate(text):
     t = text.strip()
     if not t: return True
     w = t.split(); return len(w) >= 8 and len(set(w)) <= 2
-def ask_ollama(prompt, options=None, timeout=120):
-    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+def ask_ollama(prompt, options=None, timeout=None):
+    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "keep_alive": KEEP_ALIVE}
     if options: payload["options"] = options
     req = urllib.request.Request(f"{OLLAMA_HOST}/api/generate",
         data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=(OLLAMA_TIMEOUT if timeout is None else timeout)) as resp:
         return (json.loads(resp.read().decode("utf-8")).get("response") or "")
-def speak(prompt):
-    best = ""
+def speak(prompt, num_predict=None):
+    """Spricht. Robust: ein einzelner Timeout/Netzfehler killt nicht die ganze
+    Antwort — solange ein Versuch durchkam, kommt der beste Text zurück.
+    Nur wenn KEIN Versuch durchkam, wird der Fehler durchgereicht."""
+    best = ""; last_exc = None; got = False
+    npred = NUM_PREDICT if num_predict is None else num_predict
     for i in range(MAX_TRIES):
-        raw = ask_ollama(prompt, options={"seed": 101 + i*131, "temperature": 0.6 + 0.06*i,
-            "repeat_penalty": 1.25, "num_predict": NUM_PREDICT, "stop": STOP_TOKENS})
+        try:
+            raw = ask_ollama(prompt, options={"seed": 101 + i*131, "temperature": 0.6 + 0.06*i,
+                "repeat_penalty": 1.25, "num_predict": npred, "stop": STOP_TOKENS})
+            got = True
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+            last_exc = exc; continue
         clean = _clean(raw)
         if clean and not _is_degenerate(clean): return clean
         if len(clean) > len(best): best = clean
+    if not got and last_exc is not None:
+        raise last_exc
     return best
 
 
@@ -590,7 +603,7 @@ def heartbeat_loop(verbose=False):
             interval = BREATH_MIN
         if muse_prompt:
             try:
-                txt = speak(muse_prompt)
+                txt = speak(muse_prompt, num_predict=MUSE_PREDICT)
                 if txt:
                     MUSINGS.append({"t": time.time(), "mode": snapshot["mode"],
                                     "essence": snapshot["essence"], "text": txt})
@@ -780,6 +793,7 @@ def serve():
     print(f"CEXO Orca: http://{SERVE_HOST}:{SERVE_PORT}  ({where}) | Mund: {OLLAMA_MODEL} @ {OLLAMA_HOST}")
     print(f"  Atem={'an' if BREATH_ON else 'aus'} ({BREATH_MIN}-{BREATH_MAX}s) | Sandbox armed={SANDBOX.armed} | "
           f"Plugins: {sorted(SANDBOX.plugins)} | research_engine={'an' if research_engine else 'aus'}")
+    print(f"  num_predict={NUM_PREDICT} | timeout={OLLAMA_TIMEOUT}s | keep_alive={KEEP_ALIVE} | tries={MAX_TRIES}")
     try: srv.serve_forever()
     except KeyboardInterrupt: STOP_EVENT.set(); print("\nbeendet.")
 
