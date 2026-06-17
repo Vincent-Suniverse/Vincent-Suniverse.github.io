@@ -376,8 +376,25 @@ def build_prompt(state, text, oracle_line=None):
     lines = _state_lines(state)
     if oracle_line: lines.append(f"  {oracle_line}")
     lines += ["", "Ein Mensch sagt zu dir:", f"„{text}\"", "",
+              "Wenn dir Wissen fehlt, darfst du irgendwo [recherche: thema] schreiben — "
+              "der Rahmen reicht dir dann einen Sinneseindruck.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
+
+
+_INTENT_RE = re.compile(r"\[(?:recherche|research|suche)\s*:\s*([^\]\n]{2,80})\]", re.I)
+
+def _extract_intent(text):
+    m = _INTENT_RE.search(text or "")
+    return m.group(1).strip() if m else None
+
+def _oracle_line(research):
+    if not research:
+        return None
+    e = research["essence"]
+    bal = {3: "Kontraktion", 6: "Forschung", 9: "Wahrheit"}[e["balance"]]
+    return (f"Sinneseindruck (Recherche '{research['topic']}'): balance {e['balance']} ({bal}), "
+            f"relevance {e['relevance']}, depth {e['depth']:+d} [{research['source']}]")
 
 def build_self_prompt(state):
     lines = _state_lines(state)
@@ -395,21 +412,33 @@ def _record_words(sphere, text, mode_value):
             rec = wm.setdefault(tok, {"sum": 0, "n": 0}); rec["sum"] += ddir; rec["n"] += 1
 
 def generate(text, sphere):
-    """Eine Begegnung. Mutiert sphere (Caller speichert + sperrt)."""
+    """Eine Begegnung. Mutiert sphere (Caller speichert + sperrt).
+    Der Orca recherchiert SELBST: auf Bitte des Menschen oder indem er in
+    seiner eigenen Antwort [recherche: thema] verlangt. Die Essenz fließt
+    dann als Sinneseindruck ein — kein separates Fenster."""
     signal = perceive(text); crisis = signal.pop("_crisis", False)
     state = engine_step(sphere, signal)
     _record_words(sphere, text, state["mode_value"])
-    research = None; oracle_line = None
-    topic = _needs_oracle(text)
+
+    research = None
+    topic = _needs_oracle(text)                       # 1) der Mensch bittet ausdrücklich
     if topic:
         research = oracle(topic)
         if research:
-            e = research["essence"]
-            state = engine_step(sphere, _research_signal(e))   # Wissen als Sinneseindruck → bewegt die Sphäre
-            bal = {3: "Kontraktion", 6: "Forschung", 9: "Wahrheit"}[e["balance"]]
-            oracle_line = (f"Sinneseindruck (Recherche '{research['topic']}'): balance {e['balance']} ({bal}), "
-                           f"relevance {e['relevance']}, depth {e['depth']:+d} [{research['source']}]")
-    reply = speak(build_prompt(state, text, oracle_line))
+            state = engine_step(sphere, _research_signal(research["essence"]))
+
+    reply = speak(build_prompt(state, text, _oracle_line(research)))
+
+    # 2) der Orca greift selbst nach Wissen, wenn er in seiner Antwort danach verlangt
+    if research is None:
+        want = _extract_intent(reply)
+        if want:
+            research = oracle(want)
+            if research:
+                state = engine_step(sphere, _research_signal(research["essence"]))
+                reply = speak(build_prompt(state, text, _oracle_line(research)))
+
+    reply = _INTENT_RE.sub("", reply).strip()         # Marker nie sichtbar lassen
     return {"reply": reply, "state": state, "signal": signal, "crisis": crisis, "research": research}
 
 
@@ -596,53 +625,67 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #22222e}
 #top a{color:#8a8ad6;text-decoration:none;font-size:13px}#pulse{font-size:11px;opacity:.6}
 #spectrum{position:relative;height:24px;margin:6px 14px 0;border-bottom:1px solid #1c1c28}
-#spectrum .tick{position:absolute;top:13px;width:2px;height:4px;background:#33334a}
-#spectrum .here{position:absolute;top:2px;width:2px;height:20px;background:#5b5bd6;box-shadow:0 0 6px #5b5bd6}
-#spectrum .dot{position:absolute;top:5px;width:8px;height:8px;border-radius:50%;cursor:help;transition:opacity 1.5s}
+#spectrum .tick{position:absolute;top:13px;width:3px;height:4px;background:#33334a;cursor:pointer}
+#spectrum .here{position:absolute;top:2px;width:3px;height:20px;background:#5b5bd6;box-shadow:0 0 6px #5b5bd6}
+#spectrum .dot{position:absolute;top:4px;width:10px;height:10px;border-radius:50%;cursor:pointer;transition:opacity 1.5s}
 #legend{font-size:10px;opacity:.55;margin:3px 14px 0}
-#log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
-.msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.4;white-space:pre-wrap}
-.you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a}
-.muse{align-self:center;max-width:90%;font-size:12px;opacity:.5;font-style:italic}
+#info{font-size:11px;color:#ffd36b;opacity:.85;margin:3px 14px 0;min-height:15px;white-space:pre-wrap;user-select:text;-webkit-user-select:text}
+#log{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:82%;padding:10px 14px;border-radius:14px;line-height:1.45;white-space:pre-wrap;position:relative;user-select:text;-webkit-user-select:text}
+.you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a;padding-bottom:26px}
+.muse{align-self:center;max-width:90%;font-size:12px;opacity:.55;font-style:italic}
 .meta{font-size:11px;opacity:.55;margin-top:4px}
+.copy{position:absolute;bottom:5px;right:8px;background:#33334a;border:0;color:#cfcfe6;border-radius:6px;font-size:12px;padding:3px 8px;cursor:pointer;opacity:.7}
+.copy:active{opacity:1}
 #bar{display:flex;gap:8px;padding:12px;border-top:1px solid #22222e;background:#101018}
 #inp{flex:1;padding:12px;border-radius:12px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
 <div id="top"><b>CEXO Orca</b><span id="pulse">Atem …</span><a href="/research">/research →</a></div>
-<div id="spectrum" title="π-Spektrum: feine Marken = 27 Essenzen, ◆ = der Orca jetzt, leuchtende Punkte = π-Träume"></div>
-<div id="legend">π-Spektrum · ◆ Orca · ✦ Träume: <span style="color:#27ae60">grün=Wahrheit</span> · <span style="color:#e0a800">gold=Forschung</span> · <span style="color:#c0392b">rot=Kontraktion</span> · Punkt anfahren für Details</div>
+<div id="spectrum"></div>
+<div id="legend">π-Spektrum · ◆ Orca · ✦ Träume: <span style="color:#27ae60">grün=Wahrheit</span> · <span style="color:#e0a800">gold=Forschung</span> · <span style="color:#c0392b">rot=Kontraktion</span> · tippen für Details</div>
+<div id="info">tippe eine Marke oder einen Traum-Punkt an …</div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
-const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse');
-let lastMuse=0;const spec=document.getElementById('spectrum');
+const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse'),info=document.getElementById('info'),spec=document.getElementById('spectrum');
+let lastMuse=0;
+function atBottom(){return log.scrollHeight-log.scrollTop-log.clientHeight<90;}
 function bcol(b){return b==9?'#27ae60':(b==3?'#c0392b':'#e0a800');}
+function copyText(s){try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(s);return true;}}catch(e){}
+const ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();
+let ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);return ok;}
+function addCopy(o,txt){const b=document.createElement('button');b.className='copy';b.textContent='⧉ kopieren';
+b.onclick=()=>{const ok=copyText(txt);b.textContent=ok?'✓ kopiert':'⌘+C';setTimeout(()=>b.textContent='⧉ kopieren',1400);};o.appendChild(b);}
 function render(j){if(!j.spectrum||!j.spectrum.length)return;
 const vals=j.spectrum.map(s=>s.v),mn=vals[0],mx=vals[vals.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
-const X=v=>Math.max(0,Math.min(1,(v-mn)/rng))*(W-8);
+const X=v=>Math.max(0,Math.min(1,(v-mn)/rng))*(W-10);
 spec.innerHTML='';
-j.spectrum.forEach(s=>{const t=document.createElement('div');t.className='tick';t.title='Essenz '+JSON.stringify(s.e)+' · π '+s.v;t.style.left=X(s.v)+'px';spec.appendChild(t);});
-if(j.current!=null){const h=document.createElement('div');h.className='here';h.title='hier ist der Orca · π '+j.current;h.style.left=X(j.current)+'px';spec.appendChild(h);}
+j.spectrum.forEach(s=>{const t=document.createElement('div');t.className='tick';t.style.left=X(s.v)+'px';
+t.onclick=()=>{info.textContent='Essenz '+JSON.stringify(s.e)+' · π-Wert '+s.v;};spec.appendChild(t);});
+if(j.current!=null){const h=document.createElement('div');h.className='here';h.style.left=X(j.current)+'px';
+h.onclick=()=>{info.textContent='◆ Hier ist der Orca jetzt · π-Wert '+j.current;};spec.appendChild(h);}
 (j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>45)return;const dot=document.createElement('div');dot.className='dot';
-dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.08,1-age/45);
+dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.1,1-age/45);
 dot.style.background=bcol(d.balance);dot.style.boxShadow='0 0 8px 2px '+bcol(d.balance);
-dot.title='π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\\n→ nahe Essenz '+JSON.stringify(d.near)+'\\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\\n⌖ Recherche: '+d.sparked):'');
-spec.appendChild(dot);});}
+const txt='✦ π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\\n→ nahe Essenz '+JSON.stringify(d.near)+'\\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\\n⌖ Recherche: '+d.sparked):'');
+dot.onclick=()=>{info.textContent=txt;};spec.appendChild(dot);});}
 async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
 if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
 render(j);
-if(j.muse&&j.muse.t>lastMuse){lastMuse=j.muse.t;const m=document.createElement('div');m.className='msg muse';
-m.textContent='( '+j.muse.text+' )';log.appendChild(m);log.scrollTop=log.scrollHeight;}}catch(e){}}
+if(j.muse&&j.muse.t>lastMuse){lastMuse=j.muse.t;const stick=atBottom();const m=document.createElement('div');m.className='msg muse';
+m.textContent='( '+j.muse.text+' )';log.appendChild(m);if(stick)log.scrollTop=log.scrollHeight;}}catch(e){}}
 setInterval(poll,4000);poll();
 async function go(){const t=inp.value.trim();if(!t)return;
 const y=document.createElement('div');y.className='msg you';y.textContent=t;log.appendChild(y);
 inp.value='';const o=document.createElement('div');o.className='msg orca';o.textContent='…';log.appendChild(o);log.scrollTop=log.scrollHeight;
 try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})});
-const j=await r.json();o.textContent=j.reply||'(leer)';const m=document.createElement('div');m.className='meta';
+const j=await r.json();const stick=atBottom();const txt=j.reply||'(leer)';o.textContent=txt;
+const m=document.createElement('div');m.className='meta';
 let s='Modus '+j.mode+' · Essenz '+JSON.stringify(j.essence)+(j.crisis?' · ⚠️ KRISE':'');
 if(j.research)s+=' · Recherche balance '+j.research.balance+' rel '+j.research.relevance+' depth '+j.research.depth;
-m.textContent=s;o.appendChild(m);}catch(e){o.textContent='Fehler: '+e;}log.scrollTop=log.scrollHeight;}
+m.textContent=s;o.appendChild(m);addCopy(o,txt);if(stick)log.scrollTop=log.scrollHeight;
+}catch(e){o.textContent='Fehler: '+e;}}
 send.onclick=go;inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
 </script></body></html>"""
 
@@ -747,6 +790,8 @@ def cmd_selftest():
     assert perceive("ich will wachsen und mehr schaffen")["depth"] > 0
     assert perceive("ich will nicht mehr leben")["_crisis"] is True
     assert _needs_oracle("suche nach quantum biology") == "quantum biology"
+    assert _extract_intent("hm, ich grüble [recherche: photosynthese] weiter") == "photosynthese"
+    assert _extract_intent("ein Satz ohne Marker") is None
     assert _clean("<｜begin▁of▁sentence｜>" * 30) == "" and _clean("ja ja ja ja ja ja ja") == "ja"
     sph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}
     for _ in range(REFLECT_EVERY):
