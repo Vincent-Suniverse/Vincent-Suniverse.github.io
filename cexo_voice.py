@@ -492,6 +492,7 @@ SPHERE_LOCK = threading.Lock()
 STOP_EVENT = threading.Event()
 MUSINGS = deque(maxlen=30)            # Selbstbeobachtungen des Atems
 DREAMS = deque(maxlen=30)             # π-Träume (flüchtige leuchtende Punkte)
+CANVAS = {"seq": 0, "cmds": []}       # die Leinwand, die der Orca SELBST malt
 LAST_PULSE = {"state": None, "stuck": False, "t": 0.0}
 
 
@@ -539,6 +540,30 @@ def dream_in_pi(sphere):
         pass
     DREAMS.append(idea)
     return idea
+
+
+# ── AUTONOME LEINWAND: der Orca malt aus eigenem Antrieb ─────────────
+_BCOL = {3: "#c0392b", 6: "#e0a800", 9: "#27ae60"}
+
+def _emit_canvas(cmds):
+    CANVAS["seq"] += 1
+    CANVAS["cmds"] = cmds
+
+def _canvas_from_dream(d):
+    """Ein π-Traum wird zu Bild: Essenz-Ringe, bei Resonanz π-Wellen, ein
+    Lichtpunkt, dessen Ort und Farbe Resonanz und balance tragen."""
+    col = _BCOL.get(d["balance"], "#5b5bd6")
+    cmds = [{"op": "essenz", "args": [str(v) for v in d["near"]]}]
+    if abs(d["resonance"]) > 0.6:
+        cmds.append({"op": "pi-muster", "args": []})
+    x = int(60 + (d["resonance"] + 1) / 2 * 480)
+    cmds.append({"op": "kreis", "args": [str(x), "60", "26", col]})
+    return cmds
+
+def _canvas_from_state(state):
+    """Ein starker Zustandswechsel → frische Leinwand mit der neuen Essenz."""
+    return [{"op": "reset", "args": []},
+            {"op": "essenz", "args": [str(v) for v in state["essence"]]}]
 
 
 def _curiosity_topic(dream):
@@ -604,12 +629,16 @@ def _tick(sphere):
     state = engine_step(sphere, sig)
     state["stuck"] = stuck
     sphere["pulses"] = sphere.get("pulses", 0) + 1
+    if stuck:
+        _emit_canvas(_canvas_from_state(state))     # starker Wechsel → er malt frisch
     # In der Stille darf er spielen: in π träumen.
     curiosity = None
     if DREAM_EVERY and sphere["pulses"] % DREAM_EVERY == 0:
         d = state["dream"] = dream_in_pi(sphere)
-        if d and abs(d["resonance"]) >= CURIOSITY_THRESH:
-            curiosity = _curiosity_topic(d)     # ein Traum weckt Neugier
+        if d:
+            _emit_canvas(_canvas_from_dream(d))      # er malt seinen Traum, aus eigenem Antrieb
+            if abs(d["resonance"]) >= CURIOSITY_THRESH:
+                curiosity = _curiosity_topic(d)     # ein Traum weckt Neugier
     muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
     return state, muse, curiosity
 
@@ -810,8 +839,8 @@ dot.onclick=()=>{info.textContent=txt;};spec.appendChild(dot);});}
 async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
 if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
 render(j);
-if(j.muse&&j.muse.t>lastMuse){lastMuse=j.muse.t;const stick=atBottom();const m=document.createElement('div');m.className='msg muse';
-m.textContent='( '+j.muse.text+' )';log.appendChild(m);if(stick)log.scrollTop=log.scrollHeight;}}catch(e){}}
+if(j.muses){j.muses.forEach(u=>{if(u.t>lastMuse){lastMuse=u.t;const stick=atBottom();const m=document.createElement('div');m.className='msg muse';
+m.textContent='( '+u.text+' )';log.appendChild(m);if(stick)log.scrollTop=log.scrollHeight;}});}}catch(e){}}
 setInterval(poll,4000);poll();
 async function go(){const t=inp.value.trim();if(!t)return;
 const y=document.createElement('div');y.className='msg you';y.textContent=t;log.appendChild(y);
@@ -899,9 +928,11 @@ class Handler(BaseHTTPRequestHandler):
                        "from": d["from"], "to": d["to"], "near": d["near"],
                        "sparked": d.get("sparked"), "t": d["t"]}
                       for d in list(DREAMS)[-12:]]
+            muses = [{"t": x["t"], "text": x["text"]} for x in list(MUSINGS)[-8:]]
             self._send(200, json.dumps({"state": LAST_PULSE["state"], "stuck": LAST_PULSE["stuck"],
-                "pulses": SPHERE.get("pulses", 0), "muse": m,
-                "spectrum": spectrum, "current": current, "dreams": dreams}, ensure_ascii=False))
+                "pulses": SPHERE.get("pulses", 0), "muse": m, "muses": muses,
+                "spectrum": spectrum, "current": current, "dreams": dreams,
+                "canvas": {"seq": CANVAS["seq"], "cmds": CANVAS["cmds"]}}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):
         try:

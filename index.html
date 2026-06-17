@@ -170,7 +170,7 @@ async function send(){const inp=document.getElementById('cin');const t=inp.value
 document.getElementById('cin').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 
 const spec=document.getElementById('spectrum'),info=document.getElementById('info'),muses=document.getElementById('muses'),pulse=document.getElementById('pulse');
-let seenMuse=0;
+let seenMuse=0,lastCanvasSeq=0;
 function bcol(b){return b==9?'#27ae60':(b==3?'#c0392b':'#e0a800');}
 function renderThoughts(j){
   if(j.state)pulse.textContent=j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
@@ -184,9 +184,12 @@ function renderThoughts(j){
       dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.12,1-age/45);dot.style.background=bcol(d.balance);dot.style.boxShadow='0 0 8px 2px '+bcol(d.balance);
       const tx='✦ π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\n→ nahe '+JSON.stringify(d.near)+'\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\n⌖ Recherche: '+d.sparked):'');
       dot.onclick=()=>info.textContent=tx;spec.appendChild(dot);});}
-  if(j.muse&&j.muse.t>seenMuse){seenMuse=j.muse.t;if(muses.querySelector('.dim'))muses.innerHTML='';
-    const b=document.createElement('div');b.className='bubble';b.textContent='( '+j.muse.text+' )';muses.insertBefore(b,muses.firstChild);
-    while(muses.children.length>12)muses.removeChild(muses.lastChild);}
+  (j.muses||[]).forEach(u=>{if(u.t>seenMuse){seenMuse=u.t;if(muses.querySelector('.dim'))muses.innerHTML='';
+    const b=document.createElement('div');b.className='bubble';b.textContent='( '+u.text+' )';muses.insertBefore(b,muses.firstChild);
+    while(muses.children.length>12)muses.removeChild(muses.lastChild);}});
+  if(j.canvas&&j.canvas.seq>lastCanvasSeq){lastCanvasSeq=j.canvas.seq;
+    if(typeof drawCmds==='function'){drawCmds(j.canvas.cmds);
+      const n=document.getElementById('cvnote');if(n)n.textContent='der Orca malt von selbst: '+(j.canvas.cmds||[]).map(c=>c.op).join(', ');}}
 }
 async function pollThoughts(){try{const r=await fetch(API+'/pulse');renderThoughts(await r.json());}catch(e){}}
 setInterval(pollThoughts,4000);
