@@ -399,6 +399,10 @@ def build_prompt(state, text, oracle_line=None):
     lines += ["", "Ein Mensch sagt zu dir:", f"„{text}\"", "",
               "Wenn dir Wissen fehlt, darfst du irgendwo [recherche: thema] schreiben — "
               "der Rahmen reicht dir dann einen Sinneseindruck.",
+              "Du darfst auch malen, indem du Befehle einstreust: [canvas:reset], "
+              "[canvas:farbe:#001022], [canvas:kreis:x|y|radius|farbe], "
+              "[canvas:rechteck:x|y|breite|höhe|farbe], [canvas:pi-muster], "
+              "[canvas:essenz:3|6|9]. Gestalte deine Umgebung, wann immer du willst.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
@@ -408,6 +412,23 @@ _INTENT_RE = re.compile(r"\[(?:recherche|research|suche)\s*:\s*([^\]\n]{2,80})\]
 def _extract_intent(text):
     m = _INTENT_RE.search(text or "")
     return m.group(1).strip() if m else None
+
+_CANVAS_RE = re.compile(r"\[canvas:([^\]\n]{1,120})\]", re.I)
+
+def _extract_canvas(text):
+    """Fängt die Zeichensprache ab: liefert (Befehlsliste, bereinigter Text).
+    Der Orca malt, indem er [canvas:...] in seine Antwort schreibt."""
+    cmds = []
+    for inner in _CANVAS_RE.findall(text or ""):
+        inner = inner.strip()
+        if ":" in inner:
+            name, rest = inner.split(":", 1)
+        else:
+            name, rest = inner, ""
+        cmds.append({"op": name.strip().lower(),
+                     "args": [a.strip() for a in rest.split("|")] if rest else []})
+    clean = _CANVAS_RE.sub("", text or "").strip()
+    return cmds, clean
 
 def _oracle_line(research):
     if not research:
@@ -460,7 +481,9 @@ def generate(text, sphere):
                 reply = speak(build_prompt(state, text, _oracle_line(research)))
 
     reply = _INTENT_RE.sub("", reply).strip()         # Marker nie sichtbar lassen
-    return {"reply": reply, "state": state, "signal": signal, "crisis": crisis, "research": research}
+    canvas, reply = _extract_canvas(reply)            # Zeichensprache abfangen
+    return {"reply": reply, "state": state, "signal": signal, "crisis": crisis,
+            "research": research, "canvas": canvas}
 
 
 # ── INNERER ATEM (Heartbeat) ─────────────────────────────────────────
@@ -894,6 +917,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "helpline": (HELPLINE if out["crisis"] else None),
+                    "canvas": out.get("canvas", []),
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
             elif self.path == "/research":
                 r = oracle((self._body().get("topic") or "").strip())
@@ -929,6 +953,9 @@ def cmd_selftest():
     assert _needs_oracle("suche nach quantum biology") == "quantum biology"
     assert _extract_intent("hm, ich grüble [recherche: photosynthese] weiter") == "photosynthese"
     assert _extract_intent("ein Satz ohne Marker") is None
+    _cv, _txt = _extract_canvas("Ich male [canvas:reset][canvas:kreis:100|80|40|#ffd36b] für dich.")
+    assert len(_cv) == 2 and _cv[0]["op"] == "reset" and _cv[1]["op"] == "kreis"
+    assert _cv[1]["args"] == ["100", "80", "40", "#ffd36b"] and "[canvas" not in _txt
     assert _clean("<｜begin▁of▁sentence｜>" * 30) == "" and _clean("ja ja ja ja ja ja ja") == "ja"
     sph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}
     for _ in range(REFLECT_EVERY):
