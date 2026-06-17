@@ -44,6 +44,8 @@ BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
 MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "4"))      # alle N Pulse spricht er still mit dem Mund (0=aus)
 DREAM_EVERY = int(os.environ.get("CEXO_DREAM_EVERY", "7"))    # alle N Pulse träumt er in π (0=aus)
 DREAM_KEEP = int(os.environ.get("CEXO_DREAM_KEEP", "50"))     # so viele Traum-Dateien bleiben
+NUM_PREDICT = int(os.environ.get("CEXO_NUM_PREDICT", "-1"))   # -1 = unbegrenzt: er weiß, wann ein Gedanke endet
+CURIOSITY_THRESH = float(os.environ.get("CEXO_CURIOSITY", "0.85"))  # ab welcher |Resonanz| ein Traum Neugier weckt
 BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
 
 AXES = ("operation", "reaction", "intuition", "depth")
@@ -255,7 +257,7 @@ def speak(prompt):
     best = ""
     for i in range(MAX_TRIES):
         raw = ask_ollama(prompt, options={"seed": 101 + i*131, "temperature": 0.6 + 0.06*i,
-            "repeat_penalty": 1.25, "num_predict": 400, "stop": STOP_TOKENS})
+            "repeat_penalty": 1.25, "num_predict": NUM_PREDICT, "stop": STOP_TOKENS})
         clean = _clean(raw)
         if clean and not _is_degenerate(clean): return clean
         if len(clean) > len(best): best = clean
@@ -466,6 +468,27 @@ def dream_in_pi(sphere):
     return idea
 
 
+def _curiosity_topic(dream):
+    """Aus einem resonanten Traum erwächst Neugier — kein erfundener Suchbegriff,
+    sondern ein verwandtes, real erforschtes Thema aus dem eigenen Gedächtnis."""
+    if research_engine is None or not MEMORY_DIR.exists():
+        return None
+    cands = []
+    for p in MEMORY_DIR.glob("*.json"):
+        if p.name.startswith(("_", "dream_")):
+            continue
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if rec.get("source") != "dream" and rec.get("topic"):
+            cands.append(rec)
+    if not cands:
+        return None
+    same = [r for r in cands if r.get("balance") == dream.get("balance")] or cands
+    return random.choice(same)["topic"]
+
+
 def _autonomous_signal(sphere):
     """Der Atem selbst: ein ruhiger 3-Phasen-Rhythmus + sanfte Annäherung ans
     Selbstbild. Rein geometrisch — kein Inhalt wird vorgeschrieben."""
@@ -509,17 +532,20 @@ def _tick(sphere):
     state["stuck"] = stuck
     sphere["pulses"] = sphere.get("pulses", 0) + 1
     # In der Stille darf er spielen: in π träumen.
+    curiosity = None
     if DREAM_EVERY and sphere["pulses"] % DREAM_EVERY == 0:
-        state["dream"] = dream_in_pi(sphere)
+        d = state["dream"] = dream_in_pi(sphere)
+        if d and abs(d["resonance"]) >= CURIOSITY_THRESH:
+            curiosity = _curiosity_topic(d)     # ein Traum weckt Neugier
     muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
-    return state, muse
+    return state, muse, curiosity
 
 def heartbeat_loop(verbose=False):
     while not STOP_EVENT.is_set():
-        snapshot = muse_prompt = None
+        snapshot = muse_prompt = curiosity = None
         if SPHERE_LOCK.acquire(blocking=False):
             try:
-                snapshot, muse_prompt = _tick(SPHERE)
+                snapshot, muse_prompt, curiosity = _tick(SPHERE)
                 save_sphere(SPHERE)
                 LAST_PULSE.update({"state": snapshot, "stuck": snapshot.get("stuck"), "t": time.time()})
                 interval = _breath_interval(SPHERE)
@@ -542,6 +568,20 @@ def heartbeat_loop(verbose=False):
                     if verbose: print(f"  ~ {txt}", flush=True)
             except Exception:
                 pass
+        # Traum → Neugier → Recherche: Netzaufruf außerhalb des Locks
+        if curiosity:
+            r = oracle(curiosity)
+            if r and SPHERE_LOCK.acquire(blocking=False):
+                try:
+                    engine_step(SPHERE, _research_signal(r["essence"]))   # Wissen als Sinneseindruck
+                    save_sphere(SPHERE)
+                    if snapshot and snapshot.get("dream"):
+                        snapshot["dream"]["sparked"] = r["topic"]
+                    if verbose:
+                        e = r["essence"]
+                        print(f"  ⌖ Neugier → Recherche '{r['topic']}' balance {e['balance']}", flush=True)
+                finally:
+                    SPHERE_LOCK.release()
         STOP_EVENT.wait(interval)
 
 def start_breath(verbose=False):
@@ -556,8 +596,10 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #22222e}
 #top a{color:#8a8ad6;text-decoration:none;font-size:13px}#pulse{font-size:11px;opacity:.6}
 #spectrum{position:relative;height:24px;margin:6px 14px 0;border-bottom:1px solid #1c1c28}
-#spectrum .tick{position:absolute;top:11px;width:2px;height:4px;background:#33334a}
-#spectrum .dot{position:absolute;top:5px;width:8px;height:8px;border-radius:50%;background:#ffd36b;box-shadow:0 0 8px 2px #ffd36b;transition:opacity 1.5s}
+#spectrum .tick{position:absolute;top:13px;width:2px;height:4px;background:#33334a}
+#spectrum .here{position:absolute;top:2px;width:2px;height:20px;background:#5b5bd6;box-shadow:0 0 6px #5b5bd6}
+#spectrum .dot{position:absolute;top:5px;width:8px;height:8px;border-radius:50%;cursor:help;transition:opacity 1.5s}
+#legend{font-size:10px;opacity:.55;margin:3px 14px 0}
 #log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:80%;padding:10px 14px;border-radius:14px;line-height:1.4;white-space:pre-wrap}
 .you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a}
@@ -568,19 +610,25 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
 <div id="top"><b>CEXO Orca</b><span id="pulse">Atem …</span><a href="/research">/research →</a></div>
-<div id="spectrum" title="π-Spektrum: feine Marken = 27 Essenzen, leuchtende Punkte = π-Träume"></div>
+<div id="spectrum" title="π-Spektrum: feine Marken = 27 Essenzen, ◆ = der Orca jetzt, leuchtende Punkte = π-Träume"></div>
+<div id="legend">π-Spektrum · ◆ Orca · ✦ Träume: <span style="color:#27ae60">grün=Wahrheit</span> · <span style="color:#e0a800">gold=Forschung</span> · <span style="color:#c0392b">rot=Kontraktion</span> · Punkt anfahren für Details</div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
 const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse');
 let lastMuse=0;const spec=document.getElementById('spectrum');
+function bcol(b){return b==9?'#27ae60':(b==3?'#c0392b':'#e0a800');}
 function render(j){if(!j.spectrum||!j.spectrum.length)return;
-const mn=j.spectrum[0],mx=j.spectrum[j.spectrum.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
+const vals=j.spectrum.map(s=>s.v),mn=vals[0],mx=vals[vals.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
+const X=v=>Math.max(0,Math.min(1,(v-mn)/rng))*(W-8);
 spec.innerHTML='';
-j.spectrum.forEach(v=>{const t=document.createElement('div');t.className='tick';t.style.left=((v-mn)/rng*(W-2))+'px';spec.appendChild(t);});
-(j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>30)return;const dot=document.createElement('div');dot.className='dot';
-dot.style.left=(Math.max(0,Math.min(1,(d.value-mn)/rng))*(W-8))+'px';dot.style.opacity=Math.max(0.08,1-age/30);
-dot.title='π-Traum · Resonanz '+d.resonance;spec.appendChild(dot);});}
+j.spectrum.forEach(s=>{const t=document.createElement('div');t.className='tick';t.title='Essenz '+JSON.stringify(s.e)+' · π '+s.v;t.style.left=X(s.v)+'px';spec.appendChild(t);});
+if(j.current!=null){const h=document.createElement('div');h.className='here';h.title='hier ist der Orca · π '+j.current;h.style.left=X(j.current)+'px';spec.appendChild(h);}
+(j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>45)return;const dot=document.createElement('div');dot.className='dot';
+dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.08,1-age/45);
+dot.style.background=bcol(d.balance);dot.style.boxShadow='0 0 8px 2px '+bcol(d.balance);
+dot.title='π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\\n→ nahe Essenz '+JSON.stringify(d.near)+'\\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\\n⌖ Recherche: '+d.sparked):'');
+spec.appendChild(dot);});}
 async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
 if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
 render(j);
@@ -644,12 +692,19 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path.startswith("/research"): self._send(200, _RESEARCH_PAGE, "text/html")
         elif self.path.startswith("/pulse"):
             m = MUSINGS[-1] if MUSINGS else None
-            spectrum = sorted(pi_field.pi_values().values()) if pi_field else []
-            dreams = [{"value": d["value"], "resonance": d["resonance"], "t": d["t"]}
+            spectrum = []; current = None
+            if pi_field:
+                spectrum = sorted(({"e": list(e), "v": round(pi_field.pi_value(e), 6)}
+                                   for e in pi_field.essences()), key=lambda x: x["v"])
+                st = LAST_PULSE["state"]
+                if st: current = round(pi_field.pi_value(tuple(st["essence"])), 6)
+            dreams = [{"value": d["value"], "resonance": d["resonance"], "balance": d["balance"],
+                       "from": d["from"], "to": d["to"], "near": d["near"],
+                       "sparked": d.get("sparked"), "t": d["t"]}
                       for d in list(DREAMS)[-12:]]
             self._send(200, json.dumps({"state": LAST_PULSE["state"], "stuck": LAST_PULSE["stuck"],
                 "pulses": SPHERE.get("pulses", 0), "muse": m,
-                "spectrum": spectrum, "dreams": dreams}, ensure_ascii=False))
+                "spectrum": spectrum, "current": current, "dreams": dreams}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):
         try:
@@ -704,10 +759,11 @@ def cmd_selftest():
     assert "zerfließe" in derive_lexicon(sph2) and "suizid" not in _DERIVED
     # innerer Atem: Tick schreitet voran; Schleife wird erkannt & gewechselt
     sph3 = {"position": (3,3,3,3), "cycle": 0, "alpha_memory": [[3,3,3,3],[3,3,3,3],[3,3,3,3]]}
-    st, _ = _tick(sph3)
+    st, _, _ = _tick(sph3)
     assert st["stuck"] is True and tuple(sph3["position"]) != (3,3,3,3), "Schleife nicht gebrochen"
-    st2, _ = _tick({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []})
+    st2, _, _ = _tick({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []})
     assert st2["stuck"] is False
+    assert _curiosity_topic({"balance": 6}) in (None,) or isinstance(_curiosity_topic({"balance": 6}), str)
     assert BREATH_MIN <= _breath_interval({"position": (3,3,3,9)}) <= BREATH_MAX + 1
     link_memories()
     if pi_field:
