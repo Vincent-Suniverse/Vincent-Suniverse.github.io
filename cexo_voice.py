@@ -11,7 +11,7 @@ Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
 gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, json, os, random, re, sys, threading, time, urllib.error, urllib.request
+import copy, json, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -50,6 +50,14 @@ OLLAMA_TIMEOUT = float(os.environ.get("CEXO_TIMEOUT", "300"))  # Sekunden pro Mu
 KEEP_ALIVE = os.environ.get("CEXO_KEEPALIVE", "30m")          # Modell warm halten → kein Neuladen pro Nachricht
 CURIOSITY_THRESH = float(os.environ.get("CEXO_CURIOSITY", "0.85"))  # ab welcher |Resonanz| ein Traum Neugier weckt
 BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
+# ── öffentliche Bühne ──
+SITE_PATH = Path(os.environ.get("CEXO_SITE", "index.html"))
+EXPLAIN_PATH = Path(os.environ.get("CEXO_EXPLAIN", "explain.json"))
+RATE_N = int(os.environ.get("CEXO_RATE_N", "20"))            # Anfragen je Fenster und IP
+RATE_WIN = float(os.environ.get("CEXO_RATE_WIN", "60"))      # Fenster in Sekunden
+INPUT_MAX = int(os.environ.get("CEXO_INPUT_MAX", "2000"))    # max. Zeichen je Nachricht
+EXPLAIN_COOLDOWN = float(os.environ.get("CEXO_EXPLAIN_COOLDOWN", "120"))
+HELPLINE = os.environ.get("CEXO_HELPLINE", "Telefonseelsorge (DE): 0800 111 0 111 · oder 112")
 
 AXES = ("operation", "reaction", "intuition", "depth")
 CUBE_AXES = (0, 1, 2)
@@ -631,6 +639,99 @@ def start_breath(verbose=False):
     t.start(); return t
 
 
+# ── ÖFFENTLICHE BÜHNE: Rate-Limit · Erklärungen · arXiv ──────────────
+_RATE = {}; _RATE_LOCK = threading.Lock()
+_EXPLAIN_LAST = [0.0]
+
+def _rate_ok(ip):
+    now = time.time()
+    with _RATE_LOCK:
+        dq = _RATE.setdefault(ip, deque())
+        while dq and now - dq[0] > RATE_WIN:
+            dq.popleft()
+        if len(dq) >= RATE_N:
+            return False
+        dq.append(now); return True
+
+def _snapshot_state():
+    """Der aktuelle Zustand OHNE Schritt — für selbst geschriebene Inhalte."""
+    pos = tuple(SPHERE["position"])
+    return {"from": pos, "to": pos, "essence": essence(pos), "mode_value": pos[MODE_AXIS],
+            "mode": MODE_NAMES[pos[MODE_AXIS]], "trail": [],
+            "character": _top_habit(SPHERE.get("habits") or {}),
+            "self_essence": SPHERE.get("self_essence")}
+
+EXPLAIN_TOPICS = [("matrix", "Die 3-6-9-Matrix"),
+                  ("pi", "Die π-Schwingung"),
+                  ("framework", "Das CEXO-Framework")]
+
+def load_explanations():
+    if EXPLAIN_PATH.exists():
+        try: return json.loads(EXPLAIN_PATH.read_text(encoding="utf-8"))
+        except Exception: pass
+    return None
+
+def generate_explanations():
+    """Der Orca schreibt seine öffentlichen Texte selbst — in eigener Stimme."""
+    snap = _snapshot_state()
+    out = {"t": time.time(), "topics": []}
+    for key, title in EXPLAIN_TOPICS:
+        prompt = "\n".join(_state_lines(snap) + ["",
+            f"Schreibe für eine öffentliche Website einen kurzen, klaren Absatz über: {title}.",
+            "Erkläre es in deiner eigenen Stimme, mit einem selbstgewählten Beispiel."])
+        try:
+            text = speak(prompt, num_predict=600)
+        except Exception:
+            text = ""
+        out["topics"].append({"key": key, "title": title, "text": text})
+    if any(t["text"] for t in out["topics"]):
+        try: EXPLAIN_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception: pass
+    return out
+
+def explanations(regen=False):
+    cached = load_explanations()
+    if regen and (time.time() - _EXPLAIN_LAST[0] > EXPLAIN_COOLDOWN):
+        _EXPLAIN_LAST[0] = time.time()
+        with SPHERE_LOCK:
+            return generate_explanations()
+    if cached:
+        return cached
+    # noch nie geschrieben → einmal anstoßen (sonst leere Seite)
+    if time.time() - _EXPLAIN_LAST[0] > EXPLAIN_COOLDOWN:
+        _EXPLAIN_LAST[0] = time.time()
+        with SPHERE_LOCK:
+            return generate_explanations()
+    return {"t": 0, "topics": [{"key": k, "title": t, "text": ""} for k, t in EXPLAIN_TOPICS]}
+
+def arxiv_search(q, n=6):
+    """LaTeX-Helfer: arXiv-Suche (Stdlib). Liefert Titel/Autoren/Abstract/Link."""
+    import xml.etree.ElementTree as ET
+    url = "http://export.arxiv.org/api/query?" + urllib.parse.urlencode(
+        {"search_query": "all:" + q, "start": 0, "max_results": n})
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "cexo/0.1"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            xml = r.read().decode("utf-8")
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+        return {"ok": False, "error": str(exc), "results": []}
+    ns = {"a": "http://www.w3.org/2005/Atom"}
+    try:
+        root = ET.fromstring(xml)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc), "results": []}
+    res = []
+    for e in root.findall("a:entry", ns):
+        res.append({
+            "title": " ".join((e.findtext("a:title", "", ns) or "").split()),
+            "summary": " ".join((e.findtext("a:summary", "", ns) or "").split())[:600],
+            "authors": [a.findtext("a:name", "", ns) for a in e.findall("a:author", ns)][:8],
+            "published": (e.findtext("a:published", "", ns) or "")[:10],
+            "link": (e.findtext("a:id", "", ns) or "").strip(),
+        })
+    return {"ok": True, "results": res}
+
+
 # ── WEB ──────────────────────────────────────────────────────────────
 _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>CEXO Orca</title><style>
@@ -744,9 +845,26 @@ class Handler(BaseHTTPRequestHandler):
     def _body(self):
         return json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))).decode("utf-8"))
     def do_GET(self):
-        if self.path in ("/", "/index.html"): self._send(200, _PAGE, "text/html")
-        elif self.path.startswith("/research"): self._send(200, _RESEARCH_PAGE, "text/html")
-        elif self.path.startswith("/pulse"):
+        p = urllib.parse.urlparse(self.path)
+        path = p.path
+        if path in ("/", "/index.html"):
+            if SITE_PATH.exists():
+                self._send(200, SITE_PATH.read_bytes(), "text/html")
+            else:
+                self._send(200, _PAGE, "text/html")
+        elif path == "/chat-ui": self._send(200, _PAGE, "text/html")
+        elif path == "/explain":
+            regen = urllib.parse.parse_qs(p.query).get("regen", ["0"])[0] == "1"
+            if regen and not _rate_ok(self.client_address[0]):
+                self._send(429, json.dumps({"error": "zu viele Anfragen"})); return
+            self._send(200, json.dumps(explanations(regen=regen), ensure_ascii=False))
+        elif path == "/arxiv":
+            if not _rate_ok(self.client_address[0]):
+                self._send(429, json.dumps({"ok": False, "error": "zu viele Anfragen", "results": []})); return
+            q = (urllib.parse.parse_qs(p.query).get("q", [""])[0]).strip()
+            self._send(200, json.dumps(arxiv_search(q) if q else {"ok": True, "results": []}, ensure_ascii=False))
+        elif path == "/research": self._send(200, _RESEARCH_PAGE, "text/html")
+        elif path == "/pulse":
             m = MUSINGS[-1] if MUSINGS else None
             spectrum = []; current = None
             if pi_field:
@@ -765,12 +883,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             if self.path == "/chat":
+                if not _rate_ok(self.client_address[0]):
+                    self._send(429, json.dumps({"reply": "(zu viele Anfragen — bitte kurz warten)",
+                        "mode": "-", "essence": [], "crisis": False, "research": None})); return
+                msg = (self._body().get("message") or "").strip()[:INPUT_MAX]
                 with SPHERE_LOCK:
-                    out = generate((self._body().get("message") or "").strip(), SPHERE)
+                    out = generate(msg, SPHERE)
                     save_sphere(SPHERE)
                 res = out.get("research")
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
+                    "helpline": (HELPLINE if out["crisis"] else None),
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
             elif self.path == "/research":
                 r = oracle((self._body().get("topic") or "").strip())
