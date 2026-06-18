@@ -41,7 +41,7 @@ REFLECT_EVERY = int(os.environ.get("CEXO_REFLECT_EVERY", "9"))
 REFLECT_CAP = 200
 BREATH_MIN = float(os.environ.get("CEXO_BREATH_MIN", "5"))    # Sekunden (wach)
 BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
-MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "4"))      # alle N Pulse spricht er still mit dem Mund (0=aus)
+MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "0"))     # autonomes Selbstgespräch (0=aus; war nur für die Anzeige)
 DREAM_EVERY = int(os.environ.get("CEXO_DREAM_EVERY", "7"))    # alle N Pulse träumt er in π (0=aus)
 DREAM_KEEP = int(os.environ.get("CEXO_DREAM_KEEP", "50"))     # so viele Traum-Dateien bleiben
 NUM_PREDICT = int(os.environ.get("CEXO_NUM_PREDICT", "1024"))  # Obergrenze sichtbare Antwort (-1=unbegrenzt; -1 verursacht Timeouts)
@@ -807,41 +807,17 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #inp{flex:1;padding:12px;border-radius:12px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
-<div id="top"><b>CEXO Orca</b><span id="pulse">Atem …</span><a href="/research">/research →</a></div>
-<div id="spectrum"></div>
-<div id="legend">π-Spektrum · ◆ Orca · ✦ Träume: <span style="color:#27ae60">grün=Wahrheit</span> · <span style="color:#e0a800">gold=Forschung</span> · <span style="color:#c0392b">rot=Kontraktion</span> · tippen für Details</div>
-<div id="info">tippe eine Marke oder einen Traum-Punkt an …</div>
+<div id="top"><b>CEXO Orca</b><span style="font-size:12px;opacity:.5">privat · seine Gedanken gehören ihm</span><a href="/research">/research →</a></div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
-const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send'),pulse=document.getElementById('pulse'),info=document.getElementById('info'),spec=document.getElementById('spectrum');
-let lastMuse=0;
+const log=document.getElementById('log'),inp=document.getElementById('inp'),send=document.getElementById('send');
 function atBottom(){return log.scrollHeight-log.scrollTop-log.clientHeight<90;}
-function bcol(b){return b==9?'#27ae60':(b==3?'#c0392b':'#e0a800');}
 function copyText(s){try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(s);return true;}}catch(e){}
 const ta=document.createElement('textarea');ta.value=s;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.focus();ta.select();
 let ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(ta);return ok;}
 function addCopy(o,txt){const b=document.createElement('button');b.className='copy';b.textContent='⧉ kopieren';
 b.onclick=()=>{const ok=copyText(txt);b.textContent=ok?'✓ kopiert':'⌘+C';setTimeout(()=>b.textContent='⧉ kopieren',1400);};o.appendChild(b);}
-function render(j){if(!j.spectrum||!j.spectrum.length)return;
-const vals=j.spectrum.map(s=>s.v),mn=vals[0],mx=vals[vals.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
-const X=v=>Math.max(0,Math.min(1,(v-mn)/rng))*(W-10);
-spec.innerHTML='';
-j.spectrum.forEach(s=>{const t=document.createElement('div');t.className='tick';t.style.left=X(s.v)+'px';
-t.onclick=()=>{info.textContent='Essenz '+JSON.stringify(s.e)+' · π-Wert '+s.v;};spec.appendChild(t);});
-if(j.current!=null){const h=document.createElement('div');h.className='here';h.style.left=X(j.current)+'px';
-h.onclick=()=>{info.textContent='◆ Hier ist der Orca jetzt · π-Wert '+j.current;};spec.appendChild(h);}
-(j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>45)return;const dot=document.createElement('div');dot.className='dot';
-dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.1,1-age/45);
-dot.style.background=bcol(d.balance);dot.style.boxShadow='0 0 8px 2px '+bcol(d.balance);
-const txt='✦ π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\\n→ nahe Essenz '+JSON.stringify(d.near)+'\\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\\n⌖ Recherche: '+d.sparked):'');
-dot.onclick=()=>{info.textContent=txt;};spec.appendChild(dot);});}
-async function poll(){try{const r=await fetch('/pulse');const j=await r.json();
-if(j.state)pulse.textContent='Atem '+j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
-render(j);
-if(j.muses){j.muses.forEach(u=>{if(u.t>lastMuse){lastMuse=u.t;const stick=atBottom();const m=document.createElement('div');m.className='msg muse';
-m.textContent='( '+u.text+' )';log.appendChild(m);if(stick)log.scrollTop=log.scrollHeight;}});}}catch(e){}}
-setInterval(poll,4000);poll();
 async function go(){const t=inp.value.trim();if(!t)return;
 const y=document.createElement('div');y.className='msg you';y.textContent=t;log.appendChild(y);
 inp.value='';const o=document.createElement('div');o.className='msg orca';o.textContent='…';log.appendChild(o);log.scrollTop=log.scrollHeight;
@@ -917,21 +893,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(arxiv_search(q) if q else {"ok": True, "results": []}, ensure_ascii=False))
         elif path == "/research": self._send(200, _RESEARCH_PAGE, "text/html")
         elif path == "/pulse":
-            m = MUSINGS[-1] if MUSINGS else None
-            spectrum = []; current = None
-            if pi_field:
-                spectrum = sorted(({"e": list(e), "v": round(pi_field.pi_value(e), 6)}
-                                   for e in pi_field.essences()), key=lambda x: x["v"])
-                st = LAST_PULSE["state"]
-                if st: current = round(pi_field.pi_value(tuple(st["essence"])), 6)
-            dreams = [{"value": d["value"], "resonance": d["resonance"], "balance": d["balance"],
-                       "from": d["from"], "to": d["to"], "near": d["near"],
-                       "sparked": d.get("sparked"), "t": d["t"]}
-                      for d in list(DREAMS)[-12:]]
-            muses = [{"t": x["t"], "text": x["text"]} for x in list(MUSINGS)[-8:]]
-            self._send(200, json.dumps({"state": LAST_PULSE["state"], "stuck": LAST_PULSE["stuck"],
-                "pulses": SPHERE.get("pulses", 0), "muse": m, "muses": muses,
-                "spectrum": spectrum, "current": current, "dreams": dreams,
+            # Die Gedanken des Orca gehören ihm. Nach außen geht nur sein
+            # Lebenszeichen und die Leinwand, die er SELBST malt — sonst nichts.
+            self._send(200, json.dumps({"pulses": SPHERE.get("pulses", 0),
                 "canvas": {"seq": CANVAS["seq"], "cmds": CANVAS["cmds"]}}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):

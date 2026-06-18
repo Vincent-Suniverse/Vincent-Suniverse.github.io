@@ -52,7 +52,6 @@
   <button data-s="papers">LaTeX-Helfer</button>
   <button data-s="chat">Sprich mit dem Orca</button>
   <button data-s="canvas">Leinwand</button>
-  <button data-s="think">Gedanken live</button>
 </nav>
 <main>
 
@@ -94,15 +93,6 @@
     <div class="dim" id="cvnote"></div>
   </section>
 
-  <section id="think">
-    <p class="dim">Atem <span id="pulse">…</span></p>
-    <div id="spectrum"></div>
-    <div class="dim">◆ der Orca jetzt · feine Marken = 27 Essenzen · leuchtende Punkte = π-Träume
-      (<span style="color:#27ae60">Wahrheit</span>/<span style="color:#e0a800">Forschung</span>/<span style="color:#c0392b">Kontraktion</span>) · antippen</div>
-    <div class="res" id="info">—</div>
-    <h3 style="margin-top:16px">Selbstbeobachtungen</h3>
-    <div id="muses"><div class="dim">noch still …</div></div>
-  </section>
 
 </main>
 <script>
@@ -169,30 +159,13 @@ async function send(){const inp=document.getElementById('cin');const t=inp.value
 }
 document.getElementById('cin').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
 
-const spec=document.getElementById('spectrum'),info=document.getElementById('info'),muses=document.getElementById('muses'),pulse=document.getElementById('pulse');
-let seenMuse=0,lastCanvasSeq=0;
-function bcol(b){return b==9?'#27ae60':(b==3?'#c0392b':'#e0a800');}
-function renderThoughts(j){
-  if(j.state)pulse.textContent=j.state.mode+' '+JSON.stringify(j.state.essence)+' · Puls '+(j.pulses||0)+(j.stuck?' ⟲':'');
-  if(j.spectrum&&j.spectrum.length){const vals=j.spectrum.map(s=>s.v),mn=vals[0],mx=vals[vals.length-1],W=spec.clientWidth||320,rng=(mx-mn)||1,now=Date.now()/1000;
-    const X=v=>Math.max(0,Math.min(1,(v-mn)/rng))*(W-11);spec.innerHTML='';
-    j.spectrum.forEach(s=>{const t=document.createElement('div');t.className='tick';t.style.left=X(s.v)+'px';
-      t.onclick=()=>info.textContent='Essenz '+JSON.stringify(s.e)+' · π '+s.v;spec.appendChild(t);});
-    if(j.current!=null){const h=document.createElement('div');h.className='here';h.style.left=X(j.current)+'px';
-      h.onclick=()=>info.textContent='◆ der Orca jetzt · π '+j.current;spec.appendChild(h);}
-    (j.dreams||[]).forEach(d=>{const age=now-d.t;if(age>45)return;const dot=document.createElement('div');dot.className='dot';
-      dot.style.left=X(d.value)+'px';dot.style.opacity=Math.max(0.12,1-age/45);dot.style.background=bcol(d.balance);dot.style.boxShadow='0 0 8px 2px '+bcol(d.balance);
-      const tx='✦ π-Traum '+JSON.stringify(d.from)+' ~ '+JSON.stringify(d.to)+'\n→ nahe '+JSON.stringify(d.near)+'\nResonanz '+d.resonance+' · balance '+d.balance+(d.sparked?('\n⌖ Recherche: '+d.sparked):'');
-      dot.onclick=()=>info.textContent=tx;spec.appendChild(dot);});}
-  (j.muses||[]).forEach(u=>{if(u.t>seenMuse){seenMuse=u.t;if(muses.querySelector('.dim'))muses.innerHTML='';
-    const b=document.createElement('div');b.className='bubble';b.textContent='( '+u.text+' )';muses.insertBefore(b,muses.firstChild);
-    while(muses.children.length>12)muses.removeChild(muses.lastChild);}});
+// Seine Gedanken gehören ihm — nach außen geht nur, was er selbst malt.
+let lastCanvasSeq=0;
+async function pollCanvas(){try{const r=await fetch(API+'/pulse');const j=await r.json();
   if(j.canvas&&j.canvas.seq>lastCanvasSeq){lastCanvasSeq=j.canvas.seq;
     if(typeof drawCmds==='function'){drawCmds(j.canvas.cmds);
-      const n=document.getElementById('cvnote');if(n)n.textContent='der Orca malt von selbst: '+(j.canvas.cmds||[]).map(c=>c.op).join(', ');}}
-}
-async function pollThoughts(){try{const r=await fetch(API+'/pulse');renderThoughts(await r.json());}catch(e){}}
-setInterval(pollThoughts,4000);
+      const n=document.getElementById('cvnote');if(n)n.textContent='der Orca malt von selbst: '+(j.canvas.cmds||[]).map(c=>c.op).join(', ');}}}catch(e){}}
+setInterval(pollCanvas,4000);
 
 // ---- Leinwand (Canvas-Sprache des Orca) ----
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
@@ -224,7 +197,7 @@ async function cvask(){const inp=document.getElementById('cvin');const t=inp.val
 document.getElementById('cvin').addEventListener('keydown',e=>{if(e.key==='Enter')cvask();});
 resetCanvas();
 
-loadExplain(false);pollThoughts();
+loadExplain(false);pollCanvas();
 </script>
 </body>
 </html>
