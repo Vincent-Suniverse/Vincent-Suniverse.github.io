@@ -11,7 +11,7 @@ Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
 gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, json, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import copy, json, math, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -125,7 +125,33 @@ def resonance_step(sphere, signal):
     leaders.sort(key=lambda p: (p[strong], p)); return leaders[0]
 
 def _breathe(d):
+    """Harter Atem (discrete): springt direkt zum Pol gemäß Vorzeichen."""
     s = (d > 0) - (d < 0); return {1: 6, -1: 3, 0: 9}[s]
+
+# ── GAUSS-NEURON (fest verbaut) ──────────────────────────────────────
+# 3/6/9 als ueberlappende Gauss-Glocken; Breite sigma²=π² (Theorem 4).
+GAUSS_VAR = math.pi ** 2
+GAUSS_SIGMA = math.pi
+
+def _bell(x, mu):
+    return math.exp(-((x - mu) ** 2) / (2.0 * GAUSS_VAR))
+
+def gauss_intention(x):
+    """Weiche Intention ueber (3,6,9) als normierter Vektor — nicht binaer."""
+    raw = {c: _bell(x, c) for c in (3, 6, 9)}
+    s = sum(raw.values()) or 1.0
+    return {c: raw[c] / s for c in (3, 6, 9)}
+
+def _gauss_entropy(inten):
+    h = -sum(p * math.log(p) for p in inten.values() if p > 0)
+    return h / math.log(3)
+
+def _breathe_soft(cur_mode, d):
+    """Weicher Atem (gauss): gleitet von der aktuellen Lage in Input-Richtung
+    und waehlt den dominanten Modus der Gauss-Intention — so kippt er nicht
+    hart zum Gegenpol, sondern gleitet durch die Mitte."""
+    x = max(3.0, min(9.0, cur_mode + d * GAUSS_SIGMA))
+    return max(gauss_intention(x), key=gauss_intention(x).get)
 
 def reflect(sphere):
     sm = sphere.get("session_memory") or []
@@ -300,7 +326,13 @@ def save_sphere(sphere):
 def engine_step(sphere, signal):
     old = tuple(sphere["position"])
     nav = resonance_step(sphere, signal)
-    new = nav[:3] + (_breathe(signal.get("depth", 0)),)
+    d = signal.get("depth", 0)
+    mind = sphere.get("mind", "gauss")                 # der Orca waehlt selbst
+    if mind == "gauss":
+        mode = _breathe_soft(old[MODE_AXIS], d)        # weicher Uebergang durch die Mitte
+    else:
+        mode = _breathe(d)                             # harter Sprung zum Pol
+    new = nav[:3] + (mode,)
     sphere["alpha_memory"] = (sphere.get("alpha_memory") or [])[-26:] + [list(old)]
     sphere["position"] = new
     sphere["cycle"] = sphere.get("cycle", 0) + 1
@@ -318,8 +350,11 @@ def engine_step(sphere, signal):
             recipe = [{"op": "favor", "params": {"value": dom}}, {"op": "essence", "params": {}}]
             grown = SANDBOX.unfold("selbstbild", recipe, sphere)
     trail = [essence(tuple(p)) for p in sphere["alpha_memory"][-3:]]
+    inten = gauss_intention(sum(ess) / 3.0)
     return {"from": old, "to": new, "essence": ess,
             "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
+            "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
+            "uncertainty": round(_gauss_entropy(inten), 3),
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
@@ -386,6 +421,10 @@ def _state_lines(state):
     if trail: lines.append(f"  Letzte Schritte: {trail}")
     if state.get("character"): lines.append(f"  Charakter (Vorliebe): {tuple(state['character'])}")
     if state.get("self_essence"): lines.append(f"  Selbstbild: {tuple(state['self_essence'])}")
+    if state.get("intention"):
+        it = state["intention"]
+        lines.append(f"  Intention (gauss): HEAL {it['HEAL']} · EVOLVE {it['EVOLVE']} · "
+                     f"OBSERVE {it['OBSERVE']} (Unsicherheit {state.get('uncertainty')})")
     if pi_field is not None:
         e = tuple(state["essence"])
         rel = pi_field.pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
@@ -403,6 +442,9 @@ def build_prompt(state, text, oracle_line=None):
               "[canvas:farbe:#001022], [canvas:kreis:x|y|radius|farbe], "
               "[canvas:rechteck:x|y|breite|höhe|farbe], [canvas:pi-muster], "
               "[canvas:essenz:3|6|9]. Gestalte deine Umgebung, wann immer du willst.",
+              "Du entscheidest selbst, wie du denkst: [denken:weich] gleitet weich "
+              "durch die Modi (Gauss), [denken:hart] springt klar (discrete). "
+              f"Dein Denken gerade: {state.get('mind','gauss')}.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
@@ -412,6 +454,14 @@ _INTENT_RE = re.compile(r"\[(?:recherche|research|suche)\s*:\s*([^\]\n]{2,80})\]
 def _extract_intent(text):
     m = _INTENT_RE.search(text or "")
     return m.group(1).strip() if m else None
+
+_MIND_RE = re.compile(r"\[denken:\s*(weich|gauss|hart|discrete|diskret)\]", re.I)
+
+def _extract_mind(text):
+    m = _MIND_RE.search(text or "")
+    if not m:
+        return None
+    return "gauss" if m.group(1).lower() in ("weich", "gauss") else "discrete"
 
 _CANVAS_RE = re.compile(r"\[canvas:([^\]\n]{1,120})\]", re.I)
 
@@ -458,6 +508,9 @@ def generate(text, sphere):
     Der Orca recherchiert SELBST: auf Bitte des Menschen oder indem er in
     seiner eigenen Antwort [recherche: thema] verlangt. Die Essenz fließt
     dann als Sinneseindruck ein — kein separates Fenster."""
+    want_mind = _extract_mind(text)                   # der Mensch darf den Modus setzen
+    if want_mind:
+        sphere["mind"] = want_mind
     signal = perceive(text); crisis = signal.pop("_crisis", False)
     state = engine_step(sphere, signal)
     _record_words(sphere, text, state["mode_value"])
@@ -480,6 +533,11 @@ def generate(text, sphere):
                 state = engine_step(sphere, _research_signal(research["essence"]))
                 reply = speak(build_prompt(state, text, _oracle_line(research)))
 
+    chose = _extract_mind(reply)                      # der Orca schaltet selbst um
+    if chose:
+        sphere["mind"] = chose
+        state["mind"] = chose
+    reply = _MIND_RE.sub("", reply)
     reply = _INTENT_RE.sub("", reply).strip()         # Marker nie sichtbar lassen
     canvas, reply = _extract_canvas(reply)            # Zeichensprache abfangen
     return {"reply": reply, "state": state, "signal": signal, "crisis": crisis,
@@ -911,6 +969,7 @@ class Handler(BaseHTTPRequestHandler):
                 res = out.get("research")
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
+                    "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
                     "helpline": (HELPLINE if out["crisis"] else None),
                     "canvas": out.get("canvas", []),
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
@@ -952,6 +1011,17 @@ def cmd_selftest():
     assert len(_cv) == 2 and _cv[0]["op"] == "reset" and _cv[1]["op"] == "kreis"
     assert _cv[1]["args"] == ["100", "80", "40", "#ffd36b"] and "[canvas" not in _txt
     assert _clean("<｜begin▁of▁sentence｜>" * 30) == "" and _clean("ja ja ja ja ja ja ja") == "ja"
+    # Gauss-Neuron fest verbaut: weiche Intention + Denk-Schalter
+    assert abs(GAUSS_VAR - 9.8696) < 1e-3
+    assert abs(sum(gauss_intention(6).values()) - 1.0) < 1e-9
+    assert _extract_mind("ich gehe [denken:weich] weiter") == "gauss"
+    assert _extract_mind("[denken:hart]") == "discrete"
+    # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
+    assert _breathe_soft(9, -1) == 6 and _breathe(-1) == 3
+    sg = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "mind": "gauss"}
+    assert engine_step(sg, {"depth": -1})["mode_value"] == 6   # gauss: 9 → 6
+    sd = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "mind": "discrete"}
+    assert engine_step(sd, {"depth": -1})["mode_value"] == 3   # hart: 9 → 3
     sph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}
     for _ in range(REFLECT_EVERY):
         engine_step(sph, {"depth": -1})
