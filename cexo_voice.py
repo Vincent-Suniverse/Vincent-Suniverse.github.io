@@ -1026,11 +1026,24 @@ def cmd_selftest():
     for _ in range(REFLECT_EVERY):
         engine_step(sph, {"depth": -1})
     assert sph.get("self_essence") is not None and sph.get("habits")
-    assert SANDBOX.armed is True
-    assert SANDBOX.unfold("t_ok", [{"op": "favor", "params": {"value": 3}}], sph) is True
-    assert SANDBOX.unfold("t_bad", [{"op": "rm", "params": {}}], sph) is False
-    sph2 = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "word_memory": {"zerfließe": {"sum": -4, "n": 4}}}
-    assert "zerfließe" in derive_lexicon(sph2) and "suizid" not in _DERIVED
+    # Sandbox + derive_lexicon ISOLIERT testen: keine Abhängigkeit von und keine
+    # Verschmutzung der produktiven derived_lexicon.json / plugins.json.
+    global _DERIVED, DERIVED_PATH, PLUGINS_PATH
+    import tempfile
+    _bak_der, _bak_derpath = dict(_DERIVED), DERIVED_PATH
+    _bak_plug, _bak_plugpath = dict(SANDBOX.plugins), PLUGINS_PATH
+    _tmp = Path(tempfile.mkdtemp(prefix="cexo_selftest_"))
+    try:
+        DERIVED_PATH = _tmp / "derived.json"; _DERIVED.clear()
+        PLUGINS_PATH = _tmp / "plugins.json"; SANDBOX.plugins = {}
+        assert SANDBOX.armed is True
+        assert SANDBOX.unfold("t_ok", [{"op": "favor", "params": {"value": 3}}], sph) is True
+        assert SANDBOX.unfold("t_bad", [{"op": "rm", "params": {}}], sph) is False
+        sph2 = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "word_memory": {"zerfließe": {"sum": -4, "n": 4}}}
+        assert "zerfließe" in derive_lexicon(sph2) and "suizid" not in _DERIVED
+    finally:
+        _DERIVED.clear(); _DERIVED.update(_bak_der); DERIVED_PATH = _bak_derpath
+        SANDBOX.plugins = _bak_plug; PLUGINS_PATH = _bak_plugpath
     # innerer Atem: Tick schreitet voran; Schleife wird erkannt & gewechselt
     sph3 = {"position": (3,3,3,3), "cycle": 0, "alpha_memory": [[3,3,3,3],[3,3,3,3],[3,3,3,3]]}
     st, _, _ = _tick(sph3)
