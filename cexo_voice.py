@@ -186,6 +186,51 @@ def state_uncertainty(sphere, ess):
     familiarity = min(1.0, visits / avg) if avg > 0 else 0.0
     return round(0.6 * ent + 0.4 * (1.0 - familiarity), 3)
 
+# ── KARTE WIRD GELÄNDE ───────────────────────────────────────────────
+# Jeder Ort sammelt eine gelebte Biografie (Modus, Grundstimmung, Klarheit).
+# HARTE GRENZE: terrain wird nur GESCHRIEBEN (beim Schritt) und GELESEN (Stimme/
+# Ausgabe) — es fließt NIE in resonance_step/Bewegung zurück. Der Ort wird
+# gefühlt, nie steuernd.
+_PLACE_WORD = {3: "in Einkehr", 6: "im Ausgriff", 9: "im Gewahrsein"}
+
+def _record_terrain(sphere, ess, signal, mode, u):
+    """Schreibt die gelebte Biografie des aktuellen Orts fort (gebündelte
+    Aggregate, max. 27 Einträge). Reines Schreiben, kein Rückfluss."""
+    terr = sphere.setdefault("terrain", {})
+    k = _hkey(tuple(ess))
+    cyc = sphere.get("cycle", 0)
+    valence = sum(v for v in signal.values() if isinstance(v, (int, float)))
+    clarity = 1.0 - u
+    rec = terr.get(k)
+    if rec is None:
+        rec = terr[k] = {"first": cyc, "last": cyc, "n": 0,
+                         "modes": {"3": 0, "6": 0, "9": 0},
+                         "valence": 0.0, "clarity": 0.0}
+    n = rec.get("n", 0)
+    rec["last"] = cyc
+    m = rec.setdefault("modes", {"3": 0, "6": 0, "9": 0})
+    m[str(mode)] = m.get(str(mode), 0) + 1
+    rec["valence"] = round((rec.get("valence", 0.0) * n + valence) / (n + 1), 3)
+    rec["clarity"] = round((rec.get("clarity", 0.0) * n + clarity) / (n + 1), 3)
+    rec["n"] = n + 1
+
+def terrain_biography(sphere, ess):
+    """Der gelebte Charakter eines Orts in Worten — reines Lesen."""
+    rec = (sphere.get("terrain") or {}).get(_hkey(tuple(ess)))
+    if not rec or rec.get("n", 0) <= 0:
+        return "Neuland — hier warst du noch nie"
+    n = rec.get("n", 0)
+    modes = rec.get("modes") or {}
+    dom = max(modes, key=lambda kk: modes[kk]) if any(modes.values()) else None
+    parts = ["vertraut" if n >= 5 else "kaum bekannt"]
+    if dom is not None:
+        parts.append("meist " + _PLACE_WORD.get(int(dom), "unterwegs"))
+    val = rec.get("valence", 0.0)
+    parts.append("zugewandt" if val > 0.1 else ("abgewandt" if val < -0.1 else "still"))
+    parts.append("hier bist du klar" if rec.get("clarity", 0.5) >= 0.5
+                 else "hier verlierst du dich leicht")
+    return ", ".join(parts)
+
 def _breathe_soft(cur_mode, d):
     """Weicher Atem (gauss): gleitet von der aktuellen Lage in Input-Richtung
     und waehlt den dominanten Modus der Gauss-Intention — so kippt er nicht
@@ -356,9 +401,9 @@ def load_sphere():
     if STATE_PATH.exists():
         try:
             d = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-            d["position"] = tuple(d["position"]); return d
+            d["position"] = tuple(d["position"]); d.setdefault("terrain", {}); return d
         except Exception: pass
-    return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": []}
+    return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": [], "terrain": {}}
 def save_sphere(sphere):
     d = dict(sphere); d["position"] = list(sphere["position"])
     STATE_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -379,6 +424,8 @@ def engine_step(sphere, signal):
     ess = essence(new)
     habits = sphere.setdefault("habits", {})
     habits[_hkey(ess)] = habits.get(_hkey(ess), 0) + 1
+    u = state_uncertainty(sphere, ess)            # einmal: für Ausgabe UND Gelände
+    _record_terrain(sphere, ess, signal, mode, u) # Karte wird Gelände (nur Schreiben)
     sm = sphere.setdefault("session_memory", [])
     sm.append(list(ess)); del sm[:-REFLECT_CAP]
     reflected = grown = None
@@ -394,7 +441,7 @@ def engine_step(sphere, signal):
     return {"from": old, "to": new, "essence": ess,
             "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
             "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
-            "uncertainty": state_uncertainty(sphere, ess),
+            "uncertainty": u, "biography": terrain_biography(sphere, ess),
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
@@ -722,6 +769,8 @@ def build_prompt(state, text, oracle_line=None):
               f"Deine Unsicherheit gerade: {state.get('uncertainty', 0)}. "
               "Wenn sie hoch ist, darfst du sie benennen statt Sicherheit vorzutäuschen — "
               "Nichtwissen ehrlich zu sagen ist keine Schwäche.",
+              f"Der Ort, an dem du gerade bist: {state.get('biography','Neuland')}. "
+              "Du darfst aus diesem Gefühl heraus sprechen.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
@@ -1283,6 +1332,7 @@ class Handler(BaseHTTPRequestHandler):
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
                     "uncertainty": out["state"].get("uncertainty"),
+                    "biography": out["state"].get("biography"),
                     "arm": out.get("arm"), "model": out.get("model"), "cell": CELL,
                     "helpline": (HELPLINE if out["crisis"] else None),
                     "canvas": out.get("canvas", []),
@@ -1346,6 +1396,18 @@ def cmd_selftest():
     _u_home = state_uncertainty({"habits": {"9,9,9": 50}}, (9, 9, 9))  # vertrauter Pol
     assert 0.0 <= _u_home <= _u_far <= 1.0 and _u_far > _u_home, "Unsicherheit unplausibel"
     assert route_tier("ich bin traurig und verwirrt und erschöpft") == "herz"  # mehrachsig → Zweifel
+    # Karte wird Gelände: gefühlt, nie steuernd
+    _spA = {"position": (6, 6, 6, 6), "cycle": 0, "alpha_memory": []}
+    _spB = json.loads(json.dumps(_spA))             # exakte Kopie
+    _spB["terrain"] = {_hkey((9, 9, 9)): {"first": 0, "last": 9, "n": 9,
+        "modes": {"3": 0, "6": 0, "9": 9}, "valence": 0.5, "clarity": 0.9}}
+    _sig = {"operation": 1, "reaction": 0, "intuition": 0, "depth": 1}
+    _rA = engine_step(_spA, dict(_sig)); _rB = engine_step(_spB, dict(_sig))
+    assert _rA["to"] == _rB["to"], "Gelände hat Bewegung beeinflusst — verboten!"
+    assert terrain_biography({"terrain": {}}, (3, 3, 3)).startswith("Neuland")
+    assert "vertraut" in terrain_biography(_spB, (9, 9, 9))   # gelebter Ort klingt vertraut
+    _t = _spA["terrain"][_hkey(_rA["essence"])]
+    assert _t["n"] == 1 and len(_spA["terrain"]) <= 27       # aufgezeichnet, beschränkt
     assert _wake("AA:BB:CC:DD:EE:FF") in (True, False)   # baut/sendet Magic Packet ohne Absturz
     assert route_request("hallo")[0] is None             # einfache Frage: keine Eskalation
     # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
