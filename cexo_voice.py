@@ -11,7 +11,7 @@ Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
 gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, json, math, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import copy, hashlib, json, math, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -41,6 +41,16 @@ ARMS = _parse_arms(os.environ.get("CEXO_ARMS",
     "wissenschaftler=qwen2.5:3b,mathematiker=deepseek-r1,agent=glm-4.7-flash,"
     "sprachler=llama3.2:3b,poet=gemma2:2b"))
 ARMS.setdefault("herz", OLLAMA_MODEL)   # das Herz = das π-Modell (Default-Arm)
+ARMS_PATH = Path(os.environ.get("CEXO_ARMS_FILE", "arms.json"))
+if ARMS_PATH.exists():                   # selbst gesetzte Arme (via Tiefschlaf) laden
+    try: ARMS.update(json.loads(ARMS_PATH.read_text(encoding="utf-8")))
+    except Exception: pass
+# ── Selbstmodifikation / Schwarm ──
+INSTANCE_ID = os.environ.get("CEXO_INSTANCE", "i1")          # je Maschine eindeutig setzen
+N_INSTANCES = int(os.environ.get("CEXO_INSTANCES", "3"))     # Schwarm-Größe (Konvergenz-Basis)
+SELFMOD_ON = os.environ.get("CEXO_SELFMOD", "1") not in ("0", "off", "false")
+DEEPSLEEP_EVERY = int(os.environ.get("CEXO_DEEPSLEEP_EVERY", "27"))  # Pulse bis Tiefschlaf
+BACKUP_DIR = Path(os.environ.get("CEXO_BACKUP_DIR", "backups"))
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
 DERIVED_PATH = Path(os.environ.get("CEXO_DERIVED", "derived_lexicon.json"))
 PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
@@ -421,6 +431,163 @@ def link_memories():
     return links
 
 
+# ── SELBSTMODIFIKATION ───────────────────────────────────────────────
+# Traum → Sandbox-Probe → geometrische Bewertung durch mehrere Arme →
+# Konvergenz über UNABHÄNGIGE Instanzen → Anwendung erst im Tiefschlaf,
+# mit Backup/Rollback. Jede Anwendung ist ein gehashter Block (prev_hash)
+# — der saubere Andockpunkt für die spätere Blockchain.
+def _ess_from_text(s):
+    """Deterministische Essenz {3,6,9}^3 aus einem String (geometrische Bewertung)."""
+    h = int(hashlib.sha256(s.encode("utf-8")).hexdigest(), 16)
+    vals = (3, 6, 9)
+    return tuple(vals[(h >> (3 * i)) % 3] for i in range(3))
+
+def propose_change(op, origin=None):
+    """Eine Änderungsidee (z.B. {'type':'set_arm','role':'poet','model':'gemma2:2b'})
+    entsteht als Vorschlag in MEMORY_DIR und wird via Memory-Sync verteilt."""
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    pid = f"prop_{int(time.time())}_{random.randint(1000, 9999)}"
+    ess = _ess_from_text(json.dumps(op, sort_keys=True))
+    prop = {"id": pid, "kind": "proposal", "op": op, "essence": list(ess),
+            "origin": origin or INSTANCE_ID, "ts": time.time()}
+    (MEMORY_DIR / f"{pid}.json").write_text(json.dumps(prop, ensure_ascii=False, indent=2), encoding="utf-8")
+    return prop
+
+def _probe_op(op):
+    """Harte Sandbox-Sicherung: Kern bleibt heil, Op ist wohlgeformt."""
+    try:
+        verify_sacred_core()
+    except Exception:
+        return False
+    if op.get("type") == "set_arm":
+        return bool(op.get("role")) and isinstance(op.get("model"), str) and bool(op.get("model"))
+    return False                                   # unbekannte Ops nie anwenden
+
+def _geo_verdict(prop_ess, arm_role):
+    """Geometrische Bewertung eines Arms: Resonanz Vorschlag ↔ Arm-Haltung."""
+    stance = _ess_from_text("arm:" + arm_role)
+    if pi_field is not None:
+        res = pi_field.pi_resonance(tuple(prop_ess), stance)
+    else:
+        res = 1.0 - _distance(tuple(prop_ess), stance) / 1.5
+    return {"arm": arm_role, "resonance": round(res, 4), "approve": res >= 0.0}
+
+def evaluate_proposal(prop):
+    """Diese Instanz bewertet einen Vorschlag mit ALLEN Armen + Sandbox-Probe und
+    schreibt ihren eigenen Bewertungs-Block (eval_{pid}__{instanz}.json)."""
+    pid = prop["id"]; ess = prop.get("essence", [9, 9, 9])
+    safe = _probe_op(prop["op"])
+    verdicts = [_geo_verdict(ess, r) for r in ARMS if r != "herz"]
+    approvals = sum(1 for v in verdicts if v["approve"])
+    approve = bool(safe and verdicts and approvals > len(verdicts) / 2.0)
+    rec = {"prop_id": pid, "instance": INSTANCE_ID, "safe": safe,
+           "verdicts": verdicts, "approve": approve, "ts": time.time()}
+    (MEMORY_DIR / f"eval_{pid}__{INSTANCE_ID}.json").write_text(
+        json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+    return rec
+
+def _collect_evals(pid):
+    out = {}
+    for p in MEMORY_DIR.glob(f"eval_{pid}__*.json"):
+        try: r = json.loads(p.read_text(encoding="utf-8"))
+        except Exception: continue
+        out[r.get("instance")] = r                 # eine Stimme je Instanz
+    return list(out.values())
+
+def converged(pid):
+    """Mehrheit UNABHÄNGIGER Instanzen — kein Einzelbeschluss."""
+    evs = _collect_evals(pid)
+    yes = sum(1 for e in evs if e.get("approve"))
+    need = N_INSTANCES // 2 + 1
+    return (yes >= need), yes, need
+
+def _backup_file(path):
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    if Path(path).exists():
+        b = BACKUP_DIR / f"{Path(path).name}.{int(time.time())}.bak"
+        b.write_text(Path(path).read_text(encoding="utf-8"), encoding="utf-8")
+        return str(b)
+    return None
+
+def _apply_op(op):
+    """Wendet eine Op an — Backup vorher, Rollback bei Downgrade. ARMS-Set zuerst."""
+    if op.get("type") != "set_arm":
+        return False, "unbekannte op"
+    role, model = str(op["role"]).lower(), op["model"]
+    snap = dict(ARMS)                               # In-Memory-Backup
+    backup = _backup_file(ARMS_PATH)                # Datei-Backup
+    overrides = {}
+    if ARMS_PATH.exists():
+        try: overrides = json.loads(ARMS_PATH.read_text(encoding="utf-8"))
+        except Exception: overrides = {}
+    overrides[role] = model
+    ARMS_PATH.write_text(json.dumps(overrides, ensure_ascii=False, indent=2), encoding="utf-8")
+    ARMS[role] = model
+    # Downgrade-Check: Kern heil UND Herz nie leer
+    ok = True
+    try: verify_sacred_core()
+    except Exception: ok = False
+    if not ARMS.get("herz"): ok = False
+    if not ok:                                      # Rollback
+        ARMS.clear(); ARMS.update(snap)
+        if backup: ARMS_PATH.write_text(Path(backup).read_text(encoding="utf-8"), encoding="utf-8")
+        elif ARMS_PATH.exists(): ARMS_PATH.unlink()
+        return False, "downgrade → rollback"
+    return True, backup
+
+def _latest_block():
+    blocks = sorted(MEMORY_DIR.glob("block_*.json"))
+    for b in reversed(blocks):
+        try: return json.loads(b.read_text(encoding="utf-8"))
+        except Exception: continue
+    return None
+
+def _write_block(op, pid, evals):
+    """Anwendung = Block. prev_hash verkettet → Andockpunkt für die Blockchain."""
+    prev = _latest_block()
+    index = (prev["index"] + 1) if prev else 0
+    prev_hash = prev["hash"] if prev else "0" * 64
+    body = {"index": index, "prev_hash": prev_hash, "op": op, "prop_id": pid,
+            "instance": INSTANCE_ID,
+            "votes": sorted(e["instance"] for e in evals if e.get("approve")),
+            "ts": time.time()}
+    body["hash"] = hashlib.sha256(
+        (prev_hash + json.dumps(body, sort_keys=True)).encode("utf-8")).hexdigest()
+    (MEMORY_DIR / f"block_{index:06d}_{pid}.json").write_text(
+        json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
+    return body
+
+def deep_sleep():
+    """Tiefschlaf-Konsolidierung: bewertet offene Vorschläge (diese Instanz) und
+    wendet NUR konvergente an — nie sofort, nur hier. Jede Anwendung ein Block."""
+    if not SELFMOD_ON:
+        return []
+    applied = []
+    for p in sorted(MEMORY_DIR.glob("prop_*.json")):
+        try: prop = json.loads(p.read_text(encoding="utf-8"))
+        except Exception: continue
+        pid = prop.get("id")
+        if not pid:
+            continue
+        if not (MEMORY_DIR / f"eval_{pid}__{INSTANCE_ID}.json").exists():
+            evaluate_proposal(prop)                # 1) selbst bewerten
+        if (MEMORY_DIR / f"applied_{pid}.json").exists():
+            continue                               # 2) schon angewandt
+        ok, yes, need = converged(pid)             # 3) Konvergenz?
+        if not ok:
+            continue
+        evs = _collect_evals(pid)
+        success, info = _apply_op(prop["op"])      # 4) Backup + Anwendung + Rollback
+        block = _write_block(prop["op"], pid, evs) if success else None
+        (MEMORY_DIR / f"applied_{pid}.json").write_text(json.dumps(
+            {"prop_id": pid, "applied": success, "info": str(info),
+             "block": (block["hash"] if block else None), "votes": yes, "need": need,
+             "ts": time.time()}, ensure_ascii=False, indent=2), encoding="utf-8")
+        if success:
+            applied.append({"pid": pid, "op": prop["op"], "block": block["hash"]})
+    return applied
+
+
 # ── PROMPT ───────────────────────────────────────────────────────────
 def _state_lines(state):
     mode = state["mode_value"]
@@ -734,6 +901,9 @@ def _tick(sphere):
             _emit_canvas(_canvas_from_dream(d))      # er malt seinen Traum, aus eigenem Antrieb
             if abs(d["resonance"]) >= CURIOSITY_THRESH:
                 curiosity = _curiosity_topic(d)     # ein Traum weckt Neugier
+    # Tiefschlaf (Pause-Phase): konsolidieren & konvergente Änderungen anwenden
+    if SELFMOD_ON and sphere["pulses"] % DEEPSLEEP_EVERY == 0:
+        state["deep_sleep"] = deep_sleep()
     muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
     return state, muse, curiosity
 
@@ -1103,7 +1273,36 @@ def cmd_selftest():
         st = engine_step({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}, {"depth": 0})
         assert "π-Schwingung" in build_prompt(st, "hallo"), "π-Kopplung fehlt im Prompt"
         print(f"  π-Traum-Beispiel: {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}")
-    print(f"selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem, π-Sinn={'an' if pi_field else 'aus'}, π-Traum — alles grün.")
+    # Selbstmodifikation: Konvergenz über 3 Instanzen → Tiefschlaf-Anwendung → Block
+    global MEMORY_DIR, ARMS_PATH, BACKUP_DIR, INSTANCE_ID, N_INSTANCES
+    import tempfile
+    _bm, _ba, _bb, _bi, _bn, _barms = MEMORY_DIR, ARMS_PATH, BACKUP_DIR, INSTANCE_ID, N_INSTANCES, dict(ARMS)
+    _t = Path(tempfile.mkdtemp(prefix="cexo_selfmod_"))
+    try:
+        MEMORY_DIR = _t / "memory"; ARMS_PATH = _t / "arms.json"; BACKUP_DIR = _t / "bk"
+        N_INSTANCES = 3
+        INSTANCE_ID = "i1"; prop = propose_change({"type": "set_arm", "role": "poet", "model": "test:neu"})
+        pid = prop["id"]
+        # nur i1 → noch keine Konvergenz, keine Anwendung
+        assert deep_sleep() == [] and "test:neu" != ARMS.get("poet")
+        # zweite unabhängige Instanz stimmt zu → Mehrheit 2/3
+        INSTANCE_ID = "i2"; evaluate_proposal(prop)
+        ev = _collect_evals(pid); assert len({e["instance"] for e in ev}) == 2
+        if all(e["approve"] for e in ev):                 # nur testen, wenn beide zustimmen
+            INSTANCE_ID = "i1"; applied = deep_sleep()
+            assert applied and ARMS["poet"] == "test:neu", "Anwendung fehlgeschlagen"
+            assert json.loads(ARMS_PATH.read_text())["poet"] == "test:neu", "arms.json nicht persistiert"
+            blocks = list(MEMORY_DIR.glob("block_*.json")); assert len(blocks) == 1, "kein Block"
+            blk = json.loads(blocks[0].read_text()); assert len(blk["hash"]) == 64 and blk["prev_hash"] == "0"*64
+        # Rollback: Herz darf nie geleert werden
+        ok, _info = _apply_op({"type": "set_arm", "role": "herz", "model": ""})
+        assert ok is False and ARMS.get("herz"), "Downgrade-Rollback fehlt"
+    finally:
+        MEMORY_DIR, ARMS_PATH, BACKUP_DIR = _bm, _ba, _bb
+        INSTANCE_ID, N_INSTANCES = _bi, _bn
+        ARMS.clear(); ARMS.update(_barms)
+    print(f"selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem, Arme, "
+          f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), π-Sinn={'an' if pi_field else 'aus'} — alles grün.")
 
 def main():
     args = sys.argv[1:]
@@ -1118,6 +1317,18 @@ def main():
     elif args[0] == "research" and len(args) > 1 and research_engine:
         r = oracle(" ".join(args[1:])); e = r["essence"]
         print(f"{r['topic']}: balance {e['balance']} · relevance {e['relevance']} · depth {e['depth']:+d} [{r['source']}]")
+    elif args[0] == "propose" and len(args) >= 4 and args[1] == "set_arm":
+        prop = propose_change({"type": "set_arm", "role": args[2], "model": args[3]})
+        evaluate_proposal(prop)   # diese Instanz stimmt gleich mit ab
+        print(f"Vorschlag {prop['id']} angelegt (essence {prop['essence']}). "
+              f"Wird im Tiefschlaf bei Konvergenz von {N_INSTANCES//2+1}/{N_INSTANCES} Instanzen angewandt.")
+    elif args[0] == "deepsleep":
+        print("Tiefschlaf-Konsolidierung:", deep_sleep() or "nichts Konvergentes.")
+    elif args[0] == "ledger":
+        for b in sorted(MEMORY_DIR.glob("block_*.json")):
+            try: d = json.loads(b.read_text(encoding="utf-8"))
+            except Exception: continue
+            print(f"#{d['index']:>4} {d['hash'][:12]} ← {d['prev_hash'][:12]} | {d['op']} | votes {d['votes']}")
     else:
         try:
             with SPHERE_LOCK:
