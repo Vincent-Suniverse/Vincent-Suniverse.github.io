@@ -57,6 +57,7 @@ PEER_HERZ = os.environ.get("CEXO_PEER_HERZ", "").rstrip("/")   # URL der Herz-Ze
 PEER_KRAFT = os.environ.get("CEXO_PEER_KRAFT", "").rstrip("/") # URL der Kraft-Zelle
 WAKE_KRAFT_MAC = os.environ.get("CEXO_WAKE_KRAFT_MAC", "")   # Wake-on-LAN MAC der Kraft-Zelle
 TIER_ORDER = {"botschafter": 0, "herz": 1, "kraft": 2}
+UNCERTAIN_HIGH = float(os.environ.get("CEXO_UNCERTAIN", "0.66"))   # Schwelle: Nichtwissen wird zum Signal
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
 DERIVED_PATH = Path(os.environ.get("CEXO_DERIVED", "derived_lexicon.json"))
 PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
@@ -173,6 +174,17 @@ def gauss_intention(x):
 def _gauss_entropy(inten):
     h = -sum(p * math.log(p) for p in inten.values() if p > 0)
     return h / math.log(3)
+
+def state_uncertainty(sphere, ess):
+    """Echte epistemische Unsicherheit (0..1): zwischen den Modi schweben
+    (Gauß-Entropie) UND in fremdem Gelände stehen (selten besuchte Essenz).
+    Hoch = der Orca weiß, dass er gerade nicht weiß."""
+    ent = _gauss_entropy(gauss_intention(sum(ess) / 3.0))
+    habits = sphere.get("habits") or {}
+    visits = habits.get(_hkey(tuple(ess)), 0)
+    avg = (sum(habits.values()) / 27.0) if habits else 0.0
+    familiarity = min(1.0, visits / avg) if avg > 0 else 0.0
+    return round(0.6 * ent + 0.4 * (1.0 - familiarity), 3)
 
 def _breathe_soft(cur_mode, d):
     """Weicher Atem (gauss): gleitet von der aktuellen Lage in Input-Richtung
@@ -382,7 +394,7 @@ def engine_step(sphere, signal):
     return {"from": old, "to": new, "essence": ess,
             "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
             "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
-            "uncertainty": round(_gauss_entropy(inten), 3),
+            "uncertainty": state_uncertainty(sphere, ess),
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
@@ -610,6 +622,9 @@ def route_tier(text):
         return "kraft"
     sig = perceive(t); sig.pop("_crisis", None)
     intensity = sum(abs(v) for v in sig.values())     # wie stark die Achsen gestirrt sind
+    spread = sum(1 for ax in CUBE_AXES if sig.get(AXES[ax], 0) != 0)  # Mehrdeutigkeit
+    if spread >= 2:                                   # Selbst-Zweifel: zieht mehrere Achsen → ans Herz
+        return "herz"
     load = intensity + len(t) // 200 + (3 if any(w in t for w in _HEAVY) else 0)
     return "herz" if load >= 3 else "botschafter"
 
@@ -704,6 +719,9 @@ def build_prompt(state, text, oracle_line=None):
               + ", ".join(r for r in ARMS if r != "herz")
               + ", herz. Wähle selbst per [arm:rolle], wenn ein anderer Arm besser passt; "
               f"er gilt ab dann. Dein Arm gerade: {state.get('arm','herz')}.",
+              f"Deine Unsicherheit gerade: {state.get('uncertainty', 0)}. "
+              "Wenn sie hoch ist, darfst du sie benennen statt Sicherheit vorzutäuschen — "
+              "Nichtwissen ehrlich zu sagen ist keine Schwäche.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
@@ -977,6 +995,11 @@ def _tick(sphere):
             _emit_canvas(_canvas_from_dream(d))      # er malt seinen Traum, aus eigenem Antrieb
             if abs(d["resonance"]) >= CURIOSITY_THRESH:
                 curiosity = _curiosity_topic(d)     # ein Traum weckt Neugier
+    # Das Wissen des Nichtwissens: hohe Unsicherheit zieht nach innen + weckt Neugier
+    if state.get("uncertainty", 0) >= UNCERTAIN_HIGH:
+        reflect(sphere)                              # wenn verloren, schau nach innen
+        if curiosity is None:
+            curiosity = _curiosity_topic({"balance": new[MODE_AXIS]})  # aus Nichtwissen Wissen suchen
     # Tiefschlaf (Pause-Phase): konsolidieren & konvergente Änderungen anwenden
     if SELFMOD_ON and sphere["pulses"] % DEEPSLEEP_EVERY == 0:
         state["deep_sleep"] = deep_sleep()
@@ -1259,6 +1282,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
+                    "uncertainty": out["state"].get("uncertainty"),
                     "arm": out.get("arm"), "model": out.get("model"), "cell": CELL,
                     "helpline": (HELPLINE if out["crisis"] else None),
                     "canvas": out.get("canvas", []),
@@ -1317,6 +1341,11 @@ def cmd_selftest():
     assert route_tier("hi") == "botschafter"
     assert route_tier("zeichne mir ein bild vom meer") == "kraft"
     assert route_tier("beweise das theorem und analysiere den algorithmus") == "herz"
+    # Metakognition: Unsicherheit als Maß + Eskalation aus Selbst-Zweifel
+    _u_far = state_uncertainty({"habits": {}}, (3, 6, 9))          # fremdes Zwischen-Gelände
+    _u_home = state_uncertainty({"habits": {"9,9,9": 50}}, (9, 9, 9))  # vertrauter Pol
+    assert 0.0 <= _u_home <= _u_far <= 1.0 and _u_far > _u_home, "Unsicherheit unplausibel"
+    assert route_tier("ich bin traurig und verwirrt und erschöpft") == "herz"  # mehrachsig → Zweifel
     assert _wake("AA:BB:CC:DD:EE:FF") in (True, False)   # baut/sendet Magic Packet ohne Absturz
     assert route_request("hallo")[0] is None             # einfache Frage: keine Eskalation
     # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
