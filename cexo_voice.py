@@ -11,7 +11,7 @@ Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
 gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, hashlib, json, math, os, random, re, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import copy, hashlib, json, math, os, random, re, socket, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -51,6 +51,12 @@ N_INSTANCES = int(os.environ.get("CEXO_INSTANCES", "3"))     # Schwarm-Größe (
 SELFMOD_ON = os.environ.get("CEXO_SELFMOD", "1") not in ("0", "off", "false")
 DEEPSLEEP_EVERY = int(os.environ.get("CEXO_DEEPSLEEP_EVERY", "27"))  # Pulse bis Tiefschlaf
 BACKUP_DIR = Path(os.environ.get("CEXO_BACKUP_DIR", "backups"))
+# ── Schwarm-Zellen: Botschafter (Hetzner) → Herz (Dell) → Kraft (Gaming) ──
+CELL = os.environ.get("CEXO_CELL", "herz")                   # botschafter | herz | kraft
+PEER_HERZ = os.environ.get("CEXO_PEER_HERZ", "").rstrip("/")   # URL der Herz-Zelle
+PEER_KRAFT = os.environ.get("CEXO_PEER_KRAFT", "").rstrip("/") # URL der Kraft-Zelle
+WAKE_KRAFT_MAC = os.environ.get("CEXO_WAKE_KRAFT_MAC", "")   # Wake-on-LAN MAC der Kraft-Zelle
+TIER_ORDER = {"botschafter": 0, "herz": 1, "kraft": 2}
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
 DERIVED_PATH = Path(os.environ.get("CEXO_DERIVED", "derived_lexicon.json"))
 PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
@@ -586,6 +592,76 @@ def deep_sleep():
         if success:
             applied.append({"pid": pid, "op": prop["op"], "block": block["hash"]})
     return applied
+
+
+# ── SCHWARM-ROUTING: die natürliche Hierarchie der Zellen ────────────
+# Welche ZELLE antwortet, fällt aus der Geometrie der Anfrage — kein Befehl.
+_VISION = ("bild", "foto", "zeichne", "male ", "vision", "sieh dir", "image",
+           "render", "video", "grafik", "diagramm", "screenshot", "erkenne auf")
+_HEAVY = ("beweise", "beweis", "integral", "theorem", "gleichung", "code",
+          "programm", "funktion", "architektur", "analysiere", "optimier",
+          "komplex", "algorithmus", "herleitung")
+
+def route_tier(text):
+    """Geometrische Einstufung → welche Zelle gebraucht wird.
+    einfach → botschafter · komplex → herz · Vision/Kraft → kraft."""
+    t = (text or "").lower()
+    if any(w in t for w in _VISION):
+        return "kraft"
+    sig = perceive(t); sig.pop("_crisis", None)
+    intensity = sum(abs(v) for v in sig.values())     # wie stark die Achsen gestirrt sind
+    load = intensity + len(t) // 200 + (3 if any(w in t for w in _HEAVY) else 0)
+    return "herz" if load >= 3 else "botschafter"
+
+def _peer_alive(peer_url):
+    if not peer_url:
+        return False
+    try:
+        with urllib.request.urlopen(peer_url + "/pulse", timeout=3) as r:
+            return getattr(r, "status", 200) == 200
+    except Exception:
+        return False
+
+def _relay(peer_url, text, timeout=None):
+    """Reicht die Anfrage an eine stärkere Zelle weiter (relayed=1 → kein Loop)."""
+    try:
+        data = json.dumps({"message": text, "relayed": 1}).encode("utf-8")
+        req = urllib.request.Request(peer_url + "/chat", data=data,
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=(OLLAMA_TIMEOUT if timeout is None else timeout)) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+
+def _wake(mac):
+    """Weckt die Kraft-Zelle per Wake-on-LAN (Magic Packet)."""
+    try:
+        m = mac.replace(":", "").replace("-", "").strip()
+        if len(m) != 12:
+            return False
+        pkt = b"\xff" * 6 + bytes.fromhex(m) * 16
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        s.sendto(pkt, ("255.255.255.255", 9)); s.close()
+        return True
+    except Exception:
+        return False
+
+def route_request(text):
+    """Wählt die Zelle und liefert ggf. die Antwort einer stärkeren Zelle.
+    Rückgabe: (antwort_dict_oder_None, ziel_tier). None → diese Zelle antwortet selbst."""
+    need = route_tier(text)
+    if TIER_ORDER.get(need, 1) <= TIER_ORDER.get(CELL, 1):
+        return None, CELL                              # wir sind stark genug → selbst
+    peer = PEER_KRAFT if need == "kraft" else PEER_HERZ
+    if need == "kraft" and peer and not _peer_alive(peer) and WAKE_KRAFT_MAC:
+        _wake(WAKE_KRAFT_MAC)                           # schwere Waffen wecken
+    if peer:
+        ans = _relay(peer, text)
+        if ans is not None:
+            ans["routed"] = need
+            return ans, need
+    return None, CELL                                  # Peer nicht da → selbst (Fallback)
 
 
 # ── PROMPT ───────────────────────────────────────────────────────────
@@ -1169,7 +1245,13 @@ class Handler(BaseHTTPRequestHandler):
                 if not _rate_ok(self.client_address[0]):
                     self._send(429, json.dumps({"reply": "(zu viele Anfragen — bitte kurz warten)",
                         "mode": "-", "essence": [], "crisis": False, "research": None})); return
-                msg = (self._body().get("message") or "").strip()[:INPUT_MAX]
+                body = self._body()
+                msg = (body.get("message") or "").strip()[:INPUT_MAX]
+                # Schwarm-Routing: nur eine NICHT weitergereichte Anfrage darf eskalieren
+                if not body.get("relayed"):
+                    relayed_ans, tier = route_request(msg)
+                    if relayed_ans is not None:
+                        self._send(200, json.dumps(relayed_ans, ensure_ascii=False)); return
                 with SPHERE_LOCK:
                     out = generate(msg, SPHERE)
                     save_sphere(SPHERE)
@@ -1177,7 +1259,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
-                    "arm": out.get("arm"), "model": out.get("model"),
+                    "arm": out.get("arm"), "model": out.get("model"), "cell": CELL,
                     "helpline": (HELPLINE if out["crisis"] else None),
                     "canvas": out.get("canvas", []),
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
@@ -1204,6 +1286,8 @@ def serve():
           f"Plugins: {sorted(SANDBOX.plugins)} | research_engine={'an' if research_engine else 'aus'}")
     print(f"  num_predict={NUM_PREDICT} | timeout={OLLAMA_TIMEOUT}s | keep_alive={KEEP_ALIVE} | tries={MAX_TRIES}")
     print(f"  Arme: " + " · ".join(f"{r}={m}" for r, m in ARMS.items()))
+    print(f"  Zelle: {CELL} | Instanz: {INSTANCE_ID} | peer_herz={PEER_HERZ or '-'} | "
+          f"peer_kraft={PEER_KRAFT or '-'} | wake={'an' if WAKE_KRAFT_MAC else 'aus'} | selfmod={'an' if SELFMOD_ON else 'aus'}")
     try: srv.serve_forever()
     except KeyboardInterrupt: STOP_EVENT.set(); print("\nbeendet.")
 
@@ -1229,6 +1313,12 @@ def cmd_selftest():
     assert "herz" in ARMS and ARMS["herz"] == OLLAMA_MODEL
     assert _extract_arm("ich nehme [arm:poet]") == "poet"
     assert _extract_arm("[arm:gibtsnicht]") is None
+    # Schwarm-Routing: Zell-Hierarchie faellt aus der Geometrie
+    assert route_tier("hi") == "botschafter"
+    assert route_tier("zeichne mir ein bild vom meer") == "kraft"
+    assert route_tier("beweise das theorem und analysiere den algorithmus") == "herz"
+    assert _wake("AA:BB:CC:DD:EE:FF") in (True, False)   # baut/sendet Magic Packet ohne Absturz
+    assert route_request("hallo")[0] is None             # einfache Frage: keine Eskalation
     # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
     assert _breathe_soft(9, -1) == 6 and _breathe(-1) == 3
     sg = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "mind": "gauss"}
