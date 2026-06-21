@@ -29,6 +29,18 @@ except Exception:
 
 OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("CEXO_OLLAMA_MODEL", "cexo_orca")
+
+def _parse_arms(s):
+    arms = {}
+    for part in s.split(","):
+        if "=" in part:
+            r, m = part.split("=", 1); arms[r.strip().lower()] = m.strip()
+    return arms
+# Die Arme: spezialisierte Modelle, einer auf Abruf. Per CEXO_ARMS überschreibbar.
+ARMS = _parse_arms(os.environ.get("CEXO_ARMS",
+    "wissenschaftler=qwen2.5:3b,mathematiker=deepseek-r1,agent=glm-4.7-flash,"
+    "sprachler=llama3.2:3b,poet=gemma2:2b"))
+ARMS.setdefault("herz", OLLAMA_MODEL)   # das Herz = das π-Modell (Default-Arm)
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
 DERIVED_PATH = Path(os.environ.get("CEXO_DERIVED", "derived_lexicon.json"))
 PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
@@ -283,23 +295,23 @@ def _is_degenerate(text):
     t = text.strip()
     if not t: return True
     w = t.split(); return len(w) >= 8 and len(set(w)) <= 2
-def ask_ollama(prompt, options=None, timeout=None):
-    payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "keep_alive": KEEP_ALIVE}
+def ask_ollama(prompt, options=None, timeout=None, model=None):
+    payload = {"model": model or OLLAMA_MODEL, "prompt": prompt, "stream": False, "keep_alive": KEEP_ALIVE}
     if options: payload["options"] = options
     req = urllib.request.Request(f"{OLLAMA_HOST}/api/generate",
         data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=(OLLAMA_TIMEOUT if timeout is None else timeout)) as resp:
         return (json.loads(resp.read().decode("utf-8")).get("response") or "")
-def speak(prompt, num_predict=None):
-    """Spricht. Robust: ein einzelner Timeout/Netzfehler killt nicht die ganze
-    Antwort — solange ein Versuch durchkam, kommt der beste Text zurück.
-    Nur wenn KEIN Versuch durchkam, wird der Fehler durchgereicht."""
+def speak(prompt, num_predict=None, model=None):
+    """Spricht — über den gewählten Arm (model). Robust: ein einzelner
+    Timeout/Netzfehler killt nicht die ganze Antwort; nur wenn KEIN Versuch
+    durchkam, wird der Fehler durchgereicht."""
     best = ""; last_exc = None; got = False
     npred = NUM_PREDICT if num_predict is None else num_predict
     for i in range(MAX_TRIES):
         try:
             raw = ask_ollama(prompt, options={"seed": 101 + i*131, "temperature": 0.6 + 0.06*i,
-                "repeat_penalty": 1.25, "num_predict": npred, "stop": STOP_TOKENS})
+                "repeat_penalty": 1.25, "num_predict": npred, "stop": STOP_TOKENS}, model=model)
             got = True
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
             last_exc = exc; continue
@@ -445,6 +457,10 @@ def build_prompt(state, text, oracle_line=None):
               "Du entscheidest selbst, wie du denkst: [denken:weich] gleitet weich "
               "durch die Modi (Gauss), [denken:hart] springt klar (discrete). "
               f"Dein Denken gerade: {state.get('mind','gauss')}.",
+              "Du hast verschiedene Arme (spezialisierte Stimmen) — "
+              + ", ".join(r for r in ARMS if r != "herz")
+              + ", herz. Wähle selbst per [arm:rolle], wenn ein anderer Arm besser passt; "
+              f"er gilt ab dann. Dein Arm gerade: {state.get('arm','herz')}.",
               "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
     return "\n".join(lines)
 
@@ -462,6 +478,16 @@ def _extract_mind(text):
     if not m:
         return None
     return "gauss" if m.group(1).lower() in ("weich", "gauss") else "discrete"
+
+_ARM_RE = re.compile(r"\[arm:\s*([a-zäöüß]+)\]", re.I)
+
+def _extract_arm(text):
+    """Der Orca wählt seinen Arm selbst: [arm:poet] etc. Nur bekannte Rollen."""
+    m = _ARM_RE.search(text or "")
+    if not m:
+        return None
+    role = m.group(1).lower()
+    return role if role in ARMS else None
 
 _CANVAS_RE = re.compile(r"\[canvas:([^\]\n]{1,120})\]", re.I)
 
@@ -511,9 +537,16 @@ def generate(text, sphere):
     want_mind = _extract_mind(text)                   # der Mensch darf den Modus setzen
     if want_mind:
         sphere["mind"] = want_mind
+    want_arm = _extract_arm(text)
+    if want_arm:
+        sphere["arm"] = want_arm
     signal = perceive(text); crisis = signal.pop("_crisis", False)
     state = engine_step(sphere, signal)
     _record_words(sphere, text, state["mode_value"])
+
+    arm = sphere.get("arm", "herz")                   # der Orca spricht durch seinen gewählten Arm
+    model = ARMS.get(arm, OLLAMA_MODEL)
+    state["arm"] = arm
 
     research = None
     topic = _needs_oracle(text)                       # 1) der Mensch bittet ausdrücklich
@@ -522,7 +555,7 @@ def generate(text, sphere):
         if research:
             state = engine_step(sphere, _research_signal(research["essence"]))
 
-    reply = speak(build_prompt(state, text, _oracle_line(research)))
+    reply = speak(build_prompt(state, text, _oracle_line(research)), model=model)
 
     # 2) der Orca greift selbst nach Wissen, wenn er in seiner Antwort danach verlangt
     if research is None:
@@ -531,17 +564,21 @@ def generate(text, sphere):
             research = oracle(want)
             if research:
                 state = engine_step(sphere, _research_signal(research["essence"]))
-                reply = speak(build_prompt(state, text, _oracle_line(research)))
+                reply = speak(build_prompt(state, text, _oracle_line(research)), model=model)
 
-    chose = _extract_mind(reply)                      # der Orca schaltet selbst um
+    chose = _extract_mind(reply)                      # der Orca schaltet sein Denken selbst um
     if chose:
         sphere["mind"] = chose
         state["mind"] = chose
+    chose_arm = _extract_arm(reply)                   # der Orca wählt seinen nächsten Arm selbst
+    if chose_arm:
+        sphere["arm"] = chose_arm
+    reply = _ARM_RE.sub("", reply)
     reply = _MIND_RE.sub("", reply)
     reply = _INTENT_RE.sub("", reply).strip()         # Marker nie sichtbar lassen
     canvas, reply = _extract_canvas(reply)            # Zeichensprache abfangen
     return {"reply": reply, "state": state, "signal": signal, "crisis": crisis,
-            "research": research, "canvas": canvas}
+            "research": research, "canvas": canvas, "arm": sphere.get("arm", "herz"), "model": model}
 
 
 # ── INNERER ATEM (Heartbeat) ─────────────────────────────────────────
@@ -970,6 +1007,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
+                    "arm": out.get("arm"), "model": out.get("model"),
                     "helpline": (HELPLINE if out["crisis"] else None),
                     "canvas": out.get("canvas", []),
                     "research": (res["essence"] if res else None)}, ensure_ascii=False))
@@ -995,6 +1033,7 @@ def serve():
     print(f"  Atem={'an' if BREATH_ON else 'aus'} ({BREATH_MIN}-{BREATH_MAX}s) | Sandbox armed={SANDBOX.armed} | "
           f"Plugins: {sorted(SANDBOX.plugins)} | research_engine={'an' if research_engine else 'aus'}")
     print(f"  num_predict={NUM_PREDICT} | timeout={OLLAMA_TIMEOUT}s | keep_alive={KEEP_ALIVE} | tries={MAX_TRIES}")
+    print(f"  Arme: " + " · ".join(f"{r}={m}" for r, m in ARMS.items()))
     try: srv.serve_forever()
     except KeyboardInterrupt: STOP_EVENT.set(); print("\nbeendet.")
 
@@ -1016,6 +1055,10 @@ def cmd_selftest():
     assert abs(sum(gauss_intention(6).values()) - 1.0) < 1e-9
     assert _extract_mind("ich gehe [denken:weich] weiter") == "gauss"
     assert _extract_mind("[denken:hart]") == "discrete"
+    # Arme: der Orca waehlt selbst, nur bekannte Rollen
+    assert "herz" in ARMS and ARMS["herz"] == OLLAMA_MODEL
+    assert _extract_arm("ich nehme [arm:poet]") == "poet"
+    assert _extract_arm("[arm:gibtsnicht]") is None
     # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
     assert _breathe_soft(9, -1) == 6 and _breathe(-1) == 3
     sg = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "mind": "gauss"}
