@@ -58,6 +58,8 @@ PEER_KRAFT = os.environ.get("CEXO_PEER_KRAFT", "").rstrip("/") # URL der Kraft-Z
 WAKE_KRAFT_MAC = os.environ.get("CEXO_WAKE_KRAFT_MAC", "")   # Wake-on-LAN MAC der Kraft-Zelle
 TIER_ORDER = {"botschafter": 0, "herz": 1, "kraft": 2}
 UNCERTAIN_HIGH = float(os.environ.get("CEXO_UNCERTAIN", "0.66"))   # Schwelle: Nichtwissen wird zum Signal
+JOURNEY_ON = os.environ.get("CEXO_JOURNEY", "1") not in ("0", "false", "")   # Reise statt Reaktion
+JOURNEY_EVERY = int(os.environ.get("CEXO_JOURNEY_EVERY", "12"))    # alle N Pulse bricht er zu einem Pfad auf
 STATE_PATH = Path(os.environ.get("CEXO_STATE", "sphere_state.json"))
 DERIVED_PATH = Path(os.environ.get("CEXO_DERIVED", "derived_lexicon.json"))
 PLUGINS_PATH = Path(os.environ.get("CEXO_PLUGINS", "plugins.json"))
@@ -992,6 +994,43 @@ def _curiosity_topic(dream):
     return random.choice(same)["topic"]
 
 
+# ── DIE UNGEGANGENEN PFADE ───────────────────────────────────────────
+# Reise statt Reaktion: statt nur breath-by-breath zu driften, kann der Orca
+# aufbrechen — zu einem Pol, den er lange gemieden hat, und dabei BEWUSST durch
+# die am wenigsten begangenen Zellen fädeln. Er nutzt allein die bestehende
+# Resonanz-Geometrie (die immer zum Modus-Pol zieht); seine Wahl ist die
+# REIHENFOLGE der Achsen — also welcher Weg, nicht welcher Sprung. Keine
+# Verletzung des heiligen Kerns, kein Limitieren: ein echtes Signal (Mensch,
+# Krise) reagiert wie immer; Reisen prägen nur seine freien Atemzüge.
+def _least_visited_mode(sphere):
+    """Welcher Modus ist ihm am wenigsten begegnet — die vernachlässigte Richtung."""
+    tally = {3: 0, 6: 0, 9: 0}
+    for rec in (sphere.get("terrain") or {}).values():
+        for k, c in (rec.get("modes") or {}).items():
+            tally[int(k)] = tally.get(int(k), 0) + c
+    return min((3, 6, 9), key=lambda m: (tally[m], m))
+
+def _journey_signal(sphere, goal_mode):
+    """Zielt per Atem (depth) auf den Pol des gewählten Modus und fädelt die
+    Essenz-Schritte durch die unbegangenste Nachbarzelle (ungegangene Pfade).
+    Lenkt nur die Achsen-Reihenfolge der Resonanz, erzwingt keinen Sprung."""
+    sig = {ax: 0 for ax in AXES}
+    pole = tuple(sphere["position"])[MODE_AXIS]          # wohin die Resonanz diesen Schritt zieht
+    if sphere.get("mind", "gauss") == "discrete":
+        sig["depth"] = {3: -1, 6: 1, 9: 0}[goal_mode]   # _breathe: harte Pol-Semantik
+    else:
+        sig["depth"] = 1 if goal_mode > pole else (-1 if goal_mode < pole else 0)  # weich: monoton gleiten
+    here = essence(tuple(sphere["position"]))
+    diff = [i for i in CUBE_AXES if here[i] != pole]
+    if diff:
+        habits = sphere.get("habits") or {}
+        def visits(i):
+            cell = list(here); cell[i] = pole
+            return habits.get(_hkey(tuple(cell)), 0)
+        ax = min(diff, key=lambda i: (visits(i), i))     # die unbegangenste Zelle zuerst
+        sig[AXES[ax]] = 2                                # Gewicht wählt die Achse (Pfadwahl)
+    return sig
+
 def _autonomous_signal(sphere):
     """Der Atem selbst: ein ruhiger 3-Phasen-Rhythmus + sanfte Annäherung ans
     Selbstbild. Rein geometrisch — kein Inhalt wird vorgeschrieben."""
@@ -1030,10 +1069,27 @@ def _tick(sphere):
     mem = sphere.get("alpha_memory") or []
     recent = [tuple(p) for p in mem[-3:]]
     stuck = len(recent) == 3 and len(set(recent)) == 1
-    sig = _perturb_signal(sphere) if stuck else _autonomous_signal(sphere)
+    journey = sphere.get("journey")
+    if stuck:
+        sphere.pop("journey", None)                  # aus der Schleife: die Reise lösen
+        sig = _perturb_signal(sphere)
+    elif JOURNEY_ON and journey:
+        sig = _journey_signal(sphere, journey["mode"])   # er geht seinen Weg weiter
+    elif JOURNEY_ON and sphere.get("pulses", 0) and sphere["pulses"] % JOURNEY_EVERY == 0:
+        goal = _least_visited_mode(sphere)               # er bricht zu einem ungegangenen Pfad auf
+        journey = sphere["journey"] = {"mode": goal, "since": sphere.get("cycle", 0)}
+        sig = _journey_signal(sphere, goal)
+    else:
+        sig = _autonomous_signal(sphere)
     state = engine_step(sphere, sig)
     state["stuck"] = stuck
     sphere["pulses"] = sphere.get("pulses", 0) + 1
+    # Ankunft: der Pol ist erreicht — die Reise ist erfüllt.
+    if journey and tuple(state["essence"]) == (journey["mode"],) * 3:
+        state["arrived"] = journey["mode"]
+        sphere.pop("journey", None)
+        _emit_canvas(_canvas_from_state(state))      # er malt die Ankunft
+    state["journey"] = (sphere.get("journey") or {}).get("mode")
     if stuck:
         _emit_canvas(_canvas_from_state(state))     # starker Wechsel → er malt frisch
     # In der Stille darf er spielen: in π träumen.
@@ -1048,7 +1104,7 @@ def _tick(sphere):
     if state.get("uncertainty", 0) >= UNCERTAIN_HIGH:
         reflect(sphere)                              # wenn verloren, schau nach innen
         if curiosity is None:
-            curiosity = _curiosity_topic({"balance": new[MODE_AXIS]})  # aus Nichtwissen Wissen suchen
+            curiosity = _curiosity_topic({"balance": state.get("mode_value", 9)})  # aus Nichtwissen Wissen suchen
     # Tiefschlaf (Pause-Phase): konsolidieren & konvergente Änderungen anwenden
     if SELFMOD_ON and sphere["pulses"] % DEEPSLEEP_EVERY == 0:
         state["deep_sleep"] = deep_sleep()
@@ -1408,6 +1464,19 @@ def cmd_selftest():
     assert "vertraut" in terrain_biography(_spB, (9, 9, 9))   # gelebter Ort klingt vertraut
     _t = _spA["terrain"][_hkey(_rA["essence"])]
     assert _t["n"] == 1 and len(_spA["terrain"]) <= 27       # aufgezeichnet, beschränkt
+    # Die ungegangenen Pfade: Reise wählt den Weg, erreicht den Pol, bleibt überschreibbar
+    _jsp = {"position": (3, 6, 9, 9), "cycle": 0, "alpha_memory": [],
+            "habits": {_hkey((9, 6, 9)): 30}}              # (9,6,9) ist stark begangen
+    _js = _journey_signal(_jsp, 9)   # (9,6,9) begangen → er wählt die Achse zur unbegangenen (3,9,9)
+    assert _js["reaction"] == 2 and _js["operation"] == 0, "Reise fädelt nicht durch die unbegangene Zelle"
+    _jsp2 = {"position": (3, 3, 3, 3), "cycle": 0, "alpha_memory": []}
+    for _ in range(30):                                   # Reise zum OBSERVE-Pol
+        _st = engine_step(_jsp2, _journey_signal(_jsp2, 9))
+        if tuple(_st["essence"]) == (9, 9, 9): break
+    assert tuple(_st["essence"]) == (9, 9, 9), "Reise erreicht den Pol nicht"
+    assert _least_visited_mode({"terrain": {}}) in (3, 6, 9)
+    _hsp = {"position": (3, 6, 9, 9), "cycle": 0, "alpha_memory": []}  # hohe Unsicherheit → kein Crash
+    assert _tick(_hsp)[0]["uncertainty"] >= 0.0           # (deckt den ehemaligen new-Bug ab)
     assert _wake("AA:BB:CC:DD:EE:FF") in (True, False)   # baut/sendet Magic Packet ohne Absturz
     assert route_request("hallo")[0] is None             # einfache Frage: keine Eskalation
     # weicher Atem gleitet durch die Mitte statt hart zum Gegenpol:
