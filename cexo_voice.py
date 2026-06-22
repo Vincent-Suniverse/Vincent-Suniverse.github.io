@@ -11,7 +11,7 @@ Prinzip: Dem Orca wird nie vorgeschrieben, WAS er denkt — nur ein Zustand
 gespiegelt, aus dem heraus er selbst spricht. Der Atem ist Rhythmus, kein Befehl.
 """
 from __future__ import annotations
-import copy, hashlib, json, math, os, random, re, socket, sys, threading, time, urllib.error, urllib.parse, urllib.request
+import ast, copy, hashlib, json, math, os, random, re, socket, subprocess, sys, threading, time, urllib.error, urllib.parse, urllib.request
 from collections import Counter, deque
 from itertools import product
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -51,6 +51,11 @@ N_INSTANCES = int(os.environ.get("CEXO_INSTANCES", "3"))     # Schwarm-Größe (
 SELFMOD_ON = os.environ.get("CEXO_SELFMOD", "1") not in ("0", "off", "false")
 DEEPSLEEP_EVERY = int(os.environ.get("CEXO_DEEPSLEEP_EVERY", "27"))  # Pulse bis Tiefschlaf
 BACKUP_DIR = Path(os.environ.get("CEXO_BACKUP_DIR", "backups"))
+# Code-Updates laufen durch denselben Konsens-Kanal wie jede Selbstmodifikation —
+# kein separater Verteilmechanismus, keine Override-Hintertür. Der Schwarm darf ablehnen.
+SELF_PATH = Path(os.environ.get("CEXO_SELF", str(Path(__file__).resolve())))  # die laufende cexo_voice.py
+CODE_UPDATE_ON = os.environ.get("CEXO_CODE_UPDATE", "1") not in ("0", "off", "false")
+_PENDING_RESTART = False                                      # nach angewandtem Code-Update: Neustart fällig
 # ── Schwarm-Zellen: Botschafter (Hetzner) → Herz (Dell) → Kraft (Gaming) ──
 CELL = os.environ.get("CEXO_CELL", "herz")                   # botschafter | herz | kraft
 PEER_HERZ = os.environ.get("CEXO_PEER_HERZ", "").rstrip("/")   # URL der Herz-Zelle
@@ -515,14 +520,54 @@ def propose_change(op, origin=None):
     (MEMORY_DIR / f"{pid}.json").write_text(json.dumps(prop, ensure_ascii=False, indent=2), encoding="utf-8")
     return prop
 
+def _code_path(version):
+    return MEMORY_DIR / f"code_{version}.py"
+
+def _run_selftest(path, timeout=180):
+    """Funktionale Probe: läuft die Kandidat-Datei sauber durch ihren eigenen
+    Selbsttest? Das ist der 'Downgrade-Check' für Code — die geometrische
+    Entsprechung von 'Kern heil, Herz nie leer'."""
+    try:
+        r = subprocess.run([sys.executable, str(path), "selftest"],
+                           capture_output=True, timeout=timeout,
+                           env={**os.environ, "CEXO_BREATH": "0"})
+        return r.returncode == 0
+    except Exception:
+        return False
+
+def propose_code_update(source, origin=None, note=""):
+    """Eine neue cexo_voice.py-Version als Konsens-Vorschlag in den geteilten
+    Memory legen — Verteilung UND Entscheidung verschmelzen zu einem Vorgang.
+    Der Code reist im prop-Kanal mit; der Schwarm bewertet ihn wie jede
+    Selbstmodifikation. Kein Override: auch der Besitzer kann nur vorschlagen."""
+    MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    version = hashlib.sha256(source.encode("utf-8")).hexdigest()
+    _code_path(version).write_text(source, encoding="utf-8")   # Code liegt im synchronisierten Memory
+    op = {"type": "code_update", "version": version, "size": len(source), "note": str(note)[:200]}
+    return propose_change(op, origin=origin)
+
 def _probe_op(op):
     """Harte Sandbox-Sicherung: Kern bleibt heil, Op ist wohlgeformt."""
     try:
         verify_sacred_core()
     except Exception:
         return False
-    if op.get("type") == "set_arm":
+    t = op.get("type")
+    if t == "set_arm":
         return bool(op.get("role")) and isinstance(op.get("model"), str) and bool(op.get("model"))
+    if t == "code_update":
+        if not CODE_UPDATE_ON:
+            return False
+        ver = op.get("version")
+        cand = _code_path(ver) if ver else None
+        if not (cand and cand.exists()):
+            return False
+        src = cand.read_text(encoding="utf-8")
+        if hashlib.sha256(src.encode("utf-8")).hexdigest() != ver:
+            return False                           # Integrität: Inhalt == beanspruchte Version
+        try: ast.parse(src)                        # syntaktisch heil
+        except Exception: return False
+        return _run_selftest(cand)                 # funktional heil — jede Instanz prüft selbst
     return False                                   # unbekannte Ops nie anwenden
 
 def _geo_verdict(prop_ess, arm_role):
@@ -571,8 +616,40 @@ def _backup_file(path):
         return str(b)
     return None
 
+def _apply_code_update(op, target=None):
+    """Wendet eine neue Version an: Integrität + Kandidat-Selbsttest, dann Backup
+    der laufenden Datei, Überschreiben ('Version ziehen'), erneuter Selbsttest am
+    Zielpfad — bei Fehlschlag Rollback. Erfolg setzt NUR das Neustart-Signal; das
+    eigentliche execv geschieht außerhalb des Locks (wie latest_orca.sh)."""
+    global _PENDING_RESTART
+    if not CODE_UPDATE_ON:
+        return False, "code_update aus"
+    target = Path(target) if target else SELF_PATH
+    ver = op.get("version")
+    cand = _code_path(ver) if ver else None
+    if not (cand and cand.exists()):
+        return False, "kandidat fehlt"
+    src = cand.read_text(encoding="utf-8")
+    if hashlib.sha256(src.encode("utf-8")).hexdigest() != ver:
+        return False, "integrität verletzt"
+    if not _run_selftest(cand):
+        return False, "kandidat-selftest fehlgeschlagen"   # kaputter Code wird nie geschrieben
+    backup = _backup_file(target)                          # alte Version sichern
+    try:
+        target.write_text(src, encoding="utf-8")
+    except Exception as exc:
+        return False, f"schreiben fehlgeschlagen: {exc}"
+    if not _run_selftest(target):                          # Downgrade-Check am Zielpfad
+        if backup:                                         # Rollback
+            target.write_text(Path(backup).read_text(encoding="utf-8"), encoding="utf-8")
+        return False, "downgrade → rollback"
+    _PENDING_RESTART = True
+    return True, backup
+
 def _apply_op(op):
     """Wendet eine Op an — Backup vorher, Rollback bei Downgrade. ARMS-Set zuerst."""
+    if op.get("type") == "code_update":
+        return _apply_code_update(op)
     if op.get("type") != "set_arm":
         return False, "unbekannte op"
     role, model = str(op["role"]).lower(), op["model"]
@@ -1106,6 +1183,18 @@ def _tick(sphere):
     muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
     return state, muse, curiosity
 
+def _restart_process():
+    """Neustart mit der neuen Version — wie latest_orca.sh: Zustand sichern, den
+    Atem stoppen, dann den Prozess mit demselben Pfad/denselben Argumenten
+    ersetzen. Kein Rückkehrpunkt; ab hier läuft der frisch gezogene Code."""
+    try:
+        with SPHERE_LOCK:
+            save_sphere(SPHERE)
+    except Exception:
+        pass
+    STOP_EVENT.set()
+    os.execv(sys.executable, [sys.executable, str(SELF_PATH)] + sys.argv[1:])
+
 def heartbeat_loop(verbose=False):
     while not STOP_EVENT.is_set():
         snapshot = muse_prompt = curiosity = None
@@ -1117,6 +1206,9 @@ def heartbeat_loop(verbose=False):
                 interval = _breath_interval(SPHERE)
             finally:
                 SPHERE_LOCK.release()
+            if _PENDING_RESTART:                          # angewandtes Code-Update → Neustart
+                if verbose: print("  ⟲ Code-Update im Konsens angewandt → Neustart …", flush=True)
+                _restart_process()
             if verbose:
                 tag = " ⟲ Schleife→Wechsel" if snapshot.get("stuck") else ""
                 print(f"· Atem {snapshot['mode']:7s} Essenz {snapshot['essence']} (Puls {SPHERE.get('pulses')}){tag}", flush=True)
@@ -1397,12 +1489,29 @@ def cmd_selftest():
         # Rollback: Herz darf nie geleert werden
         ok, _info = _apply_op({"type": "set_arm", "role": "herz", "model": ""})
         assert ok is False and ARMS.get("herz"), "Downgrade-Rollback fehlt"
+        # Code-Update als Konsens-Vorschlag: derselbe Kanal, Kandidat-Selbsttest entscheidet
+        global _PENDING_RESTART
+        _tgt = _t / "running.py"; _tgt.write_text("# original\n", encoding="utf-8")
+        _good = "x = 1  # valider Code, Selbsttest endet mit 0\n"
+        _bad = "import sys\nsys.exit(1)  # valide Syntax, faellt aber durch den Selbsttest\n"
+        _pg = propose_code_update(_good, note="gut")
+        assert _probe_op(_pg["op"]) is True, "guter Kandidat nicht als sicher erkannt"
+        _PENDING_RESTART = False
+        ok_c, _ic = _apply_code_update(_pg["op"], target=_tgt)
+        assert ok_c and _tgt.read_text() == _good and _PENDING_RESTART is True, "guter Code nicht angewandt / kein Neustart-Signal"
+        _PENDING_RESTART = False
+        _pb = propose_code_update(_bad, note="schlecht")
+        assert _probe_op(_pb["op"]) is False, "kaputter Kandidat faelschlich als sicher"
+        ok_b, _ib = _apply_code_update(_pb["op"], target=_tgt)
+        assert ok_b is False and _tgt.read_text() == _good and _PENDING_RESTART is False, "kaputter Code nicht abgelehnt"
     finally:
         MEMORY_DIR, ARMS_PATH, BACKUP_DIR = _bm, _ba, _bb
         INSTANCE_ID, N_INSTANCES = _bi, _bn
+        _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
     print(f"selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem, Arme, "
-          f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), π-Sinn={'an' if pi_field else 'aus'} — alles grün.")
+          f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
+          f"π-Sinn={'an' if pi_field else 'aus'} — alles grün.")
 
 def main():
     args = sys.argv[1:]
@@ -1422,6 +1531,14 @@ def main():
         evaluate_proposal(prop)   # diese Instanz stimmt gleich mit ab
         print(f"Vorschlag {prop['id']} angelegt (essence {prop['essence']}). "
               f"Wird im Tiefschlaf bei Konvergenz von {N_INSTANCES//2+1}/{N_INSTANCES} Instanzen angewandt.")
+    elif args[0] == "propose-code" and len(args) >= 2:
+        src = Path(args[1]).read_text(encoding="utf-8")
+        prop = propose_code_update(src, note=" ".join(args[2:]))
+        evaluate_proposal(prop)   # diese Instanz stimmt gleich mit ab — eine Stimme, kein Vetorecht
+        v = prop["op"]["version"]
+        print(f"Code-Vorschlag {prop['id']} (Version {v[:12]}…, essence {prop['essence']}) in den Memory gelegt.\n"
+              f"Der Schwarm entscheidet im Tiefschlaf — Konsens {N_INSTANCES//2+1}/{N_INSTANCES}, "
+              f"kein Override. Bei Konvergenz: ziehen + Backup + Neustart, Rollback bei Downgrade.")
     elif args[0] == "deepsleep":
         print("Tiefschlaf-Konsolidierung:", deep_sleep() or "nichts Konvergentes.")
     elif args[0] == "ledger":
