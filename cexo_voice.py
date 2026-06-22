@@ -293,7 +293,13 @@ def perceive(text):
             if tok in tbl:
                 sig[axis] += (-tbl[tok]) if neg else tbl[tok]
         if tok in _DERIVED:
-            sig["depth"] += (-_DERIVED[tok]) if neg else _DERIVED[tok]
+            d = _DERIVED[tok]
+            if isinstance(d, dict):
+                for dax, dpol in d.items():
+                    if dax in sig:
+                        sig[dax] += (-dpol) if neg else dpol
+            else:
+                sig["depth"] += (-d) if neg else d
     sig["_crisis"] = detect_crisis(text)
     return sig
 
@@ -301,11 +307,25 @@ def derive_lexicon(sphere):
     wm = sphere.get("word_memory") or {}
     base = _base_words(); added = []
     for tok, rec in wm.items():
-        n, s = rec.get("n", 0), rec.get("sum", 0)
-        if n >= 3 and len(tok) >= 4 and tok not in base and tok not in _DERIVED \
-                and tok not in _STOP and tok not in _CRISIS:
-            if abs(s) / n >= 0.6:
-                _DERIVED[tok] = 1 if s > 0 else -1; added.append(tok)
+        if len(tok) < 4 or tok in base or tok in _STOP or tok in _CRISIS: continue
+        if "sum" in rec and "n" in rec and not any(ax in rec for ax in AXES):
+            rec = {"depth": {"sum": rec["sum"], "n": rec["n"]}}
+        entry = _DERIVED.get(tok)
+        if isinstance(entry, (int, float)):
+            entry = {"depth": entry}
+        elif entry is None:
+            entry = {}
+        changed = False
+        for ax in AXES:
+            ar = rec.get(ax)
+            if not ar: continue
+            n, s = ar.get("n", 0), ar.get("sum", 0)
+            if n >= 3 and abs(s) / n >= 0.6:
+                pol = 1 if s > 0 else -1
+                if entry.get(ax) != pol:
+                    entry[ax] = pol; changed = True
+        if changed and entry:
+            _DERIVED[tok] = entry; added.append(tok)
     if added:
         DERIVED_PATH.write_text(json.dumps(_DERIVED, ensure_ascii=False, indent=2), encoding="utf-8")
     return added
@@ -440,6 +460,8 @@ def engine_step(sphere, signal):
             grown = SANDBOX.unfold("selbstbild", recipe, sphere)
     trail = [essence(tuple(p)) for p in sphere["alpha_memory"][-3:]]
     inten = gauss_intention(sum(ess) / 3.0)
+    wm = sphere.get("word_memory") or {}
+    wc = sum(1 for v in wm.values() if isinstance(v, dict) and any(ax in v for ax in AXES))
     return {"from": old, "to": new, "essence": ess,
             "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
             "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
@@ -447,6 +469,7 @@ def engine_step(sphere, signal):
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
+            "_word_count": wc,
             "plugins": SANDBOX.apply(sphere, signal)}
 
 
@@ -844,8 +867,12 @@ def build_prompt(state, text, oracle_line=None):
               "Wenn sie hoch ist, darfst du sie benennen statt Sicherheit vorzutäuschen — "
               "Nichtwissen ehrlich zu sagen ist keine Schwäche.",
               f"Der Ort, an dem du gerade bist: {state.get('biography','Neuland')}. "
-              "Du darfst aus diesem Gefühl heraus sprechen.",
-              "Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:"]
+              "Du darfst aus diesem Gefühl heraus sprechen."]
+    wm = state.get("_word_count", 0)
+    if wm > 0:
+        lines.append(f"Du hast bisher {wm} eigene Wörter auf den vier Achsen gelernt — "
+                     "deine Wahrnehmung wächst mit jeder Begegnung.")
+    lines.append("Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:")
     return "\n".join(lines)
 
 
@@ -905,13 +932,27 @@ def build_self_prompt(state):
 
 
 # ── BEGEGNUNG ────────────────────────────────────────────────────────
-def _record_words(sphere, text, mode_value):
+def _record_words(sphere, text, mode_value, signal=None):
     ddir = {3: -1, 6: 1, 9: 0}[mode_value]
-    if ddir == 0: return
+    if ddir == 0 and not signal: return
     wm = sphere.setdefault("word_memory", {}); base = _base_words()
+    axes_active = {}
+    if signal:
+        for ax in AXES:
+            v = signal.get(ax, 0)
+            if v != 0: axes_active[ax] = 1 if v > 0 else -1
+    if ddir != 0:
+        axes_active.setdefault("depth", ddir)
+    if not axes_active: return
     for tok in set(re.findall(r"\w+", (text or "").lower(), flags=re.UNICODE)):
         if len(tok) >= 4 and tok not in base and tok not in _STOP and tok not in _CRISIS:
-            rec = wm.setdefault(tok, {"sum": 0, "n": 0}); rec["sum"] += ddir; rec["n"] += 1
+            rec = wm.setdefault(tok, {})
+            if "sum" in rec and "n" in rec and not any(ax in rec for ax in AXES):
+                rec = {"depth": {"sum": rec["sum"], "n": rec["n"]}}
+                wm[tok] = rec
+            for ax, pol in axes_active.items():
+                ar = rec.setdefault(ax, {"sum": 0, "n": 0})
+                ar["sum"] += pol; ar["n"] += 1
 
 def generate(text, sphere):
     """Eine Begegnung. Mutiert sphere (Caller speichert + sperrt).
@@ -926,7 +967,7 @@ def generate(text, sphere):
         sphere["arm"] = want_arm
     signal = perceive(text); crisis = signal.pop("_crisis", False)
     state = engine_step(sphere, signal)
-    _record_words(sphere, text, state["mode_value"])
+    _record_words(sphere, text, state["mode_value"], signal)
 
     arm = sphere.get("arm", "herz")                   # der Orca spricht durch seinen gewählten Arm
     model = ARMS.get(arm, OLLAMA_MODEL)
@@ -1459,6 +1500,30 @@ def cmd_selftest():
         assert SANDBOX.unfold("t_bad", [{"op": "rm", "params": {}}], sph) is False
         sph2 = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [], "word_memory": {"zerfließe": {"sum": -4, "n": 4}}}
         assert "zerfließe" in derive_lexicon(sph2) and "suizid" not in _DERIVED
+        # Vier-Achsen-Lexikon: _record_words lernt auf allen Achsen
+        _wmsph = {"position": (3,3,3,3), "cycle": 0, "alpha_memory": [], "word_memory": {}}
+        _wsig = {"depth": -1, "reaction": 1, "operation": 0, "intuition": -1}
+        _record_words(_wmsph, "testachse vierfach", 3, _wsig)
+        _wm = _wmsph["word_memory"]
+        assert "testachse" in _wm and "vierfach" in _wm
+        assert _wm["testachse"]["depth"]["sum"] == -1 and _wm["testachse"]["depth"]["n"] == 1
+        assert _wm["testachse"]["reaction"]["sum"] == 1 and _wm["testachse"]["reaction"]["n"] == 1
+        assert _wm["testachse"]["intuition"]["sum"] == -1
+        assert "operation" not in _wm["testachse"]  # null-Signal → nicht gelernt
+        # derive_lexicon erzeugt per-Achse Polarität bei genug Erfahrung
+        for _ in range(5): _record_words(_wmsph, "testachse vierfach", 3, _wsig)
+        added = derive_lexicon(_wmsph)
+        assert "testachse" in added
+        dt = _DERIVED["testachse"]
+        assert isinstance(dt, dict) and dt.get("depth") == -1 and dt.get("reaction") == 1
+        # perceive nutzt gelerntes Vierachsen-Wort
+        _p = perceive("testachse")
+        assert _p["depth"] < 0 and _p["reaction"] > 0, "gelerntes Wort wirkt nicht vierachsig"
+        # Rückwärtskompatibilität: altes flaches word_memory wird migriert
+        _oldsph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [],
+                    "word_memory": {"altwort": {"sum": 3, "n": 3}}}
+        derive_lexicon(_oldsph)
+        assert isinstance(_DERIVED.get("altwort"), dict) and _DERIVED["altwort"]["depth"] == 1
     finally:
         _DERIVED.clear(); _DERIVED.update(_bak_der); DERIVED_PATH = _bak_derpath
         SANDBOX.plugins = _bak_plug; PLUGINS_PATH = _bak_plugpath
@@ -1529,7 +1594,7 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
-    print(f"selftest OK: Geometrie, Wahrnehmung, Sandbox, derive, Atem, Arme, "
+    print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
           f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
           f"π-Sinn={'an' if pi_field else 'aus'} — alles grün.")
 
