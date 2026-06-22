@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 sphere_state.json
 cache/
+memory/
+plugins.json
+derived_lexicon.json
+backups/
+arms.json
