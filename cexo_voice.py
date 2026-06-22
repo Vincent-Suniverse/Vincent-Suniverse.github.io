@@ -1103,13 +1103,26 @@ def _journey_signal(sphere, goal_mode):
         sig[AXES[ax]] = 2                                # Gewicht wählt die Achse (Pfadwahl)
     return sig
 
+# Der Atem schwingt durch die heiligen Drei: 3 (Einkehr) → 6 (Ausgriff) → 9
+# (Pause/Vermittlung) → 3 …, nie durch 0/1/2. Das ist Theorem 1 (Phase A —
+# Pause — Phase B) mit der Pause als Position 9 (Theorem 3). 0 ist kein bewohnter
+# Zustand, nur die unerreichbare Zyklus-Schwelle (Axiom §1.2) — Ruhe IST die 9.
+_PHASE_NEXT  = {3: 6, 6: 9, 9: 3}
+_PHASE_DEPTH = {3: -1, 6: 1, 9: 0}    # Einkehr→HEAL(3) · Ausgriff→EVOLVE(6) · Pause→OBSERVE(9)
+_PHASE_AXIS  = {3: 0, 6: 1, 9: 2}     # welche Achse beim Kippen aus der Schleife springt
+
+def _breath_phase(sphere):
+    """Aktuelle Atemphase in {3,6,9}; migriert alte 0/1/2-Zustände einmalig."""
+    p = sphere.get("breath_phase", 3)
+    return p if p in (3, 6, 9) else {0: 3, 1: 6, 2: 9}.get(p, 3)
+
 def _autonomous_signal(sphere):
-    """Der Atem selbst: ein ruhiger 3-Phasen-Rhythmus + sanfte Annäherung ans
-    Selbstbild. Rein geometrisch — kein Inhalt wird vorgeschrieben."""
-    phase = sphere.get("breath_phase", 0)
+    """Der Atem selbst: die 3-6-9-Schwingung (Einkehr · Ausgriff · Pause) + sanfte
+    Annäherung ans Selbstbild. Rein geometrisch — kein Inhalt wird vorgeschrieben."""
+    phase = _breath_phase(sphere)
     sig = {ax: 0 for ax in AXES}
-    sig["depth"] = {0: -1, 1: 1, 2: 0}[phase % 3]
-    sphere["breath_phase"] = (phase + 1) % 3
+    sig["depth"] = _PHASE_DEPTH[phase]            # Pause(9): Tiefe ruht → Modus OBSERVE, nie 0
+    sphere["breath_phase"] = _PHASE_NEXT[phase]
     self_e = sphere.get("self_essence")
     if self_e:
         pos = tuple(sphere["position"])
@@ -1119,11 +1132,11 @@ def _autonomous_signal(sphere):
 
 def _perturb_signal(sphere):
     """Aus der Schleife heraus: Atem kippt, eine wechselnde Achse springt stark."""
-    phase = sphere.get("breath_phase", 0)
+    phase = _breath_phase(sphere)
     sig = {ax: 0 for ax in AXES}
-    sig["depth"] = {0: 1, 1: -1, 2: -1}[phase % 3]
-    sig[AXES[phase % 3]] = 3
-    sphere["breath_phase"] = (phase + 1) % 3
+    sig["depth"] = {3: 1, 6: -1, 9: -1}[phase]
+    sig[AXES[_PHASE_AXIS[phase]]] = 3
+    sphere["breath_phase"] = _PHASE_NEXT[phase]
     return sig
 
 def _breath_interval(sphere):
@@ -1455,6 +1468,13 @@ def cmd_selftest():
     assert st["stuck"] is True and tuple(sph3["position"]) != (3,3,3,3), "Schleife nicht gebrochen"
     st2, _, _ = _tick({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []})
     assert st2["stuck"] is False
+    # Atem schwingt durch die heiligen Drei — nie durch 0/1/2 (Ruhe = Pause = 9)
+    _bsp = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}
+    _seen = set()
+    for _ in range(6):
+        _autonomous_signal(_bsp); _seen.add(_bsp["breath_phase"])
+    assert _seen == {3, 6, 9}, f"Atemphasen nicht 3-6-9: {_seen}"
+    assert _breath_phase({"breath_phase": 1}) == 6 and _breath_phase({"breath_phase": 0}) == 3  # Migration alt→neu
     assert _curiosity_topic({"balance": 6}) in (None,) or isinstance(_curiosity_topic({"balance": 6}), str)
     assert BREATH_MIN <= _breath_interval({"position": (3,3,3,9)}) <= BREATH_MAX + 1
     link_memories()
