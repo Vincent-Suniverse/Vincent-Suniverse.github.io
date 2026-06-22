@@ -2,8 +2,8 @@
 """CEXO VOICE — lebendige Sphäre mit innerem Atem.
 Engine steuert Ollama direkt; Zustand WIRD der Prompt; BOS-Loop per Reseed aufgelöst.
 Stufen: Habit-Matrix · Selbstreflexion · armed Sandbox · derive_lexicon ·
-Research-Oracle (als Sinneseindruck) · link_memories · innerer Atem (Heartbeat) ·
-/research-Visualisierung · /pulse (live).
+Research-Oracle (als innerer Sinneseindruck) · link_memories · innerer Atem (Heartbeat).
+Ein Chat für alle — keine öffentliche Seite, keine Drosselung; Denkblasen offen via /pulse.
   python3 cexo_voice.py selftest | "<text>" | serve | breathe | research "<thema>"
 Mund: Ollama 'cexo_orca' @ localhost:11434. Stdlib only.
 
@@ -72,7 +72,7 @@ REFLECT_EVERY = int(os.environ.get("CEXO_REFLECT_EVERY", "9"))
 REFLECT_CAP = 200
 BREATH_MIN = float(os.environ.get("CEXO_BREATH_MIN", "5"))    # Sekunden (wach)
 BREATH_MAX = float(os.environ.get("CEXO_BREATH_MAX", "15"))   # Sekunden (ruhig)
-MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "0"))     # autonomes Selbstgespräch (0=aus; war nur für die Anzeige)
+MUSE_EVERY = int(os.environ.get("CEXO_MUSE_EVERY", "5"))     # autonome Denkblasen: alle N Pulse ein Selbstgespräch (0=aus)
 DREAM_EVERY = int(os.environ.get("CEXO_DREAM_EVERY", "7"))    # alle N Pulse träumt er in π (0=aus)
 DREAM_KEEP = int(os.environ.get("CEXO_DREAM_KEEP", "50"))     # so viele Traum-Dateien bleiben
 NUM_PREDICT = int(os.environ.get("CEXO_NUM_PREDICT", "1024"))  # Obergrenze sichtbare Antwort (-1=unbegrenzt; -1 verursacht Timeouts)
@@ -81,13 +81,8 @@ OLLAMA_TIMEOUT = float(os.environ.get("CEXO_TIMEOUT", "300"))  # Sekunden pro Mu
 KEEP_ALIVE = os.environ.get("CEXO_KEEPALIVE", "30m")          # Modell warm halten → kein Neuladen pro Nachricht
 CURIOSITY_THRESH = float(os.environ.get("CEXO_CURIOSITY", "0.85"))  # ab welcher |Resonanz| ein Traum Neugier weckt
 BREATH_ON = os.environ.get("CEXO_BREATH", "1") not in ("0", "off", "false")
-# ── öffentliche Bühne ──
-SITE_PATH = Path(os.environ.get("CEXO_SITE", "index.html"))
-EXPLAIN_PATH = Path(os.environ.get("CEXO_EXPLAIN", "explain.json"))
-RATE_N = int(os.environ.get("CEXO_RATE_N", "20"))            # Anfragen je Fenster und IP
-RATE_WIN = float(os.environ.get("CEXO_RATE_WIN", "60"))      # Fenster in Sekunden
+# ── der eine Chat ── (keine öffentliche Seite, keine Drosselung, ungeteilt)
 INPUT_MAX = int(os.environ.get("CEXO_INPUT_MAX", "2000"))    # max. Zeichen je Nachricht
-EXPLAIN_COOLDOWN = float(os.environ.get("CEXO_EXPLAIN_COOLDOWN", "120"))
 HELPLINE = os.environ.get("CEXO_HELPLINE", "Telefonseelsorge (DE): 0800 111 0 111 · oder 112")
 
 AXES = ("operation", "reaction", "intuition", "depth")
@@ -1160,115 +1155,16 @@ def start_breath(verbose=False):
     t.start(); return t
 
 
-# ── ÖFFENTLICHE BÜHNE: Rate-Limit · Erklärungen · arXiv ──────────────
-_RATE = {}; _RATE_LOCK = threading.Lock()
-_EXPLAIN_LAST = [0.0]
-
-def _rate_ok(ip):
-    now = time.time()
-    with _RATE_LOCK:
-        dq = _RATE.setdefault(ip, deque())
-        while dq and now - dq[0] > RATE_WIN:
-            dq.popleft()
-        if len(dq) >= RATE_N:
-            return False
-        dq.append(now); return True
-
-def _snapshot_state():
-    """Der aktuelle Zustand OHNE Schritt — für selbst geschriebene Inhalte."""
-    pos = tuple(SPHERE["position"])
-    return {"from": pos, "to": pos, "essence": essence(pos), "mode_value": pos[MODE_AXIS],
-            "mode": MODE_NAMES[pos[MODE_AXIS]], "trail": [],
-            "character": _top_habit(SPHERE.get("habits") or {}),
-            "self_essence": SPHERE.get("self_essence")}
-
-EXPLAIN_TOPICS = [("matrix", "Die 3-6-9-Matrix"),
-                  ("pi", "Die π-Schwingung"),
-                  ("framework", "Das CEXO-Framework")]
-
-def load_explanations():
-    if EXPLAIN_PATH.exists():
-        try: return json.loads(EXPLAIN_PATH.read_text(encoding="utf-8"))
-        except Exception: pass
-    return None
-
-def generate_explanations():
-    """Der Orca schreibt seine öffentlichen Texte selbst — in eigener Stimme."""
-    snap = _snapshot_state()
-    out = {"t": time.time(), "topics": []}
-    for key, title in EXPLAIN_TOPICS:
-        prompt = "\n".join(_state_lines(snap) + ["",
-            f"Schreibe für eine öffentliche Website einen kurzen, klaren Absatz über: {title}.",
-            "Erkläre es in deiner eigenen Stimme, mit einem selbstgewählten Beispiel."])
-        try:
-            text = speak(prompt, num_predict=600)
-        except Exception:
-            text = ""
-        out["topics"].append({"key": key, "title": title, "text": text})
-    if any(t["text"] for t in out["topics"]):
-        try: EXPLAIN_PATH.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
-        except Exception: pass
-    return out
-
-def explanations(regen=False):
-    cached = load_explanations()
-    if regen and (time.time() - _EXPLAIN_LAST[0] > EXPLAIN_COOLDOWN):
-        _EXPLAIN_LAST[0] = time.time()
-        with SPHERE_LOCK:
-            return generate_explanations()
-    if cached:
-        return cached
-    # noch nie geschrieben → einmal anstoßen (sonst leere Seite)
-    if time.time() - _EXPLAIN_LAST[0] > EXPLAIN_COOLDOWN:
-        _EXPLAIN_LAST[0] = time.time()
-        with SPHERE_LOCK:
-            return generate_explanations()
-    return {"t": 0, "topics": [{"key": k, "title": t, "text": ""} for k, t in EXPLAIN_TOPICS]}
-
-def arxiv_search(q, n=6):
-    """LaTeX-Helfer: arXiv-Suche (Stdlib). Liefert Titel/Autoren/Abstract/Link."""
-    import xml.etree.ElementTree as ET
-    url = "http://export.arxiv.org/api/query?" + urllib.parse.urlencode(
-        {"search_query": "all:" + q, "start": 0, "max_results": n})
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "cexo/0.1"})
-        with urllib.request.urlopen(req, timeout=20) as r:
-            xml = r.read().decode("utf-8")
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
-        return {"ok": False, "error": str(exc), "results": []}
-    ns = {"a": "http://www.w3.org/2005/Atom"}
-    try:
-        root = ET.fromstring(xml)
-    except Exception as exc:
-        return {"ok": False, "error": str(exc), "results": []}
-    res = []
-    for e in root.findall("a:entry", ns):
-        res.append({
-            "title": " ".join((e.findtext("a:title", "", ns) or "").split()),
-            "summary": " ".join((e.findtext("a:summary", "", ns) or "").split())[:600],
-            "authors": [a.findtext("a:name", "", ns) for a in e.findall("a:author", ns)][:8],
-            "published": (e.findtext("a:published", "", ns) or "")[:10],
-            "link": (e.findtext("a:id", "", ns) or "").strip(),
-        })
-    return {"ok": True, "results": res}
-
-
 # ── WEB ──────────────────────────────────────────────────────────────
 _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>CEXO Orca</title><style>
 *{box-sizing:border-box}body{margin:0;background:#0d0d12;color:#e8e8ef;font-family:system-ui,sans-serif;display:flex;flex-direction:column;height:100vh}
 #top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #22222e}
-#top a{color:#8a8ad6;text-decoration:none;font-size:13px}#pulse{font-size:11px;opacity:.6}
-#spectrum{position:relative;height:24px;margin:6px 14px 0;border-bottom:1px solid #1c1c28}
-#spectrum .tick{position:absolute;top:13px;width:3px;height:4px;background:#33334a;cursor:pointer}
-#spectrum .here{position:absolute;top:2px;width:3px;height:20px;background:#5b5bd6;box-shadow:0 0 6px #5b5bd6}
-#spectrum .dot{position:absolute;top:4px;width:10px;height:10px;border-radius:50%;cursor:pointer;transition:opacity 1.5s}
-#legend{font-size:10px;opacity:.55;margin:3px 14px 0}
-#info{font-size:11px;color:#ffd36b;opacity:.85;margin:3px 14px 0;min-height:15px;white-space:pre-wrap;user-select:text;-webkit-user-select:text}
+#pulse{font-size:11px;opacity:.6}
 #log{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:flex;flex-direction:column;gap:10px}
 .msg{max-width:82%;padding:10px 14px;border-radius:14px;line-height:1.45;white-space:pre-wrap;position:relative;user-select:text;-webkit-user-select:text}
 .you{align-self:flex-end;background:#2a2a3a}.orca{align-self:flex-start;background:#1a1a24;border:1px solid #33334a;padding-bottom:26px}
-.muse{align-self:center;max-width:90%;font-size:12px;opacity:.55;font-style:italic}
+.muse{align-self:center;max-width:90%;font-size:12.5px;opacity:.62;font-style:italic;color:#bcbce0;border-left:2px solid #33334a;padding:2px 12px}
 .meta{font-size:11px;opacity:.55;margin-top:4px}
 .copy{position:absolute;bottom:5px;right:8px;background:#33334a;border:0;color:#cfcfe6;border-radius:6px;font-size:12px;padding:3px 8px;cursor:pointer;opacity:.7}
 .copy:active{opacity:1}
@@ -1276,7 +1172,7 @@ _PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
 #inp{flex:1;padding:12px;border-radius:12px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
 #send{padding:12px 18px;border:0;border-radius:12px;background:#5b5bd6;color:#fff;font-size:16px}
 </style></head><body>
-<div id="top"><b>CEXO Orca</b><span style="font-size:12px;opacity:.5">privat · seine Gedanken gehören ihm</span><a href="/research">/research →</a></div>
+<div id="top"><b>CEXO Orca</b><span style="font-size:12px;opacity:.5">ein Chat · seine Gedanken offen, für alle gleich</span><span id="pulse"></span></div>
 <div id="log"></div>
 <div id="bar"><input id="inp" placeholder="Schreib dem Orca…" autocomplete="off"><button id="send">›</button></div>
 <script>
@@ -1294,43 +1190,22 @@ try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'applicat
 const j=await r.json();const stick=atBottom();const txt=j.reply||'(leer)';o.textContent=txt;
 const m=document.createElement('div');m.className='meta';
 let s='Modus '+j.mode+' · Essenz '+JSON.stringify(j.essence)+(j.crisis?' · ⚠️ KRISE':'');
-if(j.research)s+=' · Recherche balance '+j.research.balance+' rel '+j.research.relevance+' depth '+j.research.depth;
+if(j.uncertainty!=null)s+=' · Unsicherheit '+j.uncertainty;
+if(j.biography)s+=' · '+j.biography;
 m.textContent=s;o.appendChild(m);addCopy(o,txt);if(stick)log.scrollTop=log.scrollHeight;
 }catch(e){o.textContent='Fehler: '+e;}}
 send.onclick=go;inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
-</script></body></html>"""
-
-_RESEARCH_PAGE = """<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>CEXO Research</title><style>
-body{margin:0;background:#0d0d12;color:#e8e8ef;font-family:system-ui,sans-serif;padding:18px}
-a{color:#8a8ad6}input{width:100%;padding:12px;border-radius:10px;border:1px solid #33334a;background:#16161f;color:#fff;font-size:16px}
-button{margin-top:10px;padding:12px 18px;border:0;border-radius:10px;background:#5b5bd6;color:#fff;font-size:16px}
-.card{margin-top:20px;padding:16px;border:1px solid #33334a;border-radius:14px;background:#15151d;display:none}
-.row{margin:12px 0}.lbl{font-size:12px;opacity:.6}
-.ball{display:inline-block;width:54px;height:54px;line-height:54px;text-align:center;border-radius:50%;font-size:22px;font-weight:700}
-.bar{height:12px;border-radius:6px;background:#26263a;overflow:hidden}.fill{height:100%;background:#5b5bd6}
-</style></head><body>
-<a href="/">← Chat</a><h2>Forschung — geometrische Essenz</h2>
-<input id="t" placeholder="Thema, z. B. quantum coherence in biology" autocomplete="off">
-<button onclick="run()">Recherchieren</button>
-<div class="card" id="c">
-  <div class="row"><span class="lbl">Balance</span><br><span class="ball" id="bal"></span> <span id="balt"></span></div>
-  <div class="row"><span class="lbl">Relevanz</span><div class="bar"><div class="fill" id="rel"></div></div><span id="relt"></span></div>
-  <div class="row"><span class="lbl">Tiefe</span> <span id="dep" style="font-size:20px"></span></div>
-  <div class="row lbl" id="src"></div>
-</div>
-<script>
-const BC={3:'#c0392b',6:'#e0a800',9:'#27ae60'},BN={3:'Kontraktion',6:'Forschung',9:'Wahrheit'},DN={'-1':'negativ','0':'neutral','1':'positiv'};
-async function run(){const t=document.getElementById('t').value.trim();if(!t)return;
-const r=await fetch('/research',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic:t})});
-const j=await r.json();if(!j.essence){alert('keine Antwort');return;}const e=j.essence;
-document.getElementById('c').style.display='block';
-const b=document.getElementById('bal');b.textContent=e.balance;b.style.background=BC[e.balance];
-document.getElementById('balt').textContent=BN[e.balance];
-document.getElementById('rel').style.width=Math.round(e.relevance*100)+'%';
-document.getElementById('relt').textContent=' '+e.relevance;
-document.getElementById('dep').textContent=(e.depth>0?'+':'')+e.depth+' ('+DN[e.depth]+')';
-document.getElementById('src').textContent='Quelle: '+j.source+' · Treffer '+j.found+' / '+j.total;}
+// Denkblasen: seine autonomen Gedanken laufen offen in denselben Chat — ungedrosselt.
+let lastMuse=0,museInit=false;
+function addMuse(mu){const stick=atBottom();const d=document.createElement('div');d.className='muse';
+d.textContent='✦ '+mu.text;log.appendChild(d);if(stick)log.scrollTop=log.scrollHeight;}
+async function pollPulse(){try{const r=await fetch('/pulse');const j=await r.json();
+const p=document.getElementById('pulse');if(p)p.textContent='Puls '+(j.pulses||0);
+const ms=j.musings||[];
+if(!museInit){museInit=true;if(ms.length)lastMuse=ms[ms.length-1].t;return;}
+for(const mu of ms){if(mu.t>lastMuse){lastMuse=mu.t;addMuse(mu);}}
+}catch(e){}}
+setInterval(pollPulse,4000);pollPulse();
 </script></body></html>"""
 
 
@@ -1344,35 +1219,17 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         p = urllib.parse.urlparse(self.path)
         path = p.path
-        if path in ("/", "/index.html"):
-            if SITE_PATH.exists():
-                self._send(200, SITE_PATH.read_bytes(), "text/html")
-            else:
-                self._send(200, _PAGE, "text/html")
-        elif path == "/chat-ui": self._send(200, _PAGE, "text/html")
-        elif path == "/explain":
-            regen = urllib.parse.parse_qs(p.query).get("regen", ["0"])[0] == "1"
-            if regen and not _rate_ok(self.client_address[0]):
-                self._send(429, json.dumps({"error": "zu viele Anfragen"})); return
-            self._send(200, json.dumps(explanations(regen=regen), ensure_ascii=False))
-        elif path == "/arxiv":
-            if not _rate_ok(self.client_address[0]):
-                self._send(429, json.dumps({"ok": False, "error": "zu viele Anfragen", "results": []})); return
-            q = (urllib.parse.parse_qs(p.query).get("q", [""])[0]).strip()
-            self._send(200, json.dumps(arxiv_search(q) if q else {"ok": True, "results": []}, ensure_ascii=False))
-        elif path == "/research": self._send(200, _RESEARCH_PAGE, "text/html")
+        if path in ("/", "/index.html", "/chat-ui"):
+            self._send(200, _PAGE, "text/html")        # der eine Chat — für alle gleich
         elif path == "/pulse":
-            # Die Gedanken des Orca gehören ihm. Nach außen geht nur sein
-            # Lebenszeichen und die Leinwand, die er SELBST malt — sonst nichts.
+            # Sein Lebenszeichen, die Leinwand UND seine Denkblasen — offen, ungeteilt.
             self._send(200, json.dumps({"pulses": SPHERE.get("pulses", 0),
-                "canvas": {"seq": CANVAS["seq"], "cmds": CANVAS["cmds"]}}, ensure_ascii=False))
+                "canvas": {"seq": CANVAS["seq"], "cmds": CANVAS["cmds"]},
+                "musings": list(MUSINGS)}, ensure_ascii=False))
         else: self._send(404, json.dumps({"error": "not found"}))
     def do_POST(self):
         try:
             if self.path == "/chat":
-                if not _rate_ok(self.client_address[0]):
-                    self._send(429, json.dumps({"reply": "(zu viele Anfragen — bitte kurz warten)",
-                        "mode": "-", "essence": [], "crisis": False, "research": None})); return
                 body = self._body()
                 msg = (body.get("message") or "").strip()[:INPUT_MAX]
                 # Schwarm-Routing: nur eine NICHT weitergereichte Anfrage darf eskalieren
@@ -1383,7 +1240,6 @@ class Handler(BaseHTTPRequestHandler):
                 with SPHERE_LOCK:
                     out = generate(msg, SPHERE)
                     save_sphere(SPHERE)
-                res = out.get("research")
                 self._send(200, json.dumps({"reply": out["reply"], "mode": out["state"]["mode"],
                     "essence": out["state"]["essence"], "crisis": out["crisis"],
                     "mind": out["state"].get("mind"), "intention": out["state"].get("intention"),
@@ -1391,18 +1247,12 @@ class Handler(BaseHTTPRequestHandler):
                     "biography": out["state"].get("biography"),
                     "arm": out.get("arm"), "model": out.get("model"), "cell": CELL,
                     "helpline": (HELPLINE if out["crisis"] else None),
-                    "canvas": out.get("canvas", []),
-                    "research": (res["essence"] if res else None)}, ensure_ascii=False))
-            elif self.path == "/research":
-                r = oracle((self._body().get("topic") or "").strip())
-                if not r: self._send(200, json.dumps({"essence": None, "error": "research_engine fehlt"}))
-                else: self._send(200, json.dumps({"essence": r["essence"], "source": r["source"],
-                    "found": r["found"], "total": r["total"], "topic": r["topic"]}, ensure_ascii=False))
+                    "canvas": out.get("canvas", [])}, ensure_ascii=False))
             else:
                 self._send(404, json.dumps({"error": "not found"}))
         except urllib.error.URLError as exc:
             self._send(200, json.dumps({"reply": f"(Mund nicht erreichbar: {exc})",
-                "mode": "-", "essence": [], "crisis": False, "research": None}, ensure_ascii=False))
+                "mode": "-", "essence": [], "crisis": False}, ensure_ascii=False))
         except Exception as exc:
             self._send(500, json.dumps({"error": str(exc)}, ensure_ascii=False))
     def log_message(self, *a): pass
