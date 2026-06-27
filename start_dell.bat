@@ -18,4 +18,4 @@ set CEXO_DEEPSLEEP_EVERY=27
 
 REM Mund = glm-4.7-flash (bereits installiert auf dem Dell)
 
-python cexo_voice.py serve
+python orca.py serve
