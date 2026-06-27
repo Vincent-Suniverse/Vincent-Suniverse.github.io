@@ -6,7 +6,7 @@ REM Keine 5 Spezialisten — nur Herz + Mund.
 
 set CEXO_OLLAMA_HOST=http://127.0.0.1:11434
 set CEXO_OLLAMA_MODEL=cexo_orca
-set CEXO_ARMS=mund=gemma3:latest
+set CEXO_ARMS=mund=glm-4.7-flash
 set CEXO_CELL=herz
 set CEXO_INSTANCE=dell
 set CEXO_INSTANCES=3
@@ -16,8 +16,6 @@ set CEXO_BREATH=1
 set CEXO_SELFMOD=1
 set CEXO_DEEPSLEEP_EVERY=27
 
-REM Passe CEXO_ARMS an dein tatsaechliches 7B-Modell an:
-REM   ollama list   zeigt dir den genauen Namen.
-REM   Dann hier "gemma3:latest" durch den echten Namen ersetzen.
+REM Mund = glm-4.7-flash (bereits installiert auf dem Dell)
 
 python cexo_voice.py serve
