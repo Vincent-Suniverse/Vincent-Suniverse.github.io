@@ -382,8 +382,9 @@ STOP_TOKENS = ["<｜begin▁of▁sentence｜>","<｜end▁of▁sentence｜>","<�
 _SPECIAL_RE = re.compile(r"<[｜|][^<>]*?[｜|]>")
 def _clean(raw):
     txt = _SPECIAL_RE.sub("", raw)
-    txt = re.sub(r"<think>.*?</think>", "", txt, flags=re.DOTALL)
-    txt = re.sub(r"<think>.*$", "", txt, flags=re.DOTALL)
+    txt = re.sub(r"<\s*think\s*>.*?<\s*/\s*think\s*>", "", txt, flags=re.DOTALL | re.IGNORECASE)
+    txt = re.sub(r"<\s*think\s*>.*$", "", txt, flags=re.DOTALL | re.IGNORECASE)
+    txt = re.sub(r"^.*?<\s*/\s*think\s*>", "", txt, flags=re.DOTALL | re.IGNORECASE)
     txt = re.sub(r"(\b\S+\b)(\s+\1){4,}", r"\1", txt)
     return txt.strip()
 def _is_degenerate(text):
