@@ -1,0 +1,4 @@
+langchain-ollama
+langchain-qdrant
+langchain-text-splitters
+langchain-community

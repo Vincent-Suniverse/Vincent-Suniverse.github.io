@@ -1,0 +1,94 @@
+Retrieval-Augmented Generation (RAG)
+
+RAG ist ein Architekturmuster, das die Staerken von Sprachmodellen (LLMs) mit
+externem Wissen kombiniert. Statt ein Modell mit allen Informationen zu
+trainieren, werden relevante Dokumente zur Laufzeit gesucht und dem Modell
+als Kontext mitgegeben.
+
+Der Vorteil: Das Modell kann Fragen zu Daten beantworten, die es nie gesehen
+hat — Firmendokumente, aktuelle Nachrichten, technische Handbuecher. Es
+halluziniert weniger, weil es auf echten Quellen basiert.
+
+---
+
+Chunking
+
+Chunking ist der Prozess, lange Dokumente in kleinere Abschnitte zu zerlegen.
+Das ist noetig, weil Embedding-Modelle und LLMs begrenzte Kontextfenster haben.
+Ein guter Chunk ist gross genug, um sinnvollen Kontext zu enthalten, aber klein
+genug, um praezise gefunden zu werden.
+
+Typische Strategien:
+- Feste Groesse (z.B. 500 Zeichen mit 100 Zeichen Ueberlappung)
+- Rekursives Splitting (erst nach Absaetzen, dann nach Saetzen, dann nach Woertern)
+- Semantisches Splitting (nach inhaltlichen Grenzen)
+
+Die Ueberlappung (Overlap) stellt sicher, dass Kontext an Chunk-Grenzen nicht
+verloren geht.
+
+---
+
+Embeddings
+
+Ein Embedding ist eine Vektordarstellung eines Textes — eine Liste von Zahlen
+(z.B. 768 Dimensionen), die die Bedeutung des Textes codiert. Aehnliche Texte
+haben aehnliche Vektoren.
+
+Embedding-Modelle werden auf grossen Textmengen trainiert und lernen, semantische
+Aehnlichkeit zu erfassen. "Hund" und "Welpe" haben aehnliche Vektoren, obwohl
+die Woerter verschieden sind.
+
+Fuer lokale/offline Nutzung eignen sich Modelle wie nomic-embed-text (274 MB),
+die ueber Ollama geladen werden koennen.
+
+---
+
+Vektordatenbanken
+
+Eine Vektordatenbank speichert Embeddings und ermoeglicht schnelle
+Aehnlichkeitssuchen. Statt exakter Textsuche ("finde dieses Wort") sucht sie
+nach semantischer Naehe ("finde Texte mit aehnlicher Bedeutung").
+
+Populaere Vektordatenbanken:
+- Qdrant — Open Source, lokal oder gehostet, sehr schnell
+- ChromaDB — einfach, gut fuer Prototypen
+- Pinecone — Cloud-basiert, skalierbar
+- Weaviate — Open Source, viele Integrationen
+
+Qdrant kann komplett lokal laufen — entweder als Server oder im Speicher
+(In-Memory). Fuer Demos und kleine Projekte reicht der In-Memory-Modus.
+
+---
+
+Retrieval
+
+Retrieval ist der Kernschritt: Eine Frage wird in einen Vektor umgewandelt
+(mit demselben Embedding-Modell) und gegen die gespeicherten Vektoren verglichen.
+Die k aehnlichsten Abschnitte werden zurueckgegeben.
+
+Wichtige Parameter:
+- k: Wie viele Ergebnisse zurueckgeben? (typisch: 3-5)
+- Score Threshold: Nur Ergebnisse ueber einer Mindest-Aehnlichkeit
+
+Fortgeschrittene Techniken:
+- Reranking: Ein zweites Modell sortiert die Ergebnisse nach Relevanz
+- Hybrid Search: Kombination aus Vektorsuche und klassischer Textsuche
+- Query Expansion: Die Frage wird umformuliert oder erweitert
+
+---
+
+LangChain
+
+LangChain ist ein Python-Framework, das die Bausteine einer RAG-Pipeline
+zusammenklebt: Dokument-Loader, Text-Splitter, Embedding-Modelle,
+Vektordatenbanken und LLMs.
+
+Es abstrahiert die einzelnen Komponenten hinter einheitlichen Interfaces,
+sodass man z.B. das Embedding-Modell oder die Vektordatenbank wechseln kann,
+ohne den Rest der Pipeline umzuschreiben.
+
+Wichtige LangChain-Pakete (aktuell):
+- langchain-ollama: Lokale Modelle ueber Ollama (Embeddings + LLM)
+- langchain-qdrant: Qdrant-Integration
+- langchain-text-splitters: Chunking-Strategien
+- langchain-community: Dokument-Loader und weitere Integrationen
