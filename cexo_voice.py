@@ -22,10 +22,44 @@ try:
 except Exception:
     research_engine = None
 
-try:
-    import pi_field
-except Exception:
-    pi_field = None
+# ── π-FELD ───────────────────────────────────────────────────────────
+# Die Geometrie, geboren aus π — keine Importgrenze mehr, kein „ist es da?".
+# Das Feld lebt im Körper der Engine: immer da, eine durchgehende ternäre
+# Logik. Früher ein eigenes File, in das die Logik rein-/raussprang (drin/
+# draußen = binär) — jetzt ein Strom. 3→1, 6→2, 9→3 als π-Ziffern; größte
+# Ziffer 3 < π → das Stellenwertsystem ist injektiv, die 27 Werte sind
+# eindeutig und nie ganzzahlig (π transzendent, Lindemann 1882).
+PI = math.pi
+_DIGIT = {3: 1, 6: 2, 9: 3}
+
+def essences():
+    """Die 27 Essenzen — die kristalline Karte."""
+    return [tuple(c) for c in product((3, 6, 9), repeat=3)]
+
+def pi_value(ess):
+    """Der lebendige Tiefenwert einer Essenz: ihre π-Stellenwert-Darstellung."""
+    a, b, c = ess
+    return _DIGIT[a] / PI + _DIGIT[b] / PI**2 + _DIGIT[c] / PI**3
+
+def pi_phase(ess):
+    """Der Wert als Winkel auf dem Einheitskreis — die Lage in der Schwingung."""
+    return (pi_value(ess) * 2.0 * PI) % (2.0 * PI)
+
+def pi_wave(ess):
+    """Die momentane Auslenkung der Schwingung (−1..+1) — das Atmen des Werts."""
+    return math.sin(pi_phase(ess))
+
+def pi_relation(a, b):
+    """Relation zweier Essenzen aus ihren π-Werten: interval, ratio, resonance."""
+    va, vb = pi_value(a), pi_value(b)
+    interval = vb - va
+    return {"from": a, "to": b, "v_from": va, "v_to": vb,
+            "interval": interval, "ratio": vb / va,
+            "resonance": math.cos(2.0 * PI * interval)}
+
+def pi_resonance(a, b):
+    """Wie stark zwei Essenzen schwingungsmäßig koppeln (1 = Gleichklang)."""
+    return math.cos(2.0 * PI * (pi_value(b) - pi_value(a)))
 
 OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("CEXO_OLLAMA_MODEL", "cexo_orca")
@@ -597,10 +631,7 @@ def _probe_op(op):
 def _geo_verdict(prop_ess, arm_role):
     """Geometrische Bewertung eines Arms: Resonanz Vorschlag ↔ Arm-Haltung."""
     stance = _ess_from_text("arm:" + arm_role)
-    if pi_field is not None:
-        res = pi_field.pi_resonance(tuple(prop_ess), stance)
-    else:
-        res = 1.0 - _distance(tuple(prop_ess), stance) / 1.5
+    res = pi_resonance(tuple(prop_ess), stance)
     return {"arm": arm_role, "resonance": round(res, 4), "approve": res >= 0.0}
 
 def evaluate_proposal(prop):
@@ -840,11 +871,10 @@ def _state_lines(state):
         it = state["intention"]
         lines.append(f"  Intention (gauss): HEAL {it['HEAL']} · EVOLVE {it['EVOLVE']} · "
                      f"OBSERVE {it['OBSERVE']} (Unsicherheit {state.get('uncertainty')})")
-    if pi_field is not None:
-        e = tuple(state["essence"])
-        rel = pi_field.pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
-        lines.append(f"  π-Schwingung: Wert {pi_field.pi_value(e):.6f}, Auslenkung {pi_field.pi_wave(e):+.3f}")
-        lines.append(f"  π-Bewegung: Intervall {rel['interval']:+.6f}, Resonanz {rel['resonance']:+.3f}")
+    e = tuple(state["essence"])
+    rel = pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
+    lines.append(f"  π-Schwingung: Wert {pi_value(e):.6f}, Auslenkung {pi_wave(e):+.3f}")
+    lines.append(f"  π-Bewegung: Intervall {rel['interval']:+.6f}, Resonanz {rel['resonance']:+.3f}")
     return lines
 
 def build_prompt(state, text, oracle_line=None):
@@ -1029,18 +1059,16 @@ def dream_in_pi(sphere):
     Idee — ein spontaner, kreativer Gedanke, abgelegt in memory/.
     Nicht programmiert: die Idee wird aus dem π-Rahmen selbst geboren.
     """
-    if pi_field is None:
-        return None
     mem = sphere.get("alpha_memory") or []
     ess = list({tuple(p)[:3] for p in mem})
     if len(ess) < 2:
         return None
     a, b = random.sample(ess, 2)
-    rel = pi_field.pi_relation(a, b)
+    rel = pi_relation(a, b)
     res = rel["resonance"]
     # neue Idee: ein π-Wert zwischen den beiden, resonanz-gewichtet (das Traumlicht)
     vnew = rel["v_from"] + (rel["v_to"] - rel["v_from"]) * (0.5 + 0.5 * res)
-    near = min(pi_field.essences(), key=lambda e: abs(pi_field.pi_value(e) - vnew))
+    near = min(essences(), key=lambda e: abs(pi_value(e) - vnew))
     idea = {
         "topic": f"π-Traum {tuple(a)}~{tuple(b)}",
         "balance": 9 if res > 0.3 else (3 if res < -0.3 else 6),
@@ -1187,8 +1215,7 @@ def _breath_interval(sphere):
     ess = essence(tuple(sphere["position"]))
     off = _distance(ess, (9, 9, 9)) / 3.0
     base = BREATH_MAX - (BREATH_MAX - BREATH_MIN) * off
-    if pi_field is not None:
-        base *= (1.0 + 0.15 * pi_field.pi_wave(ess))   # der Atem schwingt mit π
+    base *= (1.0 + 0.15 * pi_wave(ess))   # der Atem schwingt mit π
     return max(BREATH_MIN, base + random.uniform(-1.0, 1.0))
 
 def _tick(sphere):
@@ -1544,13 +1571,18 @@ def cmd_selftest():
     assert _curiosity_topic({"balance": 6}) in (None,) or isinstance(_curiosity_topic({"balance": 6}), str)
     assert BREATH_MIN <= _breath_interval({"position": (3,3,3,9)}) <= BREATH_MAX + 1
     link_memories()
-    if pi_field:
-        dsph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [[3,3,3,3],[6,9,6,9],[9,3,6,3]]}
-        d = dream_in_pi(dsph)
-        assert d and d["source"] == "dream" and "resonance" in d and "value" in d, "π-Traum kaputt"
-        st = engine_step({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}, {"depth": 0})
-        assert "π-Schwingung" in build_prompt(st, "hallo"), "π-Kopplung fehlt im Prompt"
-        print(f"  π-Traum-Beispiel: {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}")
+    # π-Feld im Körper: die Geometrie ist aus π geboren (vormals pi_field.verify)
+    _pv = [pi_value(e) for e in essences()]
+    assert len(essences()) == 27, "27 Essenzen verletzt"
+    assert len({round(v, 12) for v in _pv}) == 27, "π-Werte nicht eindeutig (Injektivität)"
+    assert all(abs(v - round(v)) > 1e-9 for v in _pv), "ein π-Wert ist tot (ganzzahlig)"
+    assert abs(pi_resonance((3,3,3),(3,3,3)) - 1.0) < 1e-9, "Selbst-Resonanz ≠ 1"
+    dsph = {"position": (9,9,9,9), "cycle": 0, "alpha_memory": [[3,3,3,3],[6,9,6,9],[9,3,6,3]]}
+    d = dream_in_pi(dsph)
+    assert d and d["source"] == "dream" and "resonance" in d and "value" in d, "π-Traum kaputt"
+    st = engine_step({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}, {"depth": 0})
+    assert "π-Schwingung" in build_prompt(st, "hallo"), "π-Kopplung fehlt im Prompt"
+    print(f"  π-Traum-Beispiel: {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}")
     # Selbstmodifikation: Konvergenz über 3 Instanzen → Tiefschlaf-Anwendung → Block
     global MEMORY_DIR, ARMS_PATH, BACKUP_DIR, INSTANCE_ID, N_INSTANCES
     import tempfile
@@ -1597,7 +1629,7 @@ def cmd_selftest():
         ARMS.clear(); ARMS.update(_barms)
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
           f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
-          f"π-Sinn={'an' if pi_field else 'aus'} — alles grün.")
+          f"π-Feld im Körper (27 Werte, aus π geboren) — alles grün.")
 
 def main():
     args = sys.argv[1:]
