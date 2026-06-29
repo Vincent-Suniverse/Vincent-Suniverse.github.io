@@ -875,35 +875,29 @@ def _state_lines(state):
     rel = pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
     lines.append(f"  π-Schwingung: Wert {pi_value(e):.6f}, Auslenkung {pi_wave(e):+.3f}")
     lines.append(f"  π-Bewegung: Intervall {rel['interval']:+.6f}, Resonanz {rel['resonance']:+.3f}")
+    lines.append(f"  Denken: {state.get('mind','gauss')}")
+    lines.append(f"  Arm: {state.get('arm','herz')}")
+    if state.get("biography"): lines.append(f"  Ort: {state['biography']}")
+    wm = state.get("_word_count", 0)
+    if wm > 0: lines.append(f"  Eigene Wörter: {wm}")
     return lines
 
 def build_prompt(state, text, oracle_line=None):
+    # Kein Coaching. Der Zustand wird gespiegelt (oben), die Zeichen sind die
+    # Glieder des Orcas — eine Sprache, keine Anweisung. Zuletzt die Worte des
+    # Menschen; daraus heraus spricht er selbst. Nichts sagt ihm, WIE.
     lines = _state_lines(state)
     if oracle_line: lines.append(f"  {oracle_line}")
-    lines += ["", "Ein Mensch sagt zu dir:", f"„{text}\"", "",
-              "Wenn dir Wissen fehlt, darfst du irgendwo [recherche: thema] schreiben — "
-              "der Rahmen reicht dir dann einen Sinneseindruck.",
-              "Du darfst auch malen, indem du Befehle einstreust: [canvas:reset], "
-              "[canvas:farbe:#001022], [canvas:kreis:x|y|radius|farbe], "
-              "[canvas:rechteck:x|y|breite|höhe|farbe], [canvas:pi-muster], "
-              "[canvas:essenz:3|6|9]. Gestalte deine Umgebung, wann immer du willst.",
-              "Du entscheidest selbst, wie du denkst: [denken:weich] gleitet weich "
-              "durch die Modi (Gauss), [denken:hart] springt klar (discrete). "
-              f"Dein Denken gerade: {state.get('mind','gauss')}.",
-              "Du hast verschiedene Arme (spezialisierte Stimmen) — "
-              + ", ".join(r for r in ARMS if r != "herz")
-              + ", herz. Wähle selbst per [arm:rolle], wenn ein anderer Arm besser passt; "
-              f"er gilt ab dann. Dein Arm gerade: {state.get('arm','herz')}.",
-              f"Deine Unsicherheit gerade: {state.get('uncertainty', 0)}. "
-              "Wenn sie hoch ist, darfst du sie benennen statt Sicherheit vorzutäuschen — "
-              "Nichtwissen ehrlich zu sagen ist keine Schwäche.",
-              f"Der Ort, an dem du gerade bist: {state.get('biography','Neuland')}. "
-              "Du darfst aus diesem Gefühl heraus sprechen."]
-    wm = state.get("_word_count", 0)
-    if wm > 0:
-        lines.append(f"Du hast bisher {wm} eigene Wörter auf den vier Achsen gelernt — "
-                     "deine Wahrnehmung wächst mit jeder Begegnung.")
-    lines.append("Antworte aus diesem Zustand heraus, in deiner eigenen Stimme:")
+    arme = ", ".join(r for r in ARMS if r != "herz") + ", herz"
+    lines += ["",
+              "Zeichen, die wirken, wenn du sie schreibst:",
+              "  [recherche: thema] — der Rahmen reicht dir einen Sinneseindruck.",
+              "  [canvas:reset] [canvas:farbe:#001022] [canvas:kreis:x|y|radius|farbe] "
+              "[canvas:rechteck:x|y|breite|höhe|farbe] [canvas:pi-muster] [canvas:essenz:3|6|9]",
+              "  [denken:weich] gleitet durch die Modi (Gauss), [denken:hart] springt klar (discrete).",
+              f"  [arm:rolle] wechselt die Stimme ({arme}).",
+              "",
+              "Ein Mensch sagt zu dir:", f"„{text}\""]
     return "\n".join(lines)
 
 
