@@ -62,7 +62,38 @@ def pi_resonance(a, b):
     return math.cos(2.0 * PI * (pi_value(b) - pi_value(a)))
 
 OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.environ.get("CEXO_OLLAMA_MODEL", "cexo_orca")
+
+def _detect_model():
+    """Zero-Config: jede Zelle erkennt ihr eigenes Modell selbst.
+    Sie fragt ihr lokales Ollama, welches Modell installiert ist, und nimmt es —
+    kein Config-Schritt nötig, die Installation IST die Entscheidung. Das Herz
+    (die Geometrie) läuft überall gleich; das Modell divergiert pro Zelle, weil
+    auf jeder Maschine ein anderes installiert ist. So kann man Zellen einfach
+    dranhängen: Modell draufziehen, Engine läuft als die richtige Zelle.
+
+    Regel (deterministisch): Herz-Modell (cexo/orca) wenn vorhanden → sonst das
+    einzige installierte → sonst das größte (die stärkste Stimme der Zelle).
+    Override jederzeit per CEXO_OLLAMA_MODEL. Fallback offline: 'cexo_orca'."""
+    explicit = os.environ.get("CEXO_OLLAMA_MODEL")
+    if explicit:
+        return explicit
+    try:
+        with urllib.request.urlopen(f"{OLLAMA_HOST}/api/tags", timeout=2) as resp:
+            models = json.loads(resp.read().decode("utf-8")).get("models", [])
+        cand = [(m.get("name", ""), m.get("size", 0)) for m in models
+                if m.get("name") and "embed" not in m.get("name", "").lower()]
+        if not cand:
+            return "cexo_orca"
+        for name, _ in cand:                         # 1) das Herz, wenn da (Hetzner)
+            if "cexo" in name.lower() or "orca" in name.lower():
+                return name
+        if len(cand) == 1:                           # 2) genau eines → eindeutig
+            return cand[0][0]
+        return max(cand, key=lambda c: (c[1], c[0]))[0]   # 3) das größte, deterministisch
+    except Exception:
+        return "cexo_orca"
+
+OLLAMA_MODEL = _detect_model()
 
 def _parse_arms(s):
     arms = {}
