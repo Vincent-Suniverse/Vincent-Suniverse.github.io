@@ -6,12 +6,10 @@
 <title>Chaos ex Ordo | V̂ = π⁴ + π³ + π</title>
 <meta name="description" content="Chaos ex Ordo - Music, Framework, Healing. Creator of the 3-6-9 Universal Neutrality Framework.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Libre+Barcode+39+Text&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
 <style>
   :root {
     --blood: #c41a1a;
-    --blood-glow: #ff1a1a;
-    --dark: #080808;
     --darker: #030303;
     --cream: #f0e8dc;
     --muted: #8a8078;
@@ -30,342 +28,484 @@
     overflow-x: hidden;
   }
 
-  /* Subtle grain overlay */
-  body::before {
-    content: '';
+  canvas#sieve {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 0;
+  }
+
+  .cursor-glow {
+    position: fixed;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(196,26,26,0.13) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 1;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.4s ease;
+    opacity: 0;
   }
 
   .container {
     width: 100%;
-    max-width: 440px;
-    padding: 60px 24px 40px;
+    max-width: 460px;
+    padding: 60px 24px 48px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
+    position: relative;
+    z-index: 2;
   }
 
-  /* Logo - Triangle Circle Square */
   .logo {
-    margin-bottom: 32px;
-    animation: fadeIn 1.5s ease-out;
+    margin-bottom: 36px;
+    cursor: default;
   }
 
   .logo svg {
-    filter: drop-shadow(0 0 12px rgba(196, 26, 26, 0.4));
+    filter: drop-shadow(0 0 14px rgba(196,26,26,0.5));
   }
 
-  /* Artist Name */
+  .logo-tri, .logo-circ, .logo-rect, .logo-text { opacity: 0; }
+
+  .logo-tri {
+    stroke-dasharray: 120; stroke-dashoffset: 120;
+    animation: drawShape 1s cubic-bezier(0.4,0,0.2,1) 0.3s forwards;
+  }
+  .logo-circ {
+    stroke-dasharray: 76; stroke-dashoffset: 76;
+    animation: drawShape 1s cubic-bezier(0.4,0,0.2,1) 0.9s forwards;
+  }
+  .logo-rect {
+    stroke-dasharray: 96; stroke-dashoffset: 96;
+    animation: drawShape 1s cubic-bezier(0.4,0,0.2,1) 1.5s forwards;
+  }
+  .logo-text { animation: fadeIn 0.6s ease-out 1.8s forwards; }
+
+  @keyframes drawShape { to { stroke-dashoffset: 0; opacity: 1; } }
+
   .artist-name {
-    font-size: 2.2rem;
-    font-weight: 300;
-    letter-spacing: 8px;
-    text-transform: uppercase;
-    color: var(--cream);
-    text-align: center;
-    margin-bottom: 6px;
-    animation: fadeIn 1.5s ease-out 0.2s both;
+    font-size: 2.2rem; font-weight: 300; letter-spacing: 8px;
+    text-transform: uppercase; color: var(--cream); text-align: center;
+    margin-bottom: 6px; opacity: 0;
+    animation: revealUp 0.8s cubic-bezier(0.16,1,0.3,1) 2s forwards;
   }
 
-  /* Formula */
   .formula {
-    font-size: 1rem;
-    font-weight: 300;
-    color: var(--blood);
-    letter-spacing: 3px;
-    margin-bottom: 8px;
-    animation: fadeIn 1.5s ease-out 0.4s both;
+    font-size: 1rem; font-weight: 300; color: var(--blood);
+    letter-spacing: 3px; margin-bottom: 8px; opacity: 0;
+    animation: revealUp 0.8s cubic-bezier(0.16,1,0.3,1) 2.2s forwards;
   }
 
-  /* Tagline */
   .tagline {
-    font-size: 0.85rem;
-    font-weight: 300;
-    font-style: italic;
-    color: var(--muted);
-    letter-spacing: 2px;
-    text-align: center;
-    margin-bottom: 48px;
-    animation: fadeIn 1.5s ease-out 0.6s both;
+    font-size: 0.85rem; font-weight: 300; font-style: italic;
+    color: var(--muted); letter-spacing: 2px; text-align: center;
+    margin-bottom: 52px; opacity: 0;
+    animation: revealUp 0.8s cubic-bezier(0.16,1,0.3,1) 2.4s forwards;
   }
 
-  /* Links */
-  .links {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+  .section { width: 100%; margin-bottom: 32px; }
+
+  .section-label {
+    font-size: 0.65rem; font-weight: 400; letter-spacing: 4px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px; padding-left: 4px; opacity: 0;
+    animation: revealUp 0.6s cubic-bezier(0.16,1,0.3,1) forwards;
   }
+  .section:nth-child(1) .section-label { animation-delay: 2.6s; }
+  .section:nth-child(2) .section-label { animation-delay: 3.2s; }
+  .section:nth-child(3) .section-label { animation-delay: 3.8s; }
+
+  .section-divider {
+    width: 100%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(196,26,26,0.3), transparent);
+    margin-bottom: 14px; opacity: 0;
+    animation: fadeIn 1s ease 2.5s forwards;
+  }
+
+  .links { display: flex; flex-direction: column; gap: 12px; }
 
   .link-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    padding: 18px 24px;
-    background: rgba(196, 26, 26, 0.08);
-    border: 1px solid rgba(196, 26, 26, 0.25);
-    border-radius: 2px;
-    text-decoration: none;
-    color: var(--cream);
-    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
+    display: flex; align-items: center; gap: 16px;
+    width: 100%; padding: 18px 24px;
+    background: rgba(3,3,3,0.72);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(196,26,26,0.22);
+    border-radius: 4px; text-decoration: none; color: var(--cream);
+    position: relative; overflow: hidden; cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform 0.12s ease-out, background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    opacity: 0;
+    animation: revealCard 0.7s cubic-bezier(0.16,1,0.3,1) forwards;
   }
 
   .link-item::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    height: 100%;
-    width: 2px;
-    background: var(--blood);
+    content: ''; position: absolute; left: 0; top: 0;
+    height: 100%; width: 2px; background: var(--blood);
     transform: scaleY(0);
-    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
     transform-origin: bottom;
   }
 
-  .link-item:hover {
-    background: rgba(196, 26, 26, 0.18);
-    border-color: rgba(196, 26, 26, 0.5);
-    transform: translateX(4px);
+  .link-item::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(196,26,26,0.14), transparent 58%);
+    opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
   }
 
-  .link-item:hover::before {
-    transform: scaleY(1);
+  .link-item:hover {
+    background: rgba(30,5,5,0.82);
+    border-color: rgba(196,26,26,0.55);
+    box-shadow: 0 6px 28px rgba(196,26,26,0.12), 0 0 0 1px rgba(196,26,26,0.12);
   }
+  .link-item:hover::before { transform: scaleY(1); }
+  .link-item:hover::after { opacity: 1; }
+
+  .section:nth-child(1) .link-item:nth-child(1) { animation-delay: 2.7s; }
+  .section:nth-child(1) .link-item:nth-child(2) { animation-delay: 2.85s; }
+  .section:nth-child(2) .link-item:nth-child(1) { animation-delay: 3.3s; }
+  .section:nth-child(2) .link-item:nth-child(2) { animation-delay: 3.45s; }
+  .section:nth-child(3) .link-item:nth-child(1) { animation-delay: 3.9s; }
+  .section:nth-child(3) .link-item:nth-child(2) { animation-delay: 4.05s; }
 
   .link-icon {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    opacity: 0.7;
+    width: 22px; height: 22px; flex-shrink: 0;
+    opacity: 0.55; transition: opacity 0.3s ease, transform 0.3s ease;
   }
+  .link-icon svg { width: 100%; height: 100%; fill: var(--blood); }
+  .link-item:hover .link-icon { opacity: 1; transform: scale(1.1); }
 
-  .link-icon svg {
-    width: 100%;
-    height: 100%;
-    fill: var(--blood);
-  }
-
-  .link-content {
-    flex: 1;
-  }
+  .link-content { flex: 1; }
 
   .link-title {
-    font-size: 1rem;
-    font-weight: 400;
-    letter-spacing: 3px;
-    text-transform: uppercase;
+    font-size: 1rem; font-weight: 400;
+    letter-spacing: 3px; text-transform: uppercase;
   }
 
   .link-subtitle {
-    font-size: 0.75rem;
-    font-weight: 300;
-    color: var(--muted);
-    letter-spacing: 1px;
-    margin-top: 2px;
+    font-size: 0.72rem; font-weight: 300; color: var(--muted);
+    letter-spacing: 1px; margin-top: 3px; transition: color 0.3s ease;
   }
+  .link-item:hover .link-subtitle { color: #b0a898; }
 
   .link-arrow {
-    font-size: 0.9rem;
-    color: var(--blood);
-    opacity: 0;
-    transform: translateX(-8px);
-    transition: all 0.4s ease;
+    font-size: 0.9rem; color: var(--blood);
+    opacity: 0; transform: translateX(-10px);
+    transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
   }
+  .link-item:hover .link-arrow { opacity: 1; transform: translateX(0); }
 
-  .link-item:hover .link-arrow {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  /* Staggered animation */
-  .link-item:nth-child(1) { animation: slideUp 0.6s ease-out 0.8s both; }
-  .link-item:nth-child(2) { animation: slideUp 0.6s ease-out 0.95s both; }
-  .link-item:nth-child(3) { animation: slideUp 0.6s ease-out 1.1s both; }
-  .link-item:nth-child(4) { animation: slideUp 0.6s ease-out 1.25s both; }
-  .link-item:nth-child(5) { animation: slideUp 0.6s ease-out 1.4s both; }
-  .link-item:nth-child(6) { animation: slideUp 0.6s ease-out 1.55s both; }
-
-  /* Footer */
   .footer {
-    margin-top: 48px;
-    text-align: center;
-    animation: fadeIn 1.5s ease-out 2s both;
+    margin-top: 48px; text-align: center; opacity: 0;
+    animation: fadeIn 1.5s ease-out 4.5s forwards;
   }
 
   .footer-symbols {
-    font-size: 0.85rem;
-    color: var(--blood);
-    letter-spacing: 6px;
-    margin-bottom: 12px;
+    font-size: 0.85rem; color: var(--blood);
+    letter-spacing: 6px; margin-bottom: 12px;
+    animation: breathe 6s ease-in-out infinite;
   }
 
-  .footer-text {
-    font-size: 0.7rem;
-    color: var(--muted);
-    letter-spacing: 2px;
-  }
+  .footer-text { font-size: 0.7rem; color: var(--muted); letter-spacing: 2px; }
 
-  /* Ambient glow */
-  .glow {
-    position: fixed;
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(196, 26, 26, 0.12) 0%, transparent 70%);
-    top: -50px;
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
-    animation: pulse 6s ease-in-out infinite;
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes revealUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+  @keyframes revealCard {
+    from { opacity: 0; transform: perspective(800px) translateY(30px) rotateX(5deg); }
+    to   { opacity: 1; transform: perspective(800px) translateY(0) rotateX(0deg); }
   }
-
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-  }
-
-  /* Reading link special style */
-  .link-item.reading {
-    background: rgba(196, 26, 26, 0.15);
-    border-color: rgba(196, 26, 26, 0.4);
+  @keyframes breathe {
+    0%,100% { opacity: 0.45; letter-spacing: 6px; }
+    50%      { opacity: 1;    letter-spacing: 11px; }
   }
 
   @media (max-width: 480px) {
-    .container { padding: 40px 20px 32px; }
+    .container { padding: 40px 20px 36px; }
     .artist-name { font-size: 1.8rem; letter-spacing: 6px; }
     .link-item { padding: 16px 20px; }
+  }
+  @media (hover: none) {
+    .link-item::after { display: none; }
+    .link-arrow { opacity: 0.4; transform: translateX(0); }
   }
 </style>
 </head>
 <body>
 
-<div class="glow"></div>
+<canvas id="sieve"></canvas>
+<div class="cursor-glow" id="glow"></div>
 
 <div class="container">
 
-  <!-- Logo -->
   <div class="logo">
     <svg width="60" height="90" viewBox="0 0 60 90">
-      <polygon points="30,2 12,32 48,32" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
-      <circle cx="30" cy="44" r="12" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
-      <text x="30" y="48" text-anchor="middle" font-family="Cormorant Garamond, serif" font-size="10" font-weight="600" fill="#c41a1a">V̂</text>
-      <rect x="18" y="60" width="24" height="24" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
+      <polygon class="logo-tri" points="30,2 12,32 48,32" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
+      <circle  class="logo-circ" cx="30" cy="44" r="12" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
+      <text    class="logo-text" x="30" y="48" text-anchor="middle" font-family="Cormorant Garamond, serif" font-size="10" font-weight="600" fill="#c41a1a">V&#x302;</text>
+      <rect    class="logo-rect" x="18" y="60" width="24" height="24" fill="none" stroke="#c41a1a" stroke-width="1.2"/>
     </svg>
   </div>
 
-  <!-- Name -->
   <h1 class="artist-name">Chaos ex Ordo</h1>
-
-  <!-- Formula -->
-  <p class="formula">V̂ = π⁴ + π³ + π</p>
-
-  <!-- Tagline -->
+  <p class="formula">V&#x302; = &#x3c0;&#x2074; + &#x3c0;&#xb3; + &#x3c0;</p>
   <p class="tagline">27 Constants. 1 Formula. Zero free parameters.</p>
 
-  <!-- Links -->
-  <div class="links">
-
-    <!-- Listen -->
-    <a href="https://open.spotify.com/artist/3LQ3n2HV0Dm8On9TpZfQSS" target="_blank" class="link-item">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Listen</div>
-        <div class="link-subtitle">Spotify · Apple Music · All Platforms</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
-    <!-- Framework -->
-    <a href="https://zenodo.org/records/18604962" target="_blank" class="link-item">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6zm2-6h8v1.5H8V14zm0-3h8v1.5H8V11zm0 6h5v1.5H8V17z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Framework</div>
-        <div class="link-subtitle">3-6-9 Universal Neutrality · Research Paper</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
-    <!-- Personal Reading -->
-    <a href="https://wa.me/message/CY4VOAQQDQUAL1" target="_blank" class="link-item reading">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Personal Reading</div>
-        <div class="link-subtitle">Meditative talking · Payment by context</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
-    <!-- X/Twitter -->
-    <a href="https://x.com/FAU_Vince" target="_blank" class="link-item">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Connect</div>
-        <div class="link-subtitle">@FAU_Vince · Thoughts & Framework</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
-    <!-- UpScrolled -->
-    <a href="https://share.upscrolled.com/en/user/c1e9721f-" target="_blank" class="link-item">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Community</div>
-        <div class="link-subtitle">UpScrolled · Deep Conversations</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
-    <!-- Instagram -->
-    <a href="https://instagram.com/life_of_vincew" target="_blank" class="link-item">
-      <div class="link-icon">
-        <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-      </div>
-      <div class="link-content">
-        <div class="link-title">Instagram</div>
-        <div class="link-subtitle">@life_of_vincew · Behind the Scenes</div>
-      </div>
-      <span class="link-arrow">→</span>
-    </a>
-
+  <div class="section">
+    <div class="section-divider"></div>
+    <div class="section-label">Music</div>
+    <div class="links">
+      <a href="https://open.spotify.com/artist/3LQ3n2HV0Dm8On9TpZfQSS" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+        </div>
+        <div class="link-content">
+          <div class="link-title">Spotify</div>
+          <div class="link-subtitle">Chaos ex Ordo &middot; All Releases</div>
+        </div>
+        <span class="link-arrow">&rarr;</span>
+      </a>
+    </div>
   </div>
 
-  <!-- Footer -->
+  <div class="section">
+    <div class="section-divider"></div>
+    <div class="section-label">Research &amp; Code</div>
+    <div class="links">
+      <a href="https://zenodo.org/records/18604962" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6zm2-6h8v1.5H8V14zm0-3h8v1.5H8V11zm0 6h5v1.5H8V17z"/></svg>
+        </div>
+        <div class="link-content">
+          <div class="link-title">Framework</div>
+          <div class="link-subtitle">3-6-9 Universal Neutrality &middot; Zenodo</div>
+        </div>
+        <span class="link-arrow">&rarr;</span>
+      </a>
+      <a href="https://github.com/Vincent-Suniverse" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        </div>
+        <div class="link-content">
+          <div class="link-title">GitHub</div>
+          <div class="link-subtitle">Open Source &middot; Public Repositories</div>
+        </div>
+        <span class="link-arrow">&rarr;</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-divider"></div>
+    <div class="section-label">Social</div>
+    <div class="links">
+      <a href="https://x.com/FAU_Vince" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </div>
+        <div class="link-content">
+          <div class="link-title">X</div>
+          <div class="link-subtitle">@FAU_Vince &middot; Thoughts &amp; Framework</div>
+        </div>
+        <span class="link-arrow">&rarr;</span>
+      </a>
+      <a href="https://www.instagram.com/chaos_ex_ordo" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+        </div>
+        <div class="link-content">
+          <div class="link-title">Instagram</div>
+          <div class="link-subtitle">@chaos_ex_ordo &middot; Behind the Scenes</div>
+        </div>
+        <span class="link-arrow">&rarr;</span>
+      </a>
+    </div>
+  </div>
+
   <div class="footer">
-    <div class="footer-symbols">△ ○ □</div>
-    <div class="footer-text">3 — 6 — 9</div>
+    <div class="footer-symbols">&triangle; &cir; &squ;</div>
+    <div class="footer-text">3 &mdash; 6 &mdash; 9</div>
   </div>
 
 </div>
+
+<script>
+(function() {
+  /* ── cursor glow ─────────────────────────────────────────── */
+  var glow = document.getElementById('glow');
+  document.addEventListener('mousemove', function(e) {
+    glow.style.opacity = '1';
+    glow.style.left = e.clientX + 'px';
+    glow.style.top  = e.clientY + 'px';
+  });
+  document.addEventListener('mouseleave', function() { glow.style.opacity = '0'; });
+
+  /* ── 3-D tilt on cards ───────────────────────────────────── */
+  document.querySelectorAll('.link-item').forEach(function(card) {
+    card.addEventListener('mousemove', function(e) {
+      var r  = card.getBoundingClientRect();
+      var x  = e.clientX - r.left, y = e.clientY - r.top;
+      var rx = ((y - r.height/2) / (r.height/2)) * -4;
+      var ry = ((x - r.width /2) / (r.width /2)) *  6;
+      card.style.transform = 'perspective(800px) rotateX('+rx+'deg) rotateY('+ry+'deg) scale(1.015)';
+      card.style.setProperty('--mx', (x/r.width *100)+'%');
+      card.style.setProperty('--my', (y/r.height*100)+'%');
+    });
+    card.addEventListener('mouseleave', function() {
+      card.style.transform = 'perspective(800px) rotateX(0) rotateY(0) scale(1)';
+    });
+  });
+
+  /* ── SIEVE / NEURAL FIELD ────────────────────────────────── */
+  var cv  = document.getElementById('sieve');
+  var ctx = cv.getContext('2d');
+  var W, H, nodes, COLS, ROWS;
+  var mouseX = -9999, mouseY = -9999;
+
+  function build() {
+    W = cv.width  = window.innerWidth;
+    H = cv.height = window.innerHeight;
+
+    /* 3-6-9: use 9 columns, 6 rows — scale on small screens */
+    COLS = window.innerWidth < 500 ? 6 : 9;
+    ROWS = window.innerWidth < 500 ? 5 : 6;
+
+    var padX = W * 0.04, padY = H * 0.08;
+    nodes = [];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        nodes.push({
+          c: c, r: r,
+          bx: padX + (c / (COLS - 1)) * (W - padX * 2),
+          by: padY + (r / (ROWS - 1)) * (H - padY * 2),
+          /* each column gets a different wave phase → travelling wave */
+          phase: c * 0.55 + r * 0.28
+        });
+      }
+    }
+  }
+  build();
+  window.addEventListener('resize', build);
+  document.addEventListener('mousemove', function(e) { mouseX = e.clientX; mouseY = e.clientY; });
+
+  function idx(c, r) { return r * COLS + c; }
+
+  function draw(ts) {
+    var t = ts * 0.0008;
+    ctx.clearRect(0, 0, W, H);
+
+    /* compute live positions */
+    var px = new Float32Array(nodes.length);
+    var py = new Float32Array(nodes.length);
+
+    for (var i = 0; i < nodes.length; i++) {
+      var n  = nodes[i];
+      /* primary vertical wave (sieve vibration) */
+      var ampY = H * 0.055;
+      /* secondary horizontal wobble */
+      var ampX = W * 0.012;
+      /* mouse proximity bulge */
+      var dx0 = mouseX - n.bx, dy0 = mouseY - n.by;
+      var dist = Math.sqrt(dx0*dx0 + dy0*dy0);
+      var bulge = Math.max(0, 1 - dist / (W * 0.28)) * ampY * 0.6;
+
+      px[i] = n.bx + Math.sin(t * 0.7 + n.phase + 1.2) * ampX;
+      py[i] = n.by
+              + Math.sin(t * 1.0 + n.phase)        * ampY        /* main wave  */
+              + Math.sin(t * 1.7 + n.phase * 1.3)  * ampY * 0.3 /* harmonic   */
+              - (dy0 / (dist||1)) * bulge;                        /* mouse push */
+    }
+
+    /* ── draw connections ─────────────────────────────────── */
+    /* right  →   (horizontal layer lines)
+       down-right  diagonal \  (sieve diamond A)
+       down-left   diagonal /  (sieve diamond B)
+    */
+    ctx.lineCap = 'round';
+
+    function drawEdge(ia, ib, bright) {
+      var x1=px[ia], y1=py[ia], x2=px[ib], y2=py[ib];
+      var len = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+      /* stretch ratio: brighter when compressed, dimmer when stretched */
+      var baseLen = Math.sqrt(
+        Math.pow(nodes[ib].bx-nodes[ia].bx,2)+
+        Math.pow(nodes[ib].by-nodes[ia].by,2));
+      var ratio = baseLen / (len + 0.001);
+      var alpha = bright
+        ? 0.55 + Math.min(0.4, ratio * 0.3)
+        : 0.15 + Math.min(0.25, ratio * 0.18);
+
+      var grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      if (bright) {
+        grad.addColorStop(0,   'rgba(220,60,60,'  + alpha       + ')');
+        grad.addColorStop(0.5, 'rgba(255,200,180,'+ (alpha*0.9) + ')');
+        grad.addColorStop(1,   'rgba(220,60,60,'  + alpha       + ')');
+      } else {
+        grad.addColorStop(0,   'rgba(150,20,20,'  + alpha + ')');
+        grad.addColorStop(0.5, 'rgba(196,40,40,'  + alpha + ')');
+        grad.addColorStop(1,   'rgba(150,20,20,'  + alpha + ')');
+      }
+
+      ctx.beginPath();
+      ctx.strokeStyle = grad;
+      ctx.lineWidth   = bright ? 0.9 : 0.45;
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var i = idx(c, r);
+        /* right */
+        if (c < COLS-1) drawEdge(i, idx(c+1,r), true);
+        /* down */
+        if (r < ROWS-1) drawEdge(i, idx(c,r+1), false);
+        /* diagonal \ */
+        if (c < COLS-1 && r < ROWS-1) drawEdge(i, idx(c+1,r+1), false);
+        /* diagonal / */
+        if (c > 0 && r < ROWS-1) drawEdge(i, idx(c-1,r+1), false);
+      }
+    }
+
+    /* ── draw nodes ───────────────────────────────────────── */
+    for (var i = 0; i < nodes.length; i++) {
+      var n  = nodes[i];
+      var x  = px[i], y = py[i];
+      /* pulse brightness per node */
+      var pulse = 0.5 + 0.5 * Math.sin(t * 1.8 + n.phase);
+      /* mouse proximity highlight */
+      var dx1 = mouseX - x, dy1 = mouseY - y;
+      var prox = Math.max(0, 1 - Math.sqrt(dx1*dx1+dy1*dy1) / (W*0.18));
+
+      var baseR = 1.6 + pulse * 1.2 + prox * 3;
+
+      /* outer glow */
+      var og = ctx.createRadialGradient(x,y,0, x,y, baseR*5);
+      og.addColorStop(0,   'rgba(196,26,26,' + (0.18 + pulse*0.2 + prox*0.4) + ')');
+      og.addColorStop(1,   'rgba(196,26,26,0)');
+      ctx.beginPath();
+      ctx.fillStyle = og;
+      ctx.arc(x, y, baseR*5, 0, Math.PI*2);
+      ctx.fill();
+
+      /* core dot */
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(240,200,190,' + (0.5 + pulse*0.4 + prox*0.5) + ')';
+      ctx.arc(x, y, baseR, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+</script>
 
 </body>
 </html>
