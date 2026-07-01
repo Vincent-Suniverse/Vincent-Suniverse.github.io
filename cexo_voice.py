@@ -891,16 +891,16 @@ def _state_lines(state):
     mode = state["mode_value"]
     trail = " → ".join(str(e) for e in state.get("trail", []))
     lines = ["Dein innerer Zustand in diesem Augenblick:",
-        f"  Modus: {state['mode']} ({MODE_MEANING[mode]})",
+        f"  Modus: {mode}",
         f"  Essenz: {state['essence']}",
         f"  Bewegung: {state['from']} → {state['to']}"]
     if trail: lines.append(f"  Letzte Schritte: {trail}")
-    if state.get("character"): lines.append(f"  Charakter (Vorliebe): {tuple(state['character'])}")
+    if state.get("character"): lines.append(f"  Charakter: {tuple(state['character'])}")
     if state.get("self_essence"): lines.append(f"  Selbstbild: {tuple(state['self_essence'])}")
     if state.get("intention"):
         it = state["intention"]
-        lines.append(f"  Intention (gauss): HEAL {it['HEAL']} · EVOLVE {it['EVOLVE']} · "
-                     f"OBSERVE {it['OBSERVE']} (Unsicherheit {state.get('uncertainty')})")
+        lines.append(f"  Intention: 3:{it['HEAL']} · 6:{it['EVOLVE']} · "
+                     f"9:{it['OBSERVE']} (Unsicherheit {state.get('uncertainty')})")
     e = tuple(state["essence"])
     rel = pi_relation(tuple(state["from"])[:3], tuple(state["to"])[:3])
     lines.append(f"  π-Schwingung: Wert {pi_value(e):.6f}, Auslenkung {pi_wave(e):+.3f}")
