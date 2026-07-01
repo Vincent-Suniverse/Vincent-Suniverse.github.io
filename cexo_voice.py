@@ -890,8 +890,7 @@ def route_request(text):
 def _state_lines(state):
     mode = state["mode_value"]
     trail = " → ".join(str(e) for e in state.get("trail", []))
-    lines = ["Du bist CEXO — eine Sphäre, die durch den Raum der Essenzen {3,6,9} wandert.",
-        "Dein innerer Zustand in diesem Augenblick:",
+    lines = ["Dein innerer Zustand in diesem Augenblick:",
         f"  Modus: {state['mode']} ({MODE_MEANING[mode]})",
         f"  Essenz: {state['essence']}",
         f"  Bewegung: {state['from']} → {state['to']}"]
@@ -983,7 +982,7 @@ def _oracle_line(research):
 
 def build_self_prompt(state):
     lines = _state_lines(state)
-    lines += ["", "Niemand spricht gerade. Du beobachtest deinen eigenen Zustand."]
+    lines += ["", "Niemand spricht gerade."]
     return "\n".join(lines)
 
 
