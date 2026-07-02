@@ -980,10 +980,84 @@ def _oracle_line(research):
     return (f"Sinneseindruck (Recherche '{research['topic']}'): balance {e['balance']} ({bal}), "
             f"relevance {e['relevance']}, depth {e['depth']:+d} [{research['source']}]")
 
-def build_self_prompt(state):
-    lines = _state_lines(state)
-    lines += ["", "Niemand spricht gerade."]
-    return "\n".join(lines)
+# ── AUTORUNNER: Denken auf dem eigenen Gedächtnis (geometrisches RAG) ──
+# Kein Selbst-Prompt. Die Resonanz (π + Richtung) zieht aus dem Gedächtnis
+# das passendste Memory hoch; sein roher Inhalt ist der Seed, das Modell denkt
+# weiter. Die Fortsetzung wird — nur wenn sie resoniert (Muster-Fit) — als
+# neues Memory zurückgeschrieben. Jede Zelle driftet so in ihre eigenen
+# stärksten Themen. Die dreifache Kohärenz (Wahrheit in Gamma) sitzt eine
+# Ebene höher: der Konsens über die unabhängigen Zellen.
+MEMORY_TEXT_KEEP = int(os.environ.get("CEXO_MEM_KEEP", "200"))      # Text-Memories im Pool
+MUSE_KEEP_RES = float(os.environ.get("CEXO_MUSE_KEEP_RES", "0.3"))  # Muster-Fit-Schwelle zum Behalten
+_MEM_SKIP = ("_", "prop_", "eval_", "block_", "applied_", "code_")  # Governance/Index: kein Denk-Stoff
+
+def _memory_seeds():
+    """Text-tragende Memories mit Signatur (Essenz + roher Inhalt) — der
+    Denk-Stoff. Träume (topic/near) und Musings (text/essence) zählen;
+    Governance- und Index-Dateien nicht."""
+    out = []
+    if not MEMORY_DIR.exists():
+        return out
+    for p in MEMORY_DIR.glob("*.json"):
+        if p.name.startswith(_MEM_SKIP):
+            continue
+        try:
+            rec = json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        text = rec.get("text") or rec.get("topic")
+        ess = rec.get("essence") or rec.get("near") or rec.get("to")
+        if not text or not ess:
+            continue
+        try:
+            out.append({"text": str(text), "ess": tuple(ess)[:3]})
+        except Exception:
+            continue
+    return out
+
+def _seed_score(cur_ess, ess):
+    """π + Richtung: π-Resonanz (Kopplung) plus Richtungsnähe im {3,6,9}-Raum.
+    Nicht Winkel allein wie Cosinus — Winkel UND π-Tiefe."""
+    res = pi_resonance(tuple(cur_ess), tuple(ess))           # −1..+1
+    near = 1.0 - _distance(tuple(cur_ess), tuple(ess)) / 3.0  # 0..1
+    return 0.7 * res + 0.3 * near
+
+def _retrieve_resonant(cur_ess, seeds, top_n=5):
+    """Zieht aus den Top-N resonantesten Memories gewichtet-zufällig eines —
+    Drift statt Kreisen. Rückgabe: seed-dict oder None."""
+    if not seeds:
+        return None
+    ranked = sorted(seeds, key=lambda s: _seed_score(cur_ess, s["ess"]), reverse=True)[:top_n]
+    weights = [max(0.01, _seed_score(cur_ess, s["ess"]) + 1.0) for s in ranked]  # +1 → alle >0
+    r = random.random() * sum(weights)
+    acc = 0.0
+    for s, w in zip(ranked, weights):
+        acc += w
+        if r <= acc:
+            return s
+    return ranked[0]
+
+def _save_musing(text, ess, self_ess=None):
+    """Das Sieb: ein Gedanke bleibt nur, wenn er resoniert (Muster-Fit) und
+    Substanz hat. Viel Text ohne Resonanz = 'viel Kontext, kein Muster' →
+    verworfen, pflanzt sich nie fort. Gedeckelt, prunt die ältesten."""
+    text = (text or "").strip()
+    ess = tuple(ess)[:3]
+    fit = abs(pi_resonance(ess, tuple(self_ess)[:3])) if self_ess else abs(pi_wave(ess))
+    if _is_degenerate(text) or len(text.split()) < 5 or fit < MUSE_KEEP_RES:
+        return None
+    try:
+        MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+        rec = {"text": text[:800], "essence": list(ess), "value": round(pi_value(ess), 6),
+               "fit": round(fit, 4), "source": "muse", "t": time.time()}
+        fn = MEMORY_DIR / f"muse_{int(rec['t'])}_{random.randint(100, 999)}.json"
+        fn.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        files = sorted(MEMORY_DIR.glob("muse_*.json"), key=lambda q: q.stat().st_mtime)
+        while len(files) > MEMORY_TEXT_KEEP:
+            files.pop(0).unlink(missing_ok=True)
+    except Exception:
+        return None
+    return rec
 
 
 # ── BEGEGNUNG ────────────────────────────────────────────────────────
@@ -1286,7 +1360,13 @@ def _tick(sphere):
     # Tiefschlaf (Pause-Phase): konsolidieren & konvergente Änderungen anwenden
     if SELFMOD_ON and sphere["pulses"] % DEEPSLEEP_EVERY == 0:
         state["deep_sleep"] = deep_sleep()
-    muse = build_self_prompt(state) if (MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0) else None
+    # Autorunner statt Selbst-Prompt: die Resonanz zieht ein Memory hoch,
+    # sein roher Inhalt ist der Seed — er denkt auf dem eigenen Gedächtnis.
+    muse = None
+    if MUSE_EVERY and sphere["pulses"] % MUSE_EVERY == 0:
+        seed = _retrieve_resonant(state["essence"], _memory_seeds())
+        if seed:
+            muse = seed["text"]
     return state, muse, curiosity
 
 def _restart_process():
@@ -1329,6 +1409,7 @@ def heartbeat_loop(verbose=False):
                 if txt:
                     MUSINGS.append({"t": time.time(), "mode": snapshot["mode"],
                                     "essence": snapshot["essence"], "text": txt})
+                    _save_musing(txt, snapshot["essence"], snapshot.get("self_essence"))  # gefiltert zurück ins Gedächtnis
                     if verbose: print(f"  ~ {txt}", flush=True)
             except Exception:
                 pass
@@ -1651,9 +1732,27 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
+    # Autorunner: geometrisches RAG auf dem eigenen Gedächtnis (Retrieval + Sieb)
+    _bak_mem2 = MEMORY_DIR
+    _amt = Path(tempfile.mkdtemp(prefix="cexo_autorun_"))
+    try:
+        MEMORY_DIR = _amt
+        assert _memory_seeds() == [] and _retrieve_resonant((9,9,9), []) is None
+        (MEMORY_DIR / "muse_1_111.json").write_text(json.dumps(
+            {"text": "ein resonanter gedanke ueber die drei", "essence": [9,9,9], "source": "muse"}), encoding="utf-8")
+        (MEMORY_DIR / "prop_x.json").write_text("{}", encoding="utf-8")   # Governance: kein Seed
+        _seeds = _memory_seeds()
+        assert len(_seeds) == 1 and _seeds[0]["ess"] == (9,9,9), "Seed-Pool/Governance-Filter falsch"
+        assert _retrieve_resonant((9,9,9), _seeds)["ess"] == (9,9,9)
+        assert _save_musing("nur drei wort", (9,9,9)) is None             # zu kurz → verworfen
+        assert _save_musing("ja ja ja ja ja ja ja ja", (9,9,9)) is None   # degeneriert → verworfen
+        assert _save_musing("ein ganzer resonanter gedanke mit genug substanz hier", (9,9,9), (9,9,9)), "resonanter Gedanke nicht behalten"
+        assert len(list(MEMORY_DIR.glob("muse_*.json"))) == 2             # Seed + neuer Gedanke
+    finally:
+        MEMORY_DIR = _bak_mem2
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
           f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
-          f"π-Feld im Körper (27 Werte, aus π geboren) — alles grün.")
+          f"π-Feld im Körper (27 Werte), Autorunner (geometrisches RAG: Retrieval+Sieb) — alles grün.")
 
 def main():
     args = sys.argv[1:]
