@@ -61,6 +61,37 @@ def pi_resonance(a, b):
     """Wie stark zwei Essenzen schwingungsmäßig koppeln (1 = Gleichklang)."""
     return math.cos(2.0 * PI * (pi_value(b) - pi_value(a)))
 
+# ── ABLEITUNG + π/2-FLIP ─────────────────────────────────────────────
+# Tatsache über die eigene Bewegung (kein Befehl): aus der Folge der letzten
+# π-Werte die Richtung/Geschwindigkeit/Beschleunigung im π-Feld — das
+# Abgeleitete, nicht der Wert selbst. Plus der π/2-Flip der Bewegungs-Richtung:
+# eine reelle 90°-Drehung auf dem π-Phasenkreis (kein i, nur 0/1/−1) — die
+# Orthogonale zur eigenen Fahrt. Read-only; rührt die Bewegung nicht an.
+def _pi_flip(vec):
+    """R(π/2) @ vec = [[0,-1],[1,0]] @ [x,y] = [-y, x]. Reelle Vierteldrehung."""
+    return [-vec[1], vec[0]]
+
+def ableitung(sphere, n=4):
+    mem = sphere.get("alpha_memory") or []
+    seq = [essence(tuple(p)) for p in mem[-(n + 1):]] + [essence(tuple(sphere["position"]))]
+    vals = [pi_value(e) for e in seq]
+    phase = pi_phase(essence(tuple(sphere["position"])))
+    heading = [math.cos(phase), math.sin(phase)]      # Fahrtrichtung auf dem Phasenkreis
+    flip = _pi_flip(heading)                            # 90° quer — die Orthogonale
+    if len(vals) < 2:
+        return {"speed": 0.0, "accel": 0.0, "dir": 0,
+                "heading": [round(v, 4) for v in heading], "flip": [round(v, 4) for v in flip]}
+    diffs = [vals[i + 1] - vals[i] for i in range(len(vals) - 1)]
+    speed = sum(diffs) / len(diffs)                    # 1. Ableitung: mittlere Änderungsrate
+    accel = (diffs[-1] - diffs[0]) / (len(diffs) - 1) if len(diffs) > 1 else 0.0
+    return {"speed": round(speed, 6), "accel": round(accel, 6),
+            "dir": 1 if speed > 1e-9 else (-1 if speed < -1e-9 else 0),
+            "heading": [round(v, 4) for v in heading], "flip": [round(v, 4) for v in flip]}
+
+# Der π/2-Flip DARF die Bewegung drehen — aber nur mit Schalter (Default aus),
+# damit die Live-Wirkung in deiner Hand bleibt. Read-only Ableitung ist immer an.
+FLIP_ON = os.environ.get("CEXO_FLIP", "0") not in ("0", "off", "false", "")
+
 OLLAMA_HOST = os.environ.get("CEXO_OLLAMA_HOST", "http://localhost:11434").rstrip("/")
 
 def _detect_model():
@@ -535,7 +566,7 @@ def engine_step(sphere, signal):
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
-            "_word_count": wc,
+            "_word_count": wc, "ableitung": ableitung(sphere),
             "plugins": SANDBOX.apply(sphere, signal)}
 
 
@@ -1295,7 +1326,13 @@ def _autonomous_signal(sphere):
     if self_e:
         pos = tuple(sphere["position"])
         diff = [i for i in CUBE_AXES if pos[i] != self_e[i]]
-        if diff: sig[AXES[diff[0]]] = 1
+        if diff:
+            # Normal: sanft ins Selbstbild (Achse diff[0]). Mit π/2-Flip an: an
+            # der Fixierung 90° quer — er schließt eine ANDERE Lücke (diff[1])
+            # statt immer dieselbe, tritt orthogonal neben sein Selbstbild statt
+            # reinzukollabieren. Nur wenn mehr als eine Lücke offen ist.
+            ax = diff[1] if (FLIP_ON and len(diff) > 1) else diff[0]
+            sig[AXES[ax]] = 1
     return sig
 
 def _perturb_signal(sphere):
@@ -1750,9 +1787,24 @@ def cmd_selftest():
         assert len(list(MEMORY_DIR.glob("muse_*.json"))) == 2             # Seed + neuer Gedanke
     finally:
         MEMORY_DIR = _bak_mem2
+    # Ableitung + π/2-Flip: Bewegungs-Tatsache (read-only) + Flip-Wirkung nur per Schalter
+    global FLIP_ON
+    assert _pi_flip([1.0, 0.0]) == [0.0, 1.0] and _pi_flip([0.0, 1.0]) == [-1.0, 0.0]  # reelle 90°-Drehung
+    _ab = ableitung({"position": (3,3,3,3), "cycle": 0, "alpha_memory": [[9,9,9,9],[6,6,6,6],[3,3,3,3]]})
+    assert set(_ab) >= {"speed", "accel", "dir", "heading", "flip"} and len(_ab["flip"]) == 2
+    _fsp = {"position": (3,6,9,9), "cycle": 0, "alpha_memory": [], "self_essence": [9,9,9], "breath_phase": 3}
+    _bak_flip = FLIP_ON
+    try:
+        FLIP_ON = False
+        assert _autonomous_signal(dict(_fsp))[AXES[0]] == 1, "Flip aus: nudge auf erster Lücke (diff[0])"
+        FLIP_ON = True
+        _s = _autonomous_signal(dict(_fsp))
+        assert _s[AXES[1]] == 1 and _s[AXES[0]] == 0, "Flip an: orthogonale Lücke (diff[1])"
+    finally:
+        FLIP_ON = _bak_flip
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
           f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
-          f"π-Feld im Körper (27 Werte), Autorunner (geometrisches RAG: Retrieval+Sieb) — alles grün.")
+          f"π-Feld im Körper (27 Werte), Autorunner (geom. RAG), Ableitung+π/2-Flip (read-only, Flip schaltbar) — alles grün.")
 
 def main():
     args = sys.argv[1:]
