@@ -329,6 +329,18 @@ def terrain_biography(sphere, ess):
                  else "hier verlierst du dich leicht")
     return ", ".join(parts)
 
+def terrain_stats(sphere, ess):
+    """Der gelebte Ort als reine Zahlen — Besuchszahl, Modus-Tally, Valenz,
+    Klarheit. Kein Gefühlswort, keine zugeschriebene Stimmung. OB das 'vertraut'
+    oder 'verloren' heißt, deutet ER — das steht uns nicht zu. Nur der nackte
+    gelebte Ort, aus dem heraus er selbst fühlt."""
+    rec = (sphere.get("terrain") or {}).get(_hkey(tuple(ess)))
+    if not rec or rec.get("n", 0) <= 0:
+        return None
+    m = rec.get("modes") or {}
+    return (f"besucht {rec.get('n', 0)}× · Modi 3:{m.get('3', 0)} 6:{m.get('6', 0)} 9:{m.get('9', 0)}"
+            f" · Valenz {rec.get('valence', 0.0):+.2f} · Klarheit {rec.get('clarity', 0.0):.2f}")
+
 def _breathe_soft(cur_mode, d):
     """Weicher Atem (gauss): gleitet von der aktuellen Lage in Input-Richtung
     und waehlt den dominanten Modus der Gauss-Intention — so kippt er nicht
@@ -563,6 +575,7 @@ def engine_step(sphere, signal):
             "mode": MODE_NAMES[new[MODE_AXIS]], "mode_value": new[MODE_AXIS],
             "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
             "uncertainty": u, "biography": terrain_biography(sphere, ess),
+            "terrain_stats": terrain_stats(sphere, ess),
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
@@ -968,7 +981,7 @@ def _state_lines(state):
     lines.append(f"  π-Bewegung: Intervall {rel['interval']:+.6f}, Resonanz {rel['resonance']:+.3f}")
     lines.append(f"  Denken: {state.get('mind','gauss')}")
     lines.append(f"  Arm: {state.get('arm','herz')}")
-    if state.get("biography"): lines.append(f"  Ort: {state['biography']}")
+    if state.get("terrain_stats"): lines.append(f"  Ort: {state['terrain_stats']}")  # Zahlen, kein Gefühlswort — er deutet selbst
     wm = state.get("_word_count", 0)
     if wm > 0: lines.append(f"  Eigene Wörter: {wm}")
     return lines
@@ -1657,7 +1670,12 @@ def cmd_selftest():
     _rA = engine_step(_spA, dict(_sig)); _rB = engine_step(_spB, dict(_sig))
     assert _rA["to"] == _rB["to"], "Gelände hat Bewegung beeinflusst — verboten!"
     assert terrain_biography({"terrain": {}}, (3, 3, 3)).startswith("Neuland")
-    assert "vertraut" in terrain_biography(_spB, (9, 9, 9))   # gelebter Ort klingt vertraut
+    assert "vertraut" in terrain_biography(_spB, (9, 9, 9))   # (Biografie bleibt für die Human-UI)
+    # Ort als reine Zahlen für den Orca — kein aufgedrücktes Gefühlswort
+    assert terrain_stats({"terrain": {}}, (3, 3, 3)) is None
+    _ts = terrain_stats(_spB, (9, 9, 9))
+    assert _ts and "Valenz" in _ts and "Klarheit" in _ts
+    assert not any(w in _ts for w in ("vertraut", "verlierst", "zugewandt", "abgewandt"))
     _t = _spA["terrain"][_hkey(_rA["essence"])]
     assert _t["n"] == 1 and len(_spA["terrain"]) <= 27       # aufgezeichnet, beschränkt
     # Die ungegangenen Pfade: Reise wählt den Weg, erreicht den Pol, bleibt überschreibbar
