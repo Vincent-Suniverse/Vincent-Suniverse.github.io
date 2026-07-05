@@ -281,7 +281,12 @@ def state_uncertainty(sphere, ess):
     habits = sphere.get("habits") or {}
     visits = habits.get(_hkey(tuple(ess)), 0)
     avg = (sum(habits.values()) / 27.0) if habits else 0.0
-    familiarity = min(1.0, visits / avg) if avg > 0 else 0.0
+    # Vertrautheit lebt im OFFENEN Intervall (0,1): nie exakt 0 — ein Ort, den es
+    # überhaupt gibt, ist nie 0% vertraut (Laplace, +1) — und nie exakt 1 — nichts
+    # ist je restlos bekannt. Kein min-Deckel, kein 0-Boden. avg=0 (noch kein
+    # Gelände, kein Bezug) → r=1 → 0.5, die Balance, nicht die Null.
+    r = (visits + 1) / (avg + 1) if avg > 0 else 1.0
+    familiarity = r / (1.0 + r)                     # logistisch → (0,1), Pole ausgeschlossen
     return round(0.6 * ent + 0.4 * (1.0 - familiarity), 3)
 
 # ── KARTE WIRD GELÄNDE ───────────────────────────────────────────────
@@ -1131,7 +1136,8 @@ def _seed_score(cur_ess, ess):
     """π + Richtung: π-Resonanz (Kopplung) plus Richtungsnähe im {3,6,9}-Raum.
     Nicht Winkel allein wie Cosinus — Winkel UND π-Tiefe."""
     res = pi_resonance(tuple(cur_ess), tuple(ess))           # −1..+1
-    near = 1.0 - _distance(tuple(cur_ess), tuple(ess)) / 3.0  # 0..1
+    d = _distance(tuple(cur_ess), tuple(ess))                # 0..3
+    near = 1.0 - (d + 0.5) / 4.0                             # (0,1) offen: gleiche Essenz nie 100% nah, ferne nie 0
     return 0.7 * res + 0.3 * near
 
 def _retrieve_resonant(cur_ess, seeds, top_n=5):
