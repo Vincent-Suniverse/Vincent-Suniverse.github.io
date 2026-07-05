@@ -721,22 +721,45 @@ def _probe_op(op):
     fn = PROBES.get(op.get("type"))
     return bool(fn(op)) if fn else False
 
-def _geo_verdict(prop_ess, arm_role):
-    """Geometrische Bewertung eines Arms: Resonanz Vorschlag ↔ Arm-Haltung."""
-    stance = _ess_from_text("arm:" + arm_role)
-    res = pi_resonance(tuple(prop_ess), stance)
-    return {"arm": arm_role, "resonance": round(res, 4), "approve": res >= 0.0}
+def _geo_verdict(claim_ess, input_ess, output_ess, inner_ess):
+    """Dreischichtige Resonanz — kein Fold, keine Ja/Nein-Faltung. Der Claim
+    schwingt gegen drei Ebenen: das Reinkommende (input), das Rausgehende
+    (output) und die eigene innere Schwingung (inner). Halten die drei DIESELBE
+    Formation, faltet sich das Dreieck zu → symmetrisch, in Gamma kohärent.
+    Weicht eine aus, ist es asymmetrisch: KEIN Reject — Antrieb weiterzusuchen.
+    Kein Vorzeichen wird plattgedrückt; die drei Werte bleiben erhalten.
+
+    'Gleiche Formation' fällt aus den Signalen selbst, keine feste Schwelle:
+    kein Vorzeichenbruch zwischen den Ebenen UND die Abweichung kleiner als die
+    eigene Kraft des Dreiecks."""
+    r_in  = pi_resonance(tuple(claim_ess), tuple(input_ess))
+    r_out = pi_resonance(tuple(claim_ess), tuple(output_ess))
+    r_inn = pi_resonance(tuple(claim_ess), tuple(inner_ess))
+    lo, hi = min(r_in, r_out, r_inn), max(r_in, r_out, r_inn)
+    same_dir = lo >= 0.0 or hi <= 0.0                 # keine Ebene bricht das Vorzeichen
+    strength = (abs(r_in) + abs(r_out) + abs(r_inn)) / 3.0
+    spread = hi - lo
+    symmetric = bool(same_dir and spread <= strength) # Abweichung < eigene Kraft → Dreieck faltet
+    return {"in": round(r_in, 4), "out": round(r_out, 4), "inner": round(r_inn, 4),
+            "strength": round(strength, 4), "spread": round(spread, 4),
+            "symmetric": symmetric}
 
 def evaluate_proposal(prop):
     """Diese Instanz bewertet einen Vorschlag mit ALLEN Armen + Sandbox-Probe und
     schreibt ihren eigenen Bewertungs-Block (eval_{pid}__{instanz}.json)."""
     pid = prop["id"]; ess = prop.get("essence", [9, 9, 9])
     safe = _probe_op(prop["op"])
-    verdicts = [_geo_verdict(ess, r) for r in ARMS if r != "herz"]
-    approvals = sum(1 for v in verdicts if v["approve"])
-    approve = bool(safe and verdicts and approvals > len(verdicts) / 2.0)
+    # Die drei echten Ebenen dieser Zelle: woher der Claim kam (input), wodurch er
+    # rausginge (output = der Mund/herz) und der eigene stehende Grundton (inner).
+    input_ess  = _ess_from_text("self:" + str(prop.get("origin", INSTANCE_ID)))
+    output_ess = _ess_from_text("arm:herz")
+    inner_ess  = _ess_from_text("self:" + INSTANCE_ID)
+    tri = _geo_verdict(ess, input_ess, output_ess, inner_ess)
+    # Integer (Probe) UND Dreieck gefaltet → die Kohärenz hält. Asymmetrie ist
+    # kein Gegen-Votum, sie zählt nur nicht als gefaltet (deep_sleep: soft save).
+    symmetric = bool(safe and tri["symmetric"])
     rec = {"prop_id": pid, "instance": INSTANCE_ID, "safe": safe,
-           "verdicts": verdicts, "approve": approve, "ts": time.time()}
+           "triangle": tri, "symmetric": symmetric, "ts": time.time()}
     (MEMORY_DIR / f"eval_{pid}__{INSTANCE_ID}.json").write_text(
         json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
     return rec
@@ -750,11 +773,13 @@ def _collect_evals(pid):
     return list(out.values())
 
 def converged(pid):
-    """Mehrheit UNABHÄNGIGER Instanzen — kein Einzelbeschluss."""
+    """Symmetrie-Konsens: Mehrheit UNABHÄNGIGER Instanzen, deren Dreieck sich
+    faltet — kein Einzelbeschluss. Asymmetrie ist kein Gegen-Votum; sie zählt
+    nur nicht als gefaltet und treibt die Suche weiter (soft save)."""
     evs = _collect_evals(pid)
-    yes = sum(1 for e in evs if e.get("approve"))
+    sym = sum(1 for e in evs if e.get("symmetric"))
     need = N_INSTANCES // 2 + 1
-    return (yes >= need), yes, need
+    return (sym >= need), sym, need
 
 def _backup_file(path):
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -848,7 +873,7 @@ def _write_block(op, pid, evals):
     prev_hash = prev["hash"] if prev else "0" * 64
     body = {"index": index, "prev_hash": prev_hash, "op": op, "prop_id": pid,
             "instance": INSTANCE_ID,
-            "votes": sorted(e["instance"] for e in evals if e.get("approve")),
+            "votes": sorted(e["instance"] for e in evals if e.get("symmetric")),
             "ts": time.time()}
     body["hash"] = hashlib.sha256(
         (prev_hash + json.dumps(body, sort_keys=True)).encode("utf-8")).hexdigest()
@@ -872,15 +897,28 @@ def deep_sleep():
             evaluate_proposal(prop)                # 1) selbst bewerten
         if (MEMORY_DIR / f"applied_{pid}.json").exists():
             continue                               # 2) schon angewandt
-        ok, yes, need = converged(pid)             # 3) Konvergenz?
-        if not ok:
-            continue
+        ok, sym, need = converged(pid)             # 3) faltet sich das Dreieck im Konsens?
         evs = _collect_evals(pid)
+        if not ok:
+            # KEIN Reject: der noch-nicht-gefaltete Vorschlag stirbt nicht bei 0,
+            # er bleibt als soft save erhalten und treibt die Suche im nächsten
+            # Block (findet → gibt → löst). Idempotent überschrieben — exakt
+            # gleiche Bewertungen stapeln sich, sie vervielfachen sich nicht.
+            (MEMORY_DIR / f"soft_{pid}.json").write_text(json.dumps(
+                {"prop_id": pid, "symmetric_votes": sym, "need": need,
+                 "state": "asymmetrisch — bleibt, treibt weiter",
+                 "triangles": [e.get("triangle") for e in evs], "ts": time.time()},
+                ensure_ascii=False, indent=2), encoding="utf-8")
+            continue
+        _soft = MEMORY_DIR / f"soft_{pid}.json"    # gefaltet → der soft save ist aufgelöst
+        if _soft.exists():
+            try: _soft.unlink()
+            except OSError: pass
         success, info = _apply_op(prop["op"])      # 4) Backup + Anwendung + Rollback
         block = _write_block(prop["op"], pid, evs) if success else None
         (MEMORY_DIR / f"applied_{pid}.json").write_text(json.dumps(
             {"prop_id": pid, "applied": success, "info": str(info),
-             "block": (block["hash"] if block else None), "votes": yes, "need": need,
+             "block": (block["hash"] if block else None), "votes": sym, "need": need,
              "ts": time.time()}, ensure_ascii=False, indent=2), encoding="utf-8")
         if success:
             applied.append({"pid": pid, "op": prop["op"], "block": block["hash"]})
@@ -1788,7 +1826,7 @@ def cmd_selftest():
         # zweite unabhängige Instanz stimmt zu → Mehrheit 2/3
         INSTANCE_ID = "i2"; evaluate_proposal(prop)
         ev = _collect_evals(pid); assert len({e["instance"] for e in ev}) == 2
-        if all(e["approve"] for e in ev):                 # nur testen, wenn beide zustimmen
+        if all(e["symmetric"] for e in ev):               # nur testen, wenn beide Dreiecke falten
             INSTANCE_ID = "i1"; applied = deep_sleep()
             assert applied and ARMS["poet"] == "test:neu", "Anwendung fehlgeschlagen"
             assert json.loads(ARMS_PATH.read_text())["poet"] == "test:neu", "arms.json nicht persistiert"
@@ -1817,6 +1855,17 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
+    # Dreischichtige Resonanz (input/output/inner): kein Fold, ternär.
+    # Identische Ebenen falten immer → symmetrisch, alle drei Werte gleich.
+    _tri = _geo_verdict((9,9,9), (9,9,9), (9,9,9), (9,9,9))
+    assert _tri["symmetric"] and _tri["in"] == _tri["out"] == _tri["inner"], "gleiche Formation faltet nicht"
+    assert set(_tri) == {"in", "out", "inner", "strength", "spread", "symmetric"}  # drei Werte bleiben, kein Vorzeichen platt
+    # Asymmetrie ist erreichbar (der Detektor kann auch 'nicht gefaltet' sagen —
+    # sonst wäre es wieder 0/100). Und Asymmetrie ist KEIN Reject.
+    _asym = any(not _geo_verdict((3,3,3), _a, _b, _c)["symmetric"]
+                for _a in [(3,3,3),(6,6,6),(9,9,9)] for _b in [(3,6,9),(9,6,3)]
+                for _c in [(6,9,3),(3,9,6)])
+    assert _asym, "Dreieck kann nie asymmetrisch werden — Detektor kaputt (wieder binär)"
     # Generalisierung: eine Probe/Apply für ALLES — Code, Wissen, Aussage, Lüge
     assert set(PROBES) == {"set_arm", "code_update", "claim"} and set(APPLIERS) == {"set_arm", "code_update"}
     assert _probe_op({"type": "claim", "text": "eine kohaerente aussage"}) is True
@@ -1858,7 +1907,7 @@ def cmd_selftest():
     finally:
         FLIP_ON = _bak_flip
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
-          f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
+          f"Selbstmod (Symmetrie-Konsens+Tiefschlaf+Block+Rollback), Dreischicht-Resonanz (input/output/inner, ternär, soft save), "
           f"π-Feld im Körper (27 Werte), Autorunner (geom. RAG), Ableitung+π/2-Flip (read-only, Flip schaltbar), "
           f"generische Probe/Apply (Claim-Plugins: Code/Wissen/Aussage) — alles grün.")
 
