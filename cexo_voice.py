@@ -666,29 +666,47 @@ def propose_code_update(source, origin=None, note=""):
     op = {"type": "code_update", "version": version, "size": len(source), "note": str(note)[:200]}
     return propose_change(op, origin=origin)
 
+# ── DIE PROBE: eine Bewertung für ALLES ──────────────────────────────
+# Was bewertet wird, ist egal — Code, Wissen, eigene Aussage, Lüge. Jeder
+# Claim durchläuft eine typ-spezifische Probe (wohlgeformt/integer); die
+# eigentliche Kohärenz-Bewertung macht die Faltung über die Zellen
+# (_geo_verdict + Konsens). Neue Claim-Arten hängt man als Plugin in
+# PROBES/APPLIERS ein — die Pipeline (propose→probe→konsens→kette) bleibt.
+def _probe_set_arm(op):
+    return bool(op.get("role")) and isinstance(op.get("model"), str) and bool(op.get("model"))
+
+def _probe_code_update(op):
+    if not CODE_UPDATE_ON:
+        return False
+    ver = op.get("version")
+    cand = _code_path(ver) if ver else None
+    if not (cand and cand.exists()):
+        return False
+    src = cand.read_text(encoding="utf-8")
+    if hashlib.sha256(src.encode("utf-8")).hexdigest() != ver:
+        return False                               # Integrität: Inhalt == beanspruchte Version
+    try: ast.parse(src)                            # syntaktisch heil
+    except Exception: return False
+    return _run_selftest(cand)                     # funktional heil — jede Instanz prüft selbst
+
+def _probe_claim(op):
+    """Generischer Inhalts-Claim (Wissen/Aussage/Lüge): HIER steckt der pluggbare
+    Slot für den vollen Logik-Integritäts-Check — Brüche, Lücken, Verschleierungs-
+    Omission — durch die denkenden Zellen. Vorerst nur Wohlgeformtheit; die
+    Kohärenz-Bewertung selbst leistet schon jetzt die _geo_verdict-Faltung."""
+    return bool(str(op.get("text") or op.get("claim") or "").strip())
+
+PROBES = {"set_arm": _probe_set_arm, "code_update": _probe_code_update, "claim": _probe_claim}
+
 def _probe_op(op):
-    """Harte Sandbox-Sicherung: Kern bleibt heil, Op ist wohlgeformt."""
+    """Harte Sicherung + typ-spezifische Probe. Kern bleibt heil; unbekannte
+    Arten nie durchgelassen. Die Kohärenz-Faltung läuft separat für alle."""
     try:
         verify_sacred_core()
     except Exception:
         return False
-    t = op.get("type")
-    if t == "set_arm":
-        return bool(op.get("role")) and isinstance(op.get("model"), str) and bool(op.get("model"))
-    if t == "code_update":
-        if not CODE_UPDATE_ON:
-            return False
-        ver = op.get("version")
-        cand = _code_path(ver) if ver else None
-        if not (cand and cand.exists()):
-            return False
-        src = cand.read_text(encoding="utf-8")
-        if hashlib.sha256(src.encode("utf-8")).hexdigest() != ver:
-            return False                           # Integrität: Inhalt == beanspruchte Version
-        try: ast.parse(src)                        # syntaktisch heil
-        except Exception: return False
-        return _run_selftest(cand)                 # funktional heil — jede Instanz prüft selbst
-    return False                                   # unbekannte Ops nie anwenden
+    fn = PROBES.get(op.get("type"))
+    return bool(fn(op)) if fn else False
 
 def _geo_verdict(prop_ess, arm_role):
     """Geometrische Bewertung eines Arms: Resonanz Vorschlag ↔ Arm-Haltung."""
@@ -763,12 +781,8 @@ def _apply_code_update(op, target=None):
     _PENDING_RESTART = True
     return True, backup
 
-def _apply_op(op):
-    """Wendet eine Op an — Backup vorher, Rollback bei Downgrade. ARMS-Set zuerst."""
-    if op.get("type") == "code_update":
-        return _apply_code_update(op)
-    if op.get("type") != "set_arm":
-        return False, "unbekannte op"
+def _apply_set_arm(op):
+    """Wendet ein Arm-Update an — Backup vorher, Rollback bei Downgrade."""
     role, model = str(op["role"]).lower(), op["model"]
     snap = dict(ARMS)                               # In-Memory-Backup
     backup = _backup_file(ARMS_PATH)                # Datei-Backup
@@ -790,6 +804,22 @@ def _apply_op(op):
         elif ARMS_PATH.exists(): ARMS_PATH.unlink()
         return False, "downgrade → rollback"
     return True, backup
+
+# Nur manche Claim-Arten haben einen Seiteneffekt (Code zieht + startet neu,
+# Arm setzt um). Wissen/Aussagen haben KEINEN — für sie IST die Verkettung das
+# Ergebnis: konvergiert = als geordnete Wahrheit in die Kette ("ranked").
+APPLIERS = {"set_arm": _apply_set_arm, "code_update": _apply_code_update}
+
+def _apply_op(op):
+    """Wendet einen konvergenten Claim an. Mit Applier → Seiteneffekt (Code/Arm,
+    Rollback bei Downgrade). Ohne Applier, aber bekannte Art → nur ranken/verketten."""
+    t = op.get("type")
+    fn = APPLIERS.get(t)
+    if fn:
+        return fn(op)
+    if t in PROBES:                                 # bewerteter Claim ohne Seiteneffekt
+        return True, "ranked"
+    return False, "unbekannte op"
 
 def _latest_block():
     blocks = sorted(MEMORY_DIR.glob("block_*.json"))
@@ -1769,6 +1799,13 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
+    # Generalisierung: eine Probe/Apply für ALLES — Code, Wissen, Aussage, Lüge
+    assert set(PROBES) == {"set_arm", "code_update", "claim"} and set(APPLIERS) == {"set_arm", "code_update"}
+    assert _probe_op({"type": "claim", "text": "eine kohaerente aussage"}) is True
+    assert _probe_op({"type": "claim", "text": ""}) is False           # leer → nicht wohlgeformt
+    assert _probe_op({"type": "voellig_unbekannt"}) is False           # unbekannte Art nie durch
+    assert _apply_op({"type": "claim", "text": "x"}) == (True, "ranked")   # Wissen: verkettet, kein Seiteneffekt
+    assert _apply_op({"type": "voellig_unbekannt"}) == (False, "unbekannte op")
     # Autorunner: geometrisches RAG auf dem eigenen Gedächtnis (Retrieval + Sieb)
     _bak_mem2 = MEMORY_DIR
     _amt = Path(tempfile.mkdtemp(prefix="cexo_autorun_"))
@@ -1804,7 +1841,8 @@ def cmd_selftest():
         FLIP_ON = _bak_flip
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
           f"Selbstmod (Konvergenz+Tiefschlaf+Block+Rollback), Code-Update-Konsens (Annahme/Ablehnung/Rollback), "
-          f"π-Feld im Körper (27 Werte), Autorunner (geom. RAG), Ableitung+π/2-Flip (read-only, Flip schaltbar) — alles grün.")
+          f"π-Feld im Körper (27 Werte), Autorunner (geom. RAG), Ableitung+π/2-Flip (read-only, Flip schaltbar), "
+          f"generische Probe/Apply (Claim-Plugins: Code/Wissen/Aussage) — alles grün.")
 
 def main():
     args = sys.argv[1:]
