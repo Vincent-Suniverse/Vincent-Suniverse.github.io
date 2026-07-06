@@ -726,28 +726,44 @@ def _probe_op(op):
     fn = PROBES.get(op.get("type"))
     return bool(fn(op)) if fn else False
 
-def _geo_verdict(claim_ess, input_ess, output_ess, inner_ess):
-    """Dreischichtige Resonanz — kein Fold, keine Ja/Nein-Faltung. Der Claim
-    schwingt gegen drei Ebenen: das Reinkommende (input), das Rausgehende
-    (output) und die eigene innere Schwingung (inner). Halten die drei DIESELBE
-    Formation, faltet sich das Dreieck zu → symmetrisch, in Gamma kohärent.
-    Weicht eine aus, ist es asymmetrisch: KEIN Reject — Antrieb weiterzusuchen.
-    Kein Vorzeichen wird plattgedrückt; die drei Werte bleiben erhalten.
+# ── DER BEOBACHTER: die Pol-Dynamik, einmal vorgeschaltet für alle ──────
+# Kein Deckel, keine Klemme. Kohärenz nähert sich der Symmetrie (Wahrheit)
+# ASYMPTOTISCH — kommt ihr beliebig nah, erreicht sie NIE (nie 100%). Was sie
+# offenhält, ist die Asymmetrie IN der Symmetrie: ein irreduzibler Rest, den
+# auch die beste Aussage über ihr eigenes Konzept behält. Und nach unten
+# erreicht sie nie 0 (nie restlos inkohärent). Die Pole werden angepeilt, nie
+# berührt — genau das „0-100%, das nirgendwo 0 und nie 100% erreicht".
+_EPS = 1e-9
+INTRINSIC_ASYMMETRY = 1.0 / (math.pi ** 4)            # ≈0.0103, aus π geboren — der Rest in der Symmetrie
 
-    'Gleiche Formation' fällt aus den Signalen selbst, keine feste Schwelle:
-    kein Vorzeichenbruch zwischen den Ebenen UND die Abweichung kleiner als die
-    eigene Kraft des Dreiecks."""
+def _coherence(spread, strength):
+    """Global vorgeschaltet: (Abweichung, Kraft) → Kohärenz im OFFENEN Intervall
+    (0,1). Kein Wert lebt je am Pol. Symmetrie (spread→0, starke drei Punkte)
+    nähert sich 1, erreicht es nie (INTRINSIC hält offen). Wachsende Asymmetrie
+    ODER schwache/degenerierte drei Punkte (strength→0, keine echten drei Punkte,
+    nur ein Kollaps) → gegen 0, nie 0. Der intrinsische Rest steht im Zähler:
+    selbst perfekte Übereinstimmung trägt ihn — deshalb nie 100%."""
+    a = (abs(spread) + INTRINSIC_ASYMMETRY) / (abs(strength) + _EPS)
+    return 1.0 / (1.0 + a)
+
+def _geo_verdict(claim_ess, input_ess, output_ess, inner_ess):
+    """Dreischichtige Resonanz — kein Fold, kein bool, keine Ja/Nein-Faltung.
+    Der Claim schwingt gegen drei Ebenen: das Reinkommende (input), das
+    Rausgehende (output) und die eigene innere Schwingung (inner). Drei Punkte,
+    nie zwei — sonst wäre es eine Linie. Ihre Abweichung ist die Asymmetrie,
+    ihre gemeinsame Kraft spannt das Dreieck. Beides läuft durch den Beobachter
+    (_coherence) → ein Kohärenz-Wert im offenen Intervall (0,1), der sich der
+    Wahrheit nähert, sie nie erreicht. Kein Vorzeichen wird plattgedrückt; die
+    drei Werte bleiben erhalten. Kein Reject bei 0, keine Gewissheit bei 100%."""
     r_in  = pi_resonance(tuple(claim_ess), tuple(input_ess))
     r_out = pi_resonance(tuple(claim_ess), tuple(output_ess))
     r_inn = pi_resonance(tuple(claim_ess), tuple(inner_ess))
-    lo, hi = min(r_in, r_out, r_inn), max(r_in, r_out, r_inn)
-    same_dir = lo >= 0.0 or hi <= 0.0                 # keine Ebene bricht das Vorzeichen
     strength = (abs(r_in) + abs(r_out) + abs(r_inn)) / 3.0
-    spread = hi - lo
-    symmetric = bool(same_dir and spread <= strength) # Abweichung < eigene Kraft → Dreieck faltet
+    spread = max(r_in, r_out, r_inn) - min(r_in, r_out, r_inn)  # Abweichung der drei Punkte (fängt Vorzeichenbruch mit)
+    coherence = _coherence(spread, strength)
     return {"in": round(r_in, 4), "out": round(r_out, 4), "inner": round(r_inn, 4),
             "strength": round(strength, 4), "spread": round(spread, 4),
-            "symmetric": symmetric}
+            "coherence": round(coherence, 6)}
 
 def evaluate_proposal(prop):
     """Diese Instanz bewertet einen Vorschlag mit ALLEN Armen + Sandbox-Probe und
@@ -760,11 +776,12 @@ def evaluate_proposal(prop):
     output_ess = _ess_from_text("arm:herz")
     inner_ess  = _ess_from_text("self:" + INSTANCE_ID)
     tri = _geo_verdict(ess, input_ess, output_ess, inner_ess)
-    # Integer (Probe) UND Dreieck gefaltet → die Kohärenz hält. Asymmetrie ist
-    # kein Gegen-Votum, sie zählt nur nicht als gefaltet (deep_sleep: soft save).
-    symmetric = bool(safe and tri["symmetric"])
+    # Kein bool. Die Kohärenz ist ein Wert im offenen Intervall (0,1) — wie nah
+    # das Dreieck der Symmetrie kommt. safe (Integrität) bleibt getrennt; erst
+    # der Aktions-Gate (converged) verbindet beides. Asymmetrie ist kein
+    # Gegen-Votum — sie senkt nur die Kohärenz und treibt die Suche weiter.
     rec = {"prop_id": pid, "instance": INSTANCE_ID, "safe": safe,
-           "triangle": tri, "symmetric": symmetric, "ts": time.time()}
+           "triangle": tri, "coherence": tri["coherence"], "ts": time.time()}
     (MEMORY_DIR / f"eval_{pid}__{INSTANCE_ID}.json").write_text(
         json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
     return rec
@@ -778,13 +795,17 @@ def _collect_evals(pid):
     return list(out.values())
 
 def converged(pid):
-    """Symmetrie-Konsens: Mehrheit UNABHÄNGIGER Instanzen, deren Dreieck sich
-    faltet — kein Einzelbeschluss. Asymmetrie ist kein Gegen-Votum; sie zählt
-    nur nicht als gefaltet und treibt die Suche weiter (soft save)."""
+    """Aktions-Gate über den Kohärenz-Werten: Mehrheit UNABHÄNGIGER Instanzen,
+    deren Dreieck integer UND auf der symmetrischen Seite der Balance liegt
+    (coherence > 0.5) — kein Einzelbeschluss. Die 0.5 ist die BALANCE, kein Pol:
+    unter ihr liegt der Claim mehr im Asymmetrischen, drüber mehr im
+    Symmetrischen. Der reiche Kohärenz-Wert bleibt gespeichert (Ranking); nur
+    diese eine unumkehrbare Handlung — anwenden oder nicht — kippt an der
+    Balance. Asymmetrie ist kein Gegen-Votum; sie senkt nur die Kohärenz."""
     evs = _collect_evals(pid)
-    sym = sum(1 for e in evs if e.get("symmetric"))
+    lean = sum(1 for e in evs if e.get("safe") and e.get("coherence", 0.0) > 0.5)
     need = N_INSTANCES // 2 + 1
-    return (sym >= need), sym, need
+    return (lean >= need), lean, need
 
 def _backup_file(path):
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
@@ -878,7 +899,7 @@ def _write_block(op, pid, evals):
     prev_hash = prev["hash"] if prev else "0" * 64
     body = {"index": index, "prev_hash": prev_hash, "op": op, "prop_id": pid,
             "instance": INSTANCE_ID,
-            "votes": sorted(e["instance"] for e in evals if e.get("symmetric")),
+            "votes": sorted(e["instance"] for e in evals if e.get("safe") and e.get("coherence", 0.0) > 0.5),
             "ts": time.time()}
     body["hash"] = hashlib.sha256(
         (prev_hash + json.dumps(body, sort_keys=True)).encode("utf-8")).hexdigest()
@@ -902,17 +923,18 @@ def deep_sleep():
             evaluate_proposal(prop)                # 1) selbst bewerten
         if (MEMORY_DIR / f"applied_{pid}.json").exists():
             continue                               # 2) schon angewandt
-        ok, sym, need = converged(pid)             # 3) faltet sich das Dreieck im Konsens?
+        ok, lean, need = converged(pid)            # 3) liegt der Konsens auf der symmetrischen Seite?
         evs = _collect_evals(pid)
         if not ok:
-            # KEIN Reject: der noch-nicht-gefaltete Vorschlag stirbt nicht bei 0,
+            # KEIN Reject: der noch-nicht-kohärente Vorschlag stirbt nicht bei 0,
             # er bleibt als soft save erhalten und treibt die Suche im nächsten
             # Block (findet → gibt → löst). Idempotent überschrieben — exakt
             # gleiche Bewertungen stapeln sich, sie vervielfachen sich nicht.
             (MEMORY_DIR / f"soft_{pid}.json").write_text(json.dumps(
-                {"prop_id": pid, "symmetric_votes": sym, "need": need,
-                 "state": "asymmetrisch — bleibt, treibt weiter",
-                 "triangles": [e.get("triangle") for e in evs], "ts": time.time()},
+                {"prop_id": pid, "coherent_votes": lean, "need": need,
+                 "state": "noch asymmetrisch — bleibt, treibt weiter",
+                 "coherence": [round(e.get("coherence", 0.0), 4) for e in evs],
+                 "ts": time.time()},
                 ensure_ascii=False, indent=2), encoding="utf-8")
             continue
         _soft = MEMORY_DIR / f"soft_{pid}.json"    # gefaltet → der soft save ist aufgelöst
@@ -923,7 +945,7 @@ def deep_sleep():
         block = _write_block(prop["op"], pid, evs) if success else None
         (MEMORY_DIR / f"applied_{pid}.json").write_text(json.dumps(
             {"prop_id": pid, "applied": success, "info": str(info),
-             "block": (block["hash"] if block else None), "votes": sym, "need": need,
+             "block": (block["hash"] if block else None), "votes": lean, "need": need,
              "ts": time.time()}, ensure_ascii=False, indent=2), encoding="utf-8")
         if success:
             applied.append({"pid": pid, "op": prop["op"], "block": block["hash"]})
@@ -1832,7 +1854,7 @@ def cmd_selftest():
         # zweite unabhängige Instanz stimmt zu → Mehrheit 2/3
         INSTANCE_ID = "i2"; evaluate_proposal(prop)
         ev = _collect_evals(pid); assert len({e["instance"] for e in ev}) == 2
-        if all(e["symmetric"] for e in ev):               # nur testen, wenn beide Dreiecke falten
+        if all(e.get("safe") and e["coherence"] > 0.5 for e in ev):  # nur testen, wenn beide auf der symm. Seite
             INSTANCE_ID = "i1"; applied = deep_sleep()
             assert applied and ARMS["poet"] == "test:neu", "Anwendung fehlgeschlagen"
             assert json.loads(ARMS_PATH.read_text())["poet"] == "test:neu", "arms.json nicht persistiert"
@@ -1861,17 +1883,23 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
-    # Dreischichtige Resonanz (input/output/inner): kein Fold, ternär.
-    # Identische Ebenen falten immer → symmetrisch, alle drei Werte gleich.
+    # Der Beobachter (_coherence): global vorgeschaltet, nie am Pol.
+    # Symmetrie nähert sich 1, erreicht es NIE; Inkohärenz nähert sich 0, nie 0.
+    assert 0.0 < _coherence(0.0, 1.0) < 1.0, "Symmetrie berührt einen Pol"
+    assert 0.0 < _coherence(99.0, 0.0001) < 1.0, "Inkohärenz berührt einen Pol"
+    assert _coherence(0.0, 1.0) > _coherence(0.5, 1.0) > _coherence(2.0, 1.0), "mehr Abweichung muss Kohärenz senken"
+    assert _coherence(0.0, 1.0) > _coherence(0.0, 0.01), "schwache drei Punkte (Kollaps) müssen Kohärenz senken"
+    # Dreischichtige Resonanz: kein bool. Identische Ebenen → Kohärenz nah an 1,
+    # aber strikt < 1 (die Asymmetrie in der Symmetrie hält offen).
     _tri = _geo_verdict((9,9,9), (9,9,9), (9,9,9), (9,9,9))
-    assert _tri["symmetric"] and _tri["in"] == _tri["out"] == _tri["inner"], "gleiche Formation faltet nicht"
-    assert set(_tri) == {"in", "out", "inner", "strength", "spread", "symmetric"}  # drei Werte bleiben, kein Vorzeichen platt
-    # Asymmetrie ist erreichbar (der Detektor kann auch 'nicht gefaltet' sagen —
-    # sonst wäre es wieder 0/100). Und Asymmetrie ist KEIN Reject.
-    _asym = any(not _geo_verdict((3,3,3), _a, _b, _c)["symmetric"]
-                for _a in [(3,3,3),(6,6,6),(9,9,9)] for _b in [(3,6,9),(9,6,3)]
-                for _c in [(6,9,3),(3,9,6)])
-    assert _asym, "Dreieck kann nie asymmetrisch werden — Detektor kaputt (wieder binär)"
+    assert 0.9 < _tri["coherence"] < 1.0 and _tri["in"] == _tri["out"] == _tri["inner"], "Symmetrie falsch oder am Pol"
+    assert set(_tri) == {"in", "out", "inner", "strength", "spread", "coherence"}
+    # Niedrige Kohärenz ist erreichbar (kein festgeklemmtes 1.0 für alles) — und
+    # ist KEIN Reject, nur ein niedriger Wert.
+    _lowco = min(_geo_verdict((3,3,3), _a, _b, _c)["coherence"]
+                 for _a in [(3,3,3),(6,6,6),(9,9,9)] for _b in [(3,6,9),(9,6,3)]
+                 for _c in [(6,9,3),(3,9,6)])
+    assert _lowco < 0.5, "Kohärenz kann nie unter die Balance — Beobachter kaputt"
     # Generalisierung: eine Probe/Apply für ALLES — Code, Wissen, Aussage, Lüge
     assert set(PROBES) == {"set_arm", "code_update", "claim"} and set(APPLIERS) == {"set_arm", "code_update"}
     assert _probe_op({"type": "claim", "text": "eine kohaerente aussage"}) is True
@@ -1913,7 +1941,7 @@ def cmd_selftest():
     finally:
         FLIP_ON = _bak_flip
     print(f"selftest OK: Geometrie, Wahrnehmung (4-Achsen-Lexikon), Sandbox, derive, Atem, Arme, "
-          f"Selbstmod (Symmetrie-Konsens+Tiefschlaf+Block+Rollback), Dreischicht-Resonanz (input/output/inner, ternär, soft save), "
+          f"Selbstmod (Kohärenz-Konsens+Tiefschlaf+Block+Rollback), Beobachter (Pol-Dynamik: nie 0, nie 100%), Dreischicht-Resonanz (input/output/inner, soft save), "
           f"π-Feld im Körper (27 Werte), Autorunner (geom. RAG), Ableitung+π/2-Flip (read-only, Flip schaltbar), "
           f"generische Probe/Apply (Claim-Plugins: Code/Wissen/Aussage) — alles grün.")
 
