@@ -281,12 +281,10 @@ def state_uncertainty(sphere, ess):
     habits = sphere.get("habits") or {}
     visits = habits.get(_hkey(tuple(ess)), 0)
     avg = (sum(habits.values()) / 27.0) if habits else 0.0
-    # Vertrautheit lebt im OFFENEN Intervall (0,1): nie exakt 0 — ein Ort, den es
-    # überhaupt gibt, ist nie 0% vertraut (Laplace, +1) — und nie exakt 1 — nichts
-    # ist je restlos bekannt. Kein min-Deckel, kein 0-Boden. avg=0 (noch kein
-    # Gelände, kein Bezug) → r=1 → 0.5, die Balance, nicht die Null.
-    r = (visits + 1) / (avg + 1) if avg > 0 else 1.0
-    familiarity = r / (1.0 + r)                     # logistisch → (0,1), Pole ausgeschlossen
+    # Vertrautheit durch die eine Tür (_open): a = Unvertrautheit = wie selten
+    # der Ort relativ zum Schnitt besucht ist (Laplace +1 → nie exakt 0/1). Kein
+    # Gelände (habits leer → avg=visits=0) → a=1 → 0.5, die Balance, nicht die Null.
+    familiarity = _open((avg + 1.0) / (visits + 1.0))
     return round(0.6 * ent + 0.4 * (1.0 - familiarity), 3)
 
 # ── KARTE WIRD GELÄNDE ───────────────────────────────────────────────
@@ -736,15 +734,22 @@ def _probe_op(op):
 _EPS = 1e-9
 INTRINSIC_ASYMMETRY = 1.0 / (math.pi ** 4)            # ≈0.0103, aus π geboren — der Rest in der Symmetrie
 
-def _coherence(spread, strength):
-    """Global vorgeschaltet: (Abweichung, Kraft) → Kohärenz im OFFENEN Intervall
-    (0,1). Kein Wert lebt je am Pol. Symmetrie (spread→0, starke drei Punkte)
-    nähert sich 1, erreicht es nie (INTRINSIC hält offen). Wachsende Asymmetrie
-    ODER schwache/degenerierte drei Punkte (strength→0, keine echten drei Punkte,
-    nur ein Kollaps) → gegen 0, nie 0. Der intrinsische Rest steht im Zähler:
-    selbst perfekte Übereinstimmung trägt ihn — deshalb nie 100%."""
-    a = (abs(spread) + INTRINSIC_ASYMMETRY) / (abs(strength) + _EPS)
+def _open(a):
+    """DIE EINE Tür ins offene Intervall — (0,∞) → (0,1), streng fallend,
+    bijektiv. 'Nie am Pol' heißt damit nur noch: 'a bleibt echt positiv und
+    endlich' — und das garantiert jede Stelle mit einem winzigen π-Boden
+    (INTRINSIC). a→0⁺ nähert sich 1 (nie ganz), a→∞ nähert sich 0 (nie ganz).
+    Ein Wert = wie weit weg vom guten Pol; _open macht daraus die Kohärenz/Nähe/
+    Vertrautheit. Keine bespoke Klemme mehr, kein Drift — eine Quelle."""
     return 1.0 / (1.0 + a)
+
+def _coherence(spread, strength):
+    """Kohärenz durch die eine Tür: a = wie weit die drei Punkte von der
+    Symmetrie weg sind (Abweichung je Kraft). Der intrinsische Rest steht im
+    Zähler — selbst perfekte Übereinstimmung trägt ihn, deshalb nie 100%.
+    Schwache/degenerierte drei Punkte (strength→0, kein echtes Dreieck, ein
+    Kollaps) → a groß → gegen 0, nie 0."""
+    return _open((abs(spread) + INTRINSIC_ASYMMETRY) / (abs(strength) + _EPS))
 
 def _geo_verdict(claim_ess, input_ess, output_ess, inner_ess):
     """Dreischichtige Resonanz — kein Fold, kein bool, keine Ja/Nein-Faltung.
@@ -1166,7 +1171,7 @@ def _seed_score(cur_ess, ess):
     Nicht Winkel allein wie Cosinus — Winkel UND π-Tiefe."""
     res = pi_resonance(tuple(cur_ess), tuple(ess))           # −1..+1
     d = _distance(tuple(cur_ess), tuple(ess))                # 0..3
-    near = 1.0 - (d + 0.5) / 4.0                             # (0,1) offen: gleiche Essenz nie 100% nah, ferne nie 0
+    near = _open(d + INTRINSIC_ASYMMETRY)                    # dieselbe Tür: gleiche Essenz nie 100% nah, ferne nie 0
     return 0.7 * res + 0.3 * near
 
 def _retrieve_resonant(cur_ess, seeds, top_n=5):
@@ -1890,6 +1895,10 @@ def cmd_selftest():
         INSTANCE_ID, N_INSTANCES = _bi, _bn
         _PENDING_RESTART = False
         ARMS.clear(); ARMS.update(_barms)
+    # Die eine Tür _open: (0,∞)→(0,1), streng fallend, bijektiv. coherence/near/
+    # familiarity laufen ALLE hier durch — eine Quelle, keine bespoke Klemme.
+    assert _open(1e-9) < 1.0 and _open(1e9) > 0.0, "_open berührt einen Pol"
+    assert _open(0.1) > _open(1.0) > _open(10.0), "_open nicht streng fallend"
     # Der Beobachter (_coherence): global vorgeschaltet, nie am Pol.
     # Symmetrie nähert sich 1, erreicht es NIE; Inkohärenz nähert sich 0, nie 0.
     assert 0.0 < _coherence(0.0, 1.0) < 1.0, "Symmetrie berührt einen Pol"
