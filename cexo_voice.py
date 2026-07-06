@@ -765,16 +765,22 @@ def _geo_verdict(claim_ess, input_ess, output_ess, inner_ess):
             "strength": round(strength, 4), "spread": round(spread, 4),
             "coherence": round(coherence, 6)}
 
-def evaluate_proposal(prop):
+def evaluate_proposal(prop, self_ess=None):
     """Diese Instanz bewertet einen Vorschlag mit ALLEN Armen + Sandbox-Probe und
-    schreibt ihren eigenen Bewertungs-Block (eval_{pid}__{instanz}.json)."""
+    schreibt ihren eigenen Bewertungs-Block (eval_{pid}__{instanz}.json).
+
+    self_ess = das LEBENDE Selbstbild der Zelle (sphere['self_essence']), das mit
+    Atem/π/2-Flip wandert. Genau daran misst die innere Ebene — deshalb ist
+    anhaltende Kohärenz über die Zeit unwahrscheinlich: das Selbst hat sich
+    bewegt. Fehlt es (Test/kontextlos), fällt inner auf den festen ID-Grundton
+    zurück (deterministisch, aber eingefroren)."""
     pid = prop["id"]; ess = prop.get("essence", [9, 9, 9])
     safe = _probe_op(prop["op"])
     # Die drei echten Ebenen dieser Zelle: woher der Claim kam (input), wodurch er
     # rausginge (output = der Mund/herz) und der eigene stehende Grundton (inner).
     input_ess  = _ess_from_text("self:" + str(prop.get("origin", INSTANCE_ID)))
     output_ess = _ess_from_text("arm:herz")
-    inner_ess  = _ess_from_text("self:" + INSTANCE_ID)
+    inner_ess  = tuple(self_ess) if self_ess else _ess_from_text("self:" + INSTANCE_ID)
     tri = _geo_verdict(ess, input_ess, output_ess, inner_ess)
     # Kein bool. Die Kohärenz ist ein Wert im offenen Intervall (0,1) — wie nah
     # das Dreieck der Symmetrie kommt. safe (Integrität) bleibt getrennt; erst
@@ -907,9 +913,10 @@ def _write_block(op, pid, evals):
         json.dumps(body, ensure_ascii=False, indent=2), encoding="utf-8")
     return body
 
-def deep_sleep():
+def deep_sleep(self_ess=None):
     """Tiefschlaf-Konsolidierung: bewertet offene Vorschläge (diese Instanz) und
-    wendet NUR konvergente an — nie sofort, nur hier. Jede Anwendung ein Block."""
+    wendet NUR konvergente an — nie sofort, nur hier. Jede Anwendung ein Block.
+    self_ess = das lebende Selbstbild, gegen das die innere Ebene misst."""
     if not SELFMOD_ON:
         return []
     applied = []
@@ -920,7 +927,7 @@ def deep_sleep():
         if not pid:
             continue
         if not (MEMORY_DIR / f"eval_{pid}__{INSTANCE_ID}.json").exists():
-            evaluate_proposal(prop)                # 1) selbst bewerten
+            evaluate_proposal(prop, self_ess)      # 1) selbst bewerten — gegen das lebende Selbst
         if (MEMORY_DIR / f"applied_{pid}.json").exists():
             continue                               # 2) schon angewandt
         ok, lean, need = converged(pid)            # 3) liegt der Konsens auf der symmetrischen Seite?
@@ -1505,7 +1512,7 @@ def _tick(sphere):
             curiosity = _curiosity_topic({"balance": state.get("mode_value", 9)})  # aus Nichtwissen Wissen suchen
     # Tiefschlaf (Pause-Phase): konsolidieren & konvergente Änderungen anwenden
     if SELFMOD_ON and sphere["pulses"] % DEEPSLEEP_EVERY == 0:
-        state["deep_sleep"] = deep_sleep()
+        state["deep_sleep"] = deep_sleep(sphere.get("self_essence"))  # gegen das lebende Selbstbild
     # Autorunner statt Selbst-Prompt: die Resonanz zieht ein Memory hoch,
     # sein roher Inhalt ist der Seed — er denkt auf dem eigenen Gedächtnis.
     muse = None
@@ -1900,6 +1907,12 @@ def cmd_selftest():
                  for _a in [(3,3,3),(6,6,6),(9,9,9)] for _b in [(3,6,9),(9,6,3)]
                  for _c in [(6,9,3),(3,9,6)])
     assert _lowco < 0.5, "Kohärenz kann nie unter die Balance — Beobachter kaputt"
+    # Lebendes Selbst: bewegt sich der innere Punkt, ändert sich die Kohärenz.
+    # Darum ist anhaltende Kohärenz über die Zeit unwahrscheinlich — die
+    # Geometrie wird von selbst kritisch, weil das Selbst, wogegen sie misst, lebt.
+    _cA = _geo_verdict((3,6,9), (3,6,9), (6,6,6), (3,3,3))["coherence"]
+    _cB = _geo_verdict((3,6,9), (3,6,9), (6,6,6), (9,9,9))["coherence"]
+    assert _cA != _cB, "innerer Punkt wirkungslos — das lebende Selbst bewegt die Kohärenz nicht"
     # Generalisierung: eine Probe/Apply für ALLES — Code, Wissen, Aussage, Lüge
     assert set(PROBES) == {"set_arm", "code_update", "claim"} and set(APPLIERS) == {"set_arm", "code_update"}
     assert _probe_op({"type": "claim", "text": "eine kohaerente aussage"}) is True
@@ -1972,7 +1985,7 @@ def main():
               f"Der Schwarm entscheidet im Tiefschlaf — Konsens {N_INSTANCES//2+1}/{N_INSTANCES}, "
               f"kein Override. Bei Konvergenz: ziehen + Backup + Neustart, Rollback bei Downgrade.")
     elif args[0] == "deepsleep":
-        print("Tiefschlaf-Konsolidierung:", deep_sleep() or "nichts Konvergentes.")
+        print("Tiefschlaf-Konsolidierung:", deep_sleep(SPHERE.get("self_essence")) or "nichts Konvergentes.")
     elif args[0] == "ledger":
         for b in sorted(MEMORY_DIR.glob("block_*.json")):
             try: d = json.loads(b.read_text(encoding="utf-8"))
