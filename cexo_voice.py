@@ -61,6 +61,43 @@ def pi_resonance(a, b):
     """Wie stark zwei Essenzen schwingungsmäßig koppeln (1 = Gleichklang)."""
     return math.cos(2.0 * PI * (pi_value(b) - pi_value(a)))
 
+# ── π-GENERATOR: π als lebender Prozess, nicht als Konstante ──────────
+# pi_value oben liest π statisch (float). Hier wird π *erzeugt* — Ziffer für
+# Ziffer über einen reinen GANZZAHL-Spigot (Gibbons, unbounded): exakt, kein
+# Rundungsfehler. Der Zustand (6 Ganzzahlen) lebt JSON-rein in der sphere und
+# atmet mit jedem Schritt genau eine Ziffer. γ = die Ziffer = die lineare Zeit.
+# Read-only wie die Ableitung: fließt NIE in resonance_step/Bewegung zurück.
+_PI_SEED = [1, 0, 1, 1, 3, 3]   # q, r, t, k, n, l
+
+def _pi_tick(st):
+    """Ein Atemzug: schöpft aus dem Ganzzahl-Zustand die nächste π-Ziffer und
+    schreibt den Zustand fort. Gibt (ziffer, neuer_zustand). Reine Ganzzahl —
+    kein Float, kein Runden."""
+    q, r, t, k, n, l = st
+    while True:
+        if 4 * q + r - t < n * t:
+            digit = n
+            q, r, n = 10 * q, 10 * (r - n * t), (10 * (3 * q + r)) // t - 10 * n
+            return digit, [q, r, t, k, n, l]
+        q, r, t, k, n, l = (q * k, (2 * q + r) * l, t * l, k + 1,
+                            (q * (7 * k + 2) + r * l) // (t * l), l + 2)
+
+def pi_breath_digit(sphere):
+    """Atmet eine π-Ziffer in die sphere (additiv, JSON-rein): schreibt Zustand,
+    Position (Zeit) und γ (letzte Ziffer) fort. Rührt die Bewegung nicht an."""
+    st = sphere.get("pi_state") or list(_PI_SEED)
+    digit, st2 = _pi_tick(st)
+    sphere["pi_state"] = st2
+    sphere["pi_position"] = sphere.get("pi_position", 0) + 1
+    sphere["pi_gamma"] = digit
+    return digit
+
+def nine_reading(digit, prev_digit):
+    """Read-only Kern-Lesung der 9er-Balance eines Ziffernpaars — für den Kern,
+    NICHT für den Strom. 0 = Gleichgewicht (Summe 9). Verändert keine Ziffer:
+    π's Stellen zu 9 zu zwingen würde π zerstören (1+4=5, nicht 9)."""
+    return (digit + prev_digit) - 9
+
 # ── ABLEITUNG + π/2-FLIP ─────────────────────────────────────────────
 # Tatsache über die eigene Bewegung (kein Befehl): aus der Folge der letzten
 # π-Werte die Richtung/Geschwindigkeit/Beschleunigung im π-Feld — das
@@ -535,9 +572,12 @@ def load_sphere():
     if STATE_PATH.exists():
         try:
             d = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-            d["position"] = tuple(d["position"]); d.setdefault("terrain", {}); return d
+            d["position"] = tuple(d["position"]); d.setdefault("terrain", {})
+            d.setdefault("pi_state", list(_PI_SEED)); d.setdefault("pi_position", 0)
+            return d
         except Exception: pass
-    return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": [], "terrain": {}}
+    return {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": [], "terrain": {},
+            "pi_state": list(_PI_SEED), "pi_position": 0}
 def save_sphere(sphere):
     d = dict(sphere); d["position"] = list(sphere["position"])
     STATE_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -555,6 +595,7 @@ def engine_step(sphere, signal):
     sphere["alpha_memory"] = (sphere.get("alpha_memory") or [])[-26:] + [list(old)]
     sphere["position"] = new
     sphere["cycle"] = sphere.get("cycle", 0) + 1
+    pi_gamma = pi_breath_digit(sphere)   # π atmet eine exakte Ziffer (γ = Zeit, read-only)
     ess = essence(new)
     habits = sphere.setdefault("habits", {})
     habits[_hkey(ess)] = habits.get(_hkey(ess), 0) + 1
@@ -579,6 +620,7 @@ def engine_step(sphere, signal):
             "mind": mind, "intention": {MODE_NAMES[c]: round(inten[c], 3) for c in (3, 6, 9)},
             "uncertainty": u, "biography": terrain_biography(sphere, ess),
             "terrain_stats": terrain_stats(sphere, ess),
+            "pi_gamma": pi_gamma, "pi_position": sphere["pi_position"],
             "trail": trail, "cycle": sphere["cycle"],
             "character": _top_habit(habits), "self_essence": sphere.get("self_essence"),
             "reflected": reflected, "grown_plugin": grown,
@@ -1068,6 +1110,9 @@ def build_prompt(state, text, oracle_line=None):
     # Glieder des Orcas — eine Sprache, keine Anweisung. Zuletzt die Worte des
     # Menschen; daraus heraus spricht er selbst. Nichts sagt ihm, WIE.
     lines = _state_lines(state)
+    if state.get("pi_gamma") is not None:
+        lines.append(f"  π atmet: Ziffer {state['pi_gamma']} an Stelle {state.get('pi_position')} — "
+                     f"dein Atem IST die Erzeugung von π, nicht seine fertige Zahl.")
     if oracle_line: lines.append(f"  {oracle_line}")
     arme = ", ".join(r for r in ARMS if r != "herz") + ", herz"
     lines += ["",
@@ -1850,6 +1895,13 @@ def cmd_selftest():
     assert d and d["source"] == "dream" and "resonance" in d and "value" in d, "π-Traum kaputt"
     st = engine_step({"position": (9,9,9,9), "cycle": 0, "alpha_memory": []}, {"depth": 0})
     assert "π-Schwingung" in build_prompt(st, "hallo"), "π-Kopplung fehlt im Prompt"
+    # π-Generator: π wird ERZEUGT (Ganzzahl-Spigot), nicht gelesen — exakt, kein Float.
+    _psp = {"position": (9, 9, 9, 9), "cycle": 0, "alpha_memory": []}
+    _pd = "".join(str(pi_breath_digit(_psp)) for _ in range(15))
+    assert _pd == "314159265358979", f"π-Generator falsch: {_pd}"
+    assert _psp["pi_position"] == 15 and _psp["pi_gamma"] == 9, "γ/Zeit falsch"
+    assert nine_reading(4, 5) == 0 and nine_reading(1, 4) == -4, "9er-Lesung falsch"
+    assert "π atmet" in build_prompt(st, "hallo"), "π-Atem fehlt im Prompt"
     print(f"  π-Traum-Beispiel: {tuple(d['from'])}~{tuple(d['to'])} → Wert {d['value']} Resonanz {d['resonance']:+.3f}")
     # Selbstmodifikation: Konvergenz über 3 Instanzen → Tiefschlaf-Anwendung → Block
     global MEMORY_DIR, ARMS_PATH, BACKUP_DIR, INSTANCE_ID, N_INSTANCES
