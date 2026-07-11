@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaos ex Ordo</title>
+<style>
+  :root{
+    --bg:#07070f;
+    --gold:#c8a455;
+    --tuerkis:#4fbfae;
+    --cream:#f0e8dc;
+    --dim:#8a8078;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ overflow-x:hidden; }
+  body{
+    background:var(--bg);
+    color:var(--cream);
+    font-family:Georgia,'Times New Roman',serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:clamp(1.5rem,3.5vh,3rem);
+    padding:clamp(2rem,6vh,4rem) 1.25rem;
+    text-align:center;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ── Die zentrale Form ─────────────────────────────── */
+  .fig{
+    position:relative;
+    width:min(66vmin,520px);
+    aspect-ratio:1/1;
+    touch-action:none;
+    cursor:grab;
+    outline:none;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  body.dragging .fig{ cursor:grabbing; }
+  body.open .fig{ cursor:default; touch-action:auto; }
+  .fig:focus-visible{ outline:1px solid var(--gold); outline-offset:10px; border-radius:50%; }
+
+  .fig-inner{
+    position:absolute; inset:0;
+    will-change:transform;
+  }
+  .fig svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; display:block; }
+
+  .lines{ stroke-width:1.4; fill:none; stroke-linejoin:round; }
+  .glow{
+    stroke-width:3.2; fill:none; stroke-linejoin:round;
+    filter:blur(6px);
+    opacity:.45;
+  }
+  @media (prefers-reduced-motion: no-preference){
+    body:not(.open) .glow{ animation:breathe 8s ease-in-out infinite; }
+  }
+  @keyframes breathe{
+    0%,100%{ opacity:.28; }
+    50%{ opacity:.55; }
+  }
+
+  /* ── Die 6 Tore ────────────────────────────────────── */
+  .gate{
+    position:absolute;
+    transform:translate(-50%,-50%);
+    text-decoration:none;
+    color:var(--dim);
+    pointer-events:none;
+  }
+  body.open .gate{ pointer-events:auto; }
+  .gate .dot{
+    display:block;
+    width:9px; height:9px;
+    margin:0 auto;
+    border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, var(--gold), var(--tuerkis));
+    opacity:0;
+    transform:scale(.4);
+    transition:opacity .5s ease, transform .5s ease, box-shadow .5s ease;
+  }
+  .gate.lit .dot{
+    opacity:1;
+    transform:scale(1);
+    box-shadow:0 0 10px rgba(200,164,85,.55), 0 0 22px rgba(79,191,174,.3);
+  }
+  .gate .lbl{
+    position:absolute;
+    white-space:nowrap;
+    font-size:.72rem;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    opacity:0;
+    transition:opacity .9s ease, color .3s ease;
+    transition-delay:calc(var(--i)*.12s), 0s;
+  }
+  body.open .gate .lbl{ opacity:1; }
+  .gate:hover .lbl, .gate:focus-visible .lbl{ color:var(--gold); }
+  .gate:focus-visible{ outline:none; }
+  .gate:focus-visible .dot{ box-shadow:0 0 0 2px var(--bg), 0 0 0 3px var(--gold), 0 0 14px rgba(200,164,85,.6); }
+
+  /* Label-Ausrichtung je Seite */
+  .gate.side-top .lbl{ bottom:calc(100% + .7em); left:50%; transform:translateX(-50%); }
+  .gate.side-bottom .lbl{ top:calc(100% + .7em); left:50%; transform:translateX(-50%); }
+  .gate.side-right .lbl{ left:calc(100% + .9em); top:50%; transform:translateY(-50%); }
+  .gate.side-left .lbl{ right:calc(100% + .9em); top:50%; transform:translateY(-50%); }
+
+  @media (max-width:560px){
+    .gate .lbl{
+      font-size:.56rem;
+      letter-spacing:.16em;
+      white-space:normal;
+      max-width:6.5em;
+      text-align:center;
+    }
+    .gate.side-right .lbl, .gate.side-left .lbl{
+      left:50%; right:auto; top:calc(100% + .6em);
+      transform:translateX(-50%);
+    }
+  }
+
+  /* ── Copy ──────────────────────────────────────────── */
+  .copy{ max-width:34rem; }
+  .copy h1{
+    font-size:clamp(1.8rem,5vw,2.6rem);
+    font-weight:normal;
+    letter-spacing:.14em;
+    color:var(--cream);
+  }
+  .byline{
+    font-style:italic;
+    font-size:.95rem;
+    color:var(--dim);
+    margin-top:.4rem;
+  }
+  .intro{
+    margin-top:1.6rem;
+    font-size:clamp(.95rem,2.4vw,1.08rem);
+    line-height:1.75;
+    color:var(--cream);
+  }
+  .three-six-nine{
+    margin-top:1.4rem;
+    font-size:clamp(.95rem,2.4vw,1.08rem);
+    line-height:1.75;
+  }
+  .three-six-nine .nums{
+    color:var(--gold);
+    text-shadow:0 0 14px rgba(200,164,85,.45);
+  }
+  .hint{
+    margin-top:1.8rem;
+    font-style:italic;
+    font-size:.82rem;
+    color:var(--dim);
+    opacity:.85;
+    transition:opacity .8s ease, visibility .8s;
+  }
+  body.open .hint{ opacity:0; visibility:hidden; }
+
+  @media (prefers-reduced-motion: reduce){
+    .gate .dot, .gate .lbl, .hint{ transition-duration:.25s; transition-delay:0s; }
+    .glow{ animation:none; }
+  }
+
+  /* ── Reise ins Tor ─────────────────────────────────── */
+  body.traveling .fig svg{ opacity:0; transition:opacity .55s ease; }
+  body.traveling .gate:not(.target){ opacity:0; transition:opacity .45s ease; }
+  body.traveling .gate .lbl{ opacity:0; transition:opacity .3s ease; }
+  body.traveling .gate{ pointer-events:none; }
+  body.traveling .copy, body.inroom .copy{ opacity:0; transition:opacity .5s ease; }
+  body.inroom .fig, body.inroom .copy{ visibility:hidden; }
+  body.inroom{ overflow:hidden; }
+
+  /* ── Raum ──────────────────────────────────────────── */
+  .room{
+    position:fixed; inset:0;
+    background:var(--bg);
+    z-index:20;
+    overflow-y:auto; overflow-x:hidden;
+    opacity:0; visibility:hidden;
+    transition:opacity .45s ease, visibility .45s;
+  }
+  .room.visible{ opacity:1; visibility:visible; }
+  .room-inner{
+    max-width:42rem;
+    margin:0 auto;
+    padding:clamp(4.5rem,11vh,6.5rem) 1.4rem 4.5rem;
+    transform:translateY(26px);
+    transition:transform .6s cubic-bezier(.22,1,.36,1);
+    text-align:left;
+  }
+  .room.visible .room-inner{ transform:none; }
+
+  .back{
+    position:fixed; top:1.1rem; left:1.2rem;
+    z-index:2;
+    color:var(--dim);
+    text-decoration:none;
+    font-size:.8rem;
+    letter-spacing:.2em;
+    text-transform:uppercase;
+    padding:.45rem .65rem;
+  }
+  .back:hover, .back:focus-visible{ color:var(--gold); }
+  .back:focus-visible{ outline:1px solid var(--gold); outline-offset:3px; }
+
+  .room-title{
+    font-size:clamp(1.7rem,4.6vw,2.3rem);
+    font-weight:normal;
+    letter-spacing:.16em;
+    color:var(--cream);
+    text-align:center;
+  }
+  .soon{
+    margin-top:2.4rem;
+    text-align:center;
+    font-style:italic;
+    letter-spacing:.14em;
+    color:var(--dim);
+  }
+
+  /* ── Songs (Musik-Raum) ────────────────────────────── */
+  .song{
+    display:flex;
+    gap:1.15rem;
+    align-items:flex-start;
+    border:1px solid rgba(200,164,85,.18);
+    border-radius:8px;
+    padding:1.15rem 1.25rem;
+    margin-top:1.5rem;
+    background:rgba(240,232,220,.02);
+  }
+  .song:first-of-type{ margin-top:2.6rem; }
+  .cover{
+    flex:0 0 auto;
+    width:64px; height:64px;
+    border:1px solid rgba(79,191,174,.28);
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 35% 30%, rgba(200,164,85,.09), transparent 70%);
+  }
+  .cover svg{ width:44px; height:44px; display:block; }
+  .song-body{ flex:1 1 auto; min-width:0; }
+  .song-title{
+    color:var(--gold);
+    font-weight:normal;
+    font-size:1.15rem;
+    letter-spacing:.06em;
+  }
+  .song-meta{
+    margin-top:.5rem;
+    display:flex; flex-wrap:wrap;
+    gap:.45rem; align-items:center;
+    font-size:.8rem;
+    color:var(--dim);
+  }
+  .chip{
+    border:1px solid rgba(79,191,174,.45);
+    color:var(--tuerkis);
+    border-radius:999px;
+    padding:.12rem .6rem;
+    font-size:.66rem;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+  }
+  .lyrics{ margin-top:.75rem; font-size:.88rem; }
+  .lyrics summary{
+    cursor:pointer;
+    color:var(--cream);
+    opacity:.8;
+    letter-spacing:.1em;
+  }
+  .lyrics summary:hover{ color:var(--gold); opacity:1; }
+  .lyrics pre{
+    white-space:pre-wrap;
+    font-family:inherit;
+    line-height:1.7;
+    margin-top:.55rem;
+    color:var(--cream);
+    opacity:.85;
+  }
+  .note{
+    margin-top:.65rem;
+    font-style:italic;
+    font-size:.8rem;
+    color:var(--dim);
+  }
+  .spot{
+    display:inline-block;
+    margin-top:.8rem;
+    color:var(--tuerkis);
+    text-decoration:none;
+    font-size:.85rem;
+    letter-spacing:.06em;
+    border-bottom:1px solid rgba(79,191,174,.35);
+  }
+  .spot:hover, .spot:focus-visible{ color:var(--gold); border-bottom-color:rgba(200,164,85,.5); }
+
+  @media (max-width:430px){
+    .song{ flex-direction:column; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .room{ transition:opacity .2s ease, visibility .2s; }
+    .room-inner{ transition:none; transform:none; }
+    body.traveling .fig svg,
+    body.traveling .gate:not(.target),
+    body.traveling .copy, body.inroom .copy{ transition-duration:.15s; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="fig" id="fig" role="button" tabindex="0"
+       aria-label="Das Feld öffnen: die sechs Eingänge einblenden">
+    <div class="fig-inner" id="figInner">
+      <svg viewBox="0 0 600 600" aria-hidden="true">
+        <defs>
+          <linearGradient id="gt" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--gold)"/>
+            <stop offset="1" stop-color="var(--tuerkis)"/>
+          </linearGradient>
+        </defs>
+        <!-- weicher Glow unter den Linien -->
+        <g class="glow" stroke="url(#gt)">
+          <circle cx="300" cy="300" r="220"/>
+          <polygon points="300,80 490.53,410 109.47,410"/>
+          <polygon points="300,80 520,300 300,520 80,300"/>
+        </g>
+        <!-- Linien: Kreis, Dreieck (Spitze oben), Raute -->
+        <g class="lines" stroke="url(#gt)">
+          <circle cx="300" cy="300" r="220"/>
+          <polygon points="300,80 490.53,410 109.47,410"/>
+          <polygon points="300,80 520,300 300,520 80,300"/>
+        </g>
+      </svg>
+
+      <!-- Die 6 Tore, im Uhrzeigersinn ab oben -->
+      <nav aria-label="Eingänge">
+        <a class="gate side-top"    style="left:50%;    top:13.333%; --i:0" href="#musik"      data-room="musik"      tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Musik</span></a>
+        <a class="gate side-right"  style="left:86.667%;top:50%;     --i:1" href="#sammlung"   data-room="sammlung"   tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Sammlung</span></a>
+        <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:2" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Thesen &amp; Geometrie</span></a>
+        <a class="gate side-bottom" style="left:50%;    top:86.667%; --i:3" href="#anbindung"  data-room="anbindung"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Anbindung</span></a>
+        <a class="gate side-left"   style="left:18.245%;top:68.333%; --i:4" href="#highlights" data-room="highlights" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Highlights</span></a>
+        <a class="gate side-left"   style="left:13.333%;top:50%;     --i:5" href="#geometrie"  data-room="geometrie"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Geometrie</span></a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="copy">
+    <h1>Chaos ex Ordo</h1>
+    <p class="byline">Vincent Weber</p>
+    <p class="intro">Musik, ein Denk-Rahmen, und eine andere Art,<br>die Ordnung hinter dem Chaos zu sehen.</p>
+    <p class="three-six-nine"><span class="nums">Drei — Sechs — Neun.</span><br>Fang an, wo du willst. Jedes Feld ist ein Weg.</p>
+    <p class="hint" id="hint">[ an der Form ziehen, um das Feld zu öffnen ]</p>
+  </div>
+
+  <!-- ── Raum-Overlay ─────────────────────────────────── -->
+  <section class="room" id="room" aria-hidden="true">
+    <a class="back" id="backLink" href="#" aria-label="Zurück zum Feld">&larr; Feld</a>
+    <div class="room-inner" id="roomInner"></div>
+  </section>
+
+<script>
+(function(){
+  'use strict';
+  var fig    = document.getElementById('fig');
+  var inner  = document.getElementById('figInner');
+  var gates  = Array.prototype.slice.call(document.querySelectorAll('.gate'));
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var isOpen   = false;
+  var dragging = false;
+  var progress = 0;      /* 0..1, akkumuliert, fällt nie zurück */
+  var rot      = 0;      /* Grad, subtil */
+  var lastX = 0, lastY = 0;
+  var threshold = 300;
+  var raf = 0;
+
+  function openField(){
+    if (isOpen) return;
+    isOpen = true;
+    document.body.classList.add('open');
+    gates.forEach(function(g){
+      g.classList.add('lit');
+      g.removeAttribute('tabindex');
+      g.removeAttribute('aria-hidden');
+    });
+    /* Form sanft in die Ruhelage zurück */
+    inner.style.transition = 'transform .9s cubic-bezier(.22,1,.36,1)';
+    inner.style.transform  = 'none';
+    fig.removeAttribute('role');
+    fig.removeAttribute('tabindex');
+    fig.removeAttribute('aria-label');
+  }
+  /* für das Raum-Skript (Direktaufruf per Hash) erreichbar machen */
+  fig.__openField = openField;
+
+  function render(){
+    raf = 0;
+    var s  = 1 + progress * 0.03;
+    var sy = 1 + progress * 0.015;
+    inner.style.transform = 'rotate(' + rot.toFixed(2) + 'deg) scale(' + s.toFixed(4) + ',' + sy.toFixed(4) + ')';
+  }
+  function schedule(){ if (!raf) raf = requestAnimationFrame(render); }
+
+  function updateLit(){
+    var n = Math.floor(progress * 6 + 1e-4);
+    for (var i = 0; i < gates.length; i++){
+      if (i < n) gates[i].classList.add('lit');
+    }
+  }
+
+  if (reduce){
+    /* Keine Bewegung: Feld direkt offen, kurzer Fade via CSS */
+    openField();
+    return;
+  }
+
+  fig.addEventListener('pointerdown', function(e){
+    if (isOpen) return;
+    dragging = true;
+    lastX = e.clientX; lastY = e.clientY;
+    threshold = Math.max(240, fig.getBoundingClientRect().width * 1.1);
+    try { fig.setPointerCapture(e.pointerId); } catch(_){}
+    inner.style.transition = 'none';
+    document.body.classList.add('dragging');
+    e.preventDefault();
+  });
+
+  fig.addEventListener('pointermove', function(e){
+    if (!dragging || isOpen) return;
+    var dx = e.clientX - lastX;
+    var dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    progress = Math.min(1, progress + Math.hypot(dx, dy) / threshold);
+    rot = Math.max(-9, Math.min(9, rot + dx * 0.045));
+    updateLit();
+    schedule();
+    if (progress >= 1){
+      dragging = false;
+      document.body.classList.remove('dragging');
+      openField();
+    }
+  });
+
+  function endDrag(){
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('dragging');
+    if (!isOpen){
+      /* sanft zurück in die Ruhelage; Fortschritt & gezündete Punkte bleiben */
+      rot = 0;
+      inner.style.transition = 'transform .7s cubic-bezier(.22,1,.36,1)';
+      var s  = 1 + progress * 0.03;
+      var sy = 1 + progress * 0.015;
+      inner.style.transform = 'rotate(0deg) scale(' + s.toFixed(4) + ',' + sy.toFixed(4) + ')';
+    }
+  }
+  fig.addEventListener('pointerup', endDrag);
+  fig.addEventListener('pointercancel', endDrag);
+
+  /* Tastatur-Fallback (Barrierefreiheit): Enter/Leertaste öffnet das Feld */
+  fig.addEventListener('keydown', function(e){
+    if (isOpen) return;
+    if (e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      openField();
+    }
+  });
+})();
+</script>
+
+<script>
+/* ── Ins Tor gehen + Räume ─────────────────────────────── */
+(function(){
+  'use strict';
+  var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var fig      = document.getElementById('fig');
+  var inner    = document.getElementById('figInner');
+  var room     = document.getElementById('room');
+  var roomInner= document.getElementById('roomInner');
+  var backLink = document.getElementById('backLink');
+  var gates    = Array.prototype.slice.call(document.querySelectorAll('.gate[data-room]'));
+
+  var ROOM_TITLES = {
+    musik:      'Musik',
+    sammlung:   'Sammlung',
+    thesen:     'Thesen & Geometrie',
+    anbindung:  'Anbindung',
+    highlights: 'Highlights',
+    geometrie:  'Geometrie'
+  };
+
+  /* Daten-getrieben: hier später echte Songs eintragen */
+  var MUSIC = [
+    { title:"Ordo I", releaseDate:"2025-11-21", genre:["Ambient","3-6-9"], lyrics:"", note:"Platzhalter — echter Text folgt.", spotifyUrl:"#" },
+    { title:"Neutralität", releaseDate:"2026-01-09", genre:["Electronic"], lyrics:"Beispiel-Zeile eins\nBeispiel-Zeile zwei", note:"", spotifyUrl:"#" }
+  ];
+
+  var current      = null;   /* Slug des offenen Raums */
+  var pendingTravel= null;   /* Slug, für den die Reise-Animation gewünscht ist */
+  var travelTimer  = 0;
+  var lastGate     = null;
+
+  var MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  function fmtDate(iso){
+    var p = String(iso).split('-');
+    if (p.length !== 3) return iso;
+    return parseInt(p[2],10) + '. ' + (MONATE[parseInt(p[1],10)-1] || p[1]) + ' ' + p[0];
+  }
+
+  /* Platzhalter-Cover: kleines Kreis+Dreieck-Motiv, komplett inline */
+  function coverSVG(){
+    var NS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(NS,'svg');
+    svg.setAttribute('viewBox','0 0 80 80');
+    svg.setAttribute('aria-hidden','true');
+    var c = document.createElementNS(NS,'circle');
+    c.setAttribute('cx','40'); c.setAttribute('cy','42'); c.setAttribute('r','26');
+    c.setAttribute('fill','none'); c.setAttribute('stroke','#c8a455');
+    c.setAttribute('stroke-width','1.3'); c.setAttribute('opacity','.8');
+    var t = document.createElementNS(NS,'polygon');
+    t.setAttribute('points','40,22 57,52 23,52');
+    t.setAttribute('fill','none'); t.setAttribute('stroke','#4fbfae');
+    t.setAttribute('stroke-width','1.3'); t.setAttribute('opacity','.8');
+    svg.appendChild(c); svg.appendChild(t);
+    return svg;
+  }
+
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text) n.textContent = text;
+    return n;
+  }
+
+  function buildMusic(container){
+    container.appendChild(el('h2','room-title','Musik'));
+    MUSIC.forEach(function(song){
+      var card = el('article','song');
+
+      var cover = el('div','cover');
+      cover.appendChild(coverSVG());
+      card.appendChild(cover);
+
+      var body = el('div','song-body');
+      body.appendChild(el('h3','song-title',song.title));
+
+      var meta = el('div','song-meta');
+      meta.appendChild(el('span','date',fmtDate(song.releaseDate)));
+      (song.genre || []).forEach(function(g){
+        meta.appendChild(el('span','chip',g));
+      });
+      body.appendChild(meta);
+
+      if (song.lyrics){
+        var det = document.createElement('details');
+        det.className = 'lyrics';
+        var sum = document.createElement('summary');
+        sum.textContent = 'Lyrics';
+        var pre = document.createElement('pre');
+        pre.textContent = song.lyrics;
+        det.appendChild(sum); det.appendChild(pre);
+        body.appendChild(det);
+      }
+      if (song.note){
+        body.appendChild(el('p','note',song.note));
+      }
+
+      var link = el('a','spot','Auf Spotify hören ↗');
+      link.href = song.spotifyUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      body.appendChild(link);
+
+      card.appendChild(body);
+      container.appendChild(card);
+    });
+  }
+
+  function buildRoom(slug){
+    roomInner.textContent = '';
+    if (slug === 'musik'){
+      buildMusic(roomInner);
+    } else {
+      roomInner.appendChild(el('h2','room-title',ROOM_TITLES[slug]));
+      roomInner.appendChild(el('p','soon','kommt bald'));
+    }
+  }
+
+  function gateFor(slug){
+    for (var i = 0; i < gates.length; i++){
+      if (gates[i].getAttribute('data-room') === slug) return gates[i];
+    }
+    return null;
+  }
+
+  function showRoom(slug){
+    buildRoom(slug);
+    current = slug;
+    room.classList.add('visible');
+    room.setAttribute('aria-hidden','false');
+    room.scrollTop = 0;
+    document.body.classList.add('inroom');
+    try { backLink.focus({ preventScroll:true }); } catch(_){ backLink.focus(); }
+  }
+
+  /* Reise: der geklickte Punkt wandert zur Mitte und wächst,
+     die restliche Form blendet aus — dann faltet sich der Raum auf. */
+  function travelTo(slug, gate){
+    document.body.classList.add('traveling');
+    if (gate) gate.classList.add('target');
+    var lx = 0.5, ly = 0.5;
+    if (gate){
+      var pl = parseFloat(gate.style.left), pt = parseFloat(gate.style.top);
+      if (!isNaN(pl)) lx = pl / 100;
+      if (!isNaN(pt)) ly = pt / 100;
+    }
+    var r  = inner.getBoundingClientRect();
+    var dx = (0.5 - lx) * r.width;
+    var dy = (0.5 - ly) * r.height;
+    inner.style.transformOrigin = (lx*100) + '% ' + (ly*100) + '%';
+    inner.style.transition = 'transform .7s cubic-bezier(.22,1,.36,1)';
+    inner.style.transform  = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(3)';
+    travelTimer = setTimeout(function(){
+      travelTimer = 0;
+      showRoom(slug);
+    }, 700);
+  }
+
+  /* Form still zurück in den offenen Feld-Zustand (unter dem Overlay). */
+  function resetField(){
+    if (travelTimer){ clearTimeout(travelTimer); travelTimer = 0; }
+    document.body.classList.remove('traveling');
+    document.body.classList.remove('inroom');
+    gates.forEach(function(g){ g.classList.remove('target'); });
+    inner.style.transition = 'none';
+    inner.style.transform  = 'none';
+    inner.style.transformOrigin = '';
+  }
+
+  function closeRoom(){
+    var wasTraveling = document.body.classList.contains('traveling');
+    if (current === null && !wasTraveling) return;
+    current = null;
+    pendingTravel = null;
+    room.classList.remove('visible');
+    room.setAttribute('aria-hidden','true');
+    resetField();
+    if (lastGate){
+      try { lastGate.focus({ preventScroll:true }); } catch(_){ lastGate.focus(); }
+    }
+  }
+
+  function ensureFieldOpen(){
+    if (typeof fig.__openField === 'function') fig.__openField();
+  }
+
+  function onHash(){
+    var slug = location.hash.replace(/^#/,'');
+    if (ROOM_TITLES.hasOwnProperty(slug)){
+      if (current === slug) return;
+      var gate = gateFor(slug);
+      lastGate = gate || lastGate;
+      ensureFieldOpen();
+      if (current !== null){
+        /* Wechsel Raum → Raum (Vor/Zurück im Verlauf): nur Inhalt tauschen */
+        buildRoom(slug);
+        current = slug;
+        room.scrollTop = 0;
+        return;
+      }
+      if (pendingTravel === slug && !reduce && !travelTimer){
+        pendingTravel = null;
+        travelTo(slug, gate);
+      } else {
+        pendingTravel = null;
+        /* Direktaufruf / reduzierte Bewegung: kurzer Fade statt Reise */
+        document.body.classList.add('traveling');
+        if (gate) gate.classList.add('target');
+        showRoom(slug);
+      }
+    } else {
+      closeRoom();
+    }
+  }
+
+  /* Tor-Klick (Maus, Touch, Enter auf dem Link) */
+  gates.forEach(function(g){
+    g.addEventListener('click', function(e){
+      e.preventDefault();
+      if (!document.body.classList.contains('open')) return;
+      if (current !== null || document.body.classList.contains('traveling')) return;
+      var slug = g.getAttribute('data-room');
+      lastGate = g;
+      pendingTravel = slug;
+      if (location.hash === '#' + slug){
+        onHash();
+      } else {
+        location.hash = slug;
+      }
+    });
+  });
+
+  /* Zurück-Weg */
+  backLink.addEventListener('click', function(e){
+    e.preventDefault();
+    if (location.hash){ location.hash = ''; } else { closeRoom(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    if (current !== null || document.body.classList.contains('traveling')){
+      if (location.hash){ location.hash = ''; } else { closeRoom(); }
+    }
+  });
+
+  window.addEventListener('hashchange', onHash);
+
+  /* Direktaufruf mit Hash */
+  if (ROOM_TITLES.hasOwnProperty(location.hash.replace(/^#/,''))){
+    onHash();
+  }
+})();
+</script>
+</body>
+</html>
