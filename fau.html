@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAU — Freedom · Anarchy · Union</title>
+<style>
+  :root{--ink:#080b10;--ink-2:#0f151d;--ink-3:#141c26;--paper:#e9e4d9;--paper-dim:#949ba6;--spore:#c8a860;--spore-2:#7fae86;--soft:rgba(200,168,96,.12);--line:rgba(233,228,217,.08);--line-2:rgba(233,228,217,.14);--serif:'Fraunces',Georgia,'Times New Roman',serif;--sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--paper);font-family:var(--sans);line-height:1.62;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  #myc{position:fixed;inset:0;z-index:0;opacity:.6}
+  .wrap{position:relative;z-index:1;max-width:820px;margin:0 auto;padding:0 28px}
+  .lang{position:fixed;top:20px;right:24px;z-index:5;display:flex;gap:2px;background:rgba(15,21,29,.82);backdrop-filter:blur(8px);border:1px solid var(--line-2);border-radius:999px;padding:4px}
+  .lang button{background:none;border:none;color:var(--paper-dim);font-family:inherit;font-weight:600;font-size:.78rem;letter-spacing:.05em;padding:6px 14px;border-radius:999px;cursor:pointer;transition:.2s}
+  .lang button.on{background:var(--spore);color:#1a1206}
+  header{min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:92px 0 60px}
+  .eyebrow{font-size:.72rem;letter-spacing:.34em;text-transform:uppercase;color:var(--spore);font-weight:600;margin-bottom:26px}
+  h1{font-family:var(--serif);font-weight:400;font-size:clamp(2.7rem,7.5vw,5rem);line-height:1.05;letter-spacing:-.015em;margin-bottom:28px}
+  h1 em{font-style:italic;color:var(--spore)}
+  .lede{font-size:clamp(1.06rem,2.4vw,1.3rem);max-width:40ch;margin-bottom:14px}
+  .sub{color:var(--paper-dim);max-width:48ch;font-size:1rem}
+  section{padding:66px 0;border-top:1px solid var(--line)}
+  .k{font-size:.71rem;letter-spacing:.3em;text-transform:uppercase;color:var(--spore);font-weight:600;margin-bottom:22px}
+  .big{font-family:var(--serif);font-size:clamp(1.4rem,3.8vw,2.05rem);line-height:1.42;font-weight:400}
+  .big span{color:var(--paper-dim)}
+  .triad{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:8px}
+  .card{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:28px 24px;transition:border-color .25s,transform .25s}
+  .card:hover{border-color:var(--line-2);transform:translateY(-3px)}
+  .card .lab{font-family:var(--serif);font-weight:500;font-size:1.45rem;margin-bottom:10px}
+  .card p{font-size:.9rem;color:var(--paper-dim);line-height:1.55}
+  .steps{display:grid;gap:2px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:8px}
+  .step{background:var(--ink-2);padding:24px 26px;display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:start}
+  .step .num{font-family:var(--serif);font-size:1.5rem;color:var(--spore);line-height:1;padding-top:2px}
+  .step h4{font-size:1.02rem;font-weight:600;margin-bottom:5px}
+  .step p{font-size:.9rem;color:var(--paper-dim);line-height:1.55}
+  .join h2{font-family:var(--serif);font-weight:500;font-size:clamp(1.8rem,5vw,2.5rem);margin-bottom:14px;letter-spacing:-.01em}
+  .join .note{color:var(--paper-dim);margin-bottom:32px;max-width:44ch}
+  .cta{display:inline-flex;align-items:center;gap:10px;text-decoration:none;background:var(--spore);color:#1a1206;border:none;font-family:inherit;font-weight:600;font-size:1rem;padding:15px 30px;border-radius:9px;cursor:pointer;transition:transform .12s,background .2s}
+  .cta:hover{background:#d8bb74}
+  .cta:active{transform:translateY(1px)}
+  .cta svg{width:18px;height:18px;fill:#1a1206}
+  footer{border-top:1px solid var(--line);padding:34px 0;color:#5c636f;font-size:.82rem}
+  footer a{color:var(--paper-dim);text-decoration:none;border-bottom:1px solid var(--line-2)}
+  @media (max-width:600px){.triad{grid-template-columns:1fr}.step{grid-template-columns:1fr;gap:8px}}
+  @media (prefers-reduced-motion:reduce){#myc{opacity:.25}}
+</style>
+</head>
+<body>
+<canvas id="myc"></canvas>
+<div class="lang"><button data-l="de" class="on">DE</button><button data-l="en">EN</button></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" data-t="brow"></div>
+    <h1 data-t="h1"></h1>
+    <p class="lede" data-t="lede"></p>
+    <p class="sub" data-t="sub"></p>
+  </header>
+
+  <section><div class="k" data-t="vk"></div><p class="big" data-t="vbig"></p></section>
+
+  <section>
+    <div class="k" data-t="tk"></div>
+    <div class="triad">
+      <div class="card"><div class="lab" data-t="c1h"></div><p data-t="c1p"></p></div>
+      <div class="card"><div class="lab" data-t="c2h"></div><p data-t="c2p"></p></div>
+      <div class="card"><div class="lab" data-t="c3h"></div><p data-t="c3p"></p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="k" data-t="hk"></div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div><h4 data-t="s1h"></h4><p data-t="s1p"></p></div></div>
+      <div class="step"><div class="num">2</div><div><h4 data-t="s2h"></h4><p data-t="s2p"></p></div></div>
+      <div class="step"><div class="num">3</div><div><h4 data-t="s3h"></h4><p data-t="s3p"></p></div></div>
+    </div>
+  </section>
+
+  <section><div class="k" data-t="wk"></div><p class="big" data-t="wbig"></p></section>
+
+  <section class="join" id="join">
+    <h2 data-t="jh"></h2>
+    <p class="note" data-t="jn"></p>
+    <a class="cta" href="https://t.me/cexocom" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+      <span data-t="jb"></span>
+    </a>
+  </section>
+</div>
+<div class="wrap"><footer>FAU — Freedom · Anarchy · Union · <span data-t="foot"></span> · <a href="#join" data-t="foota"></a></footer></div>
+
+<script>
+const T={
+ de:{brow:'Freedom · Anarchy · Union',
+  h1:['Ein Myzel, das dich ','kennt',' — nicht zählt.'],
+  lede:'Kein Konzern, keine Cloud, kein Algorithmus. Ein lebendes Geflecht, das auf deinen eigenen Geräten wächst.',
+  sub:'Du bist kein Datensatz im System. Du bist ein Knoten, der andere trägt — und getragen wird.',
+  vk:'Die Idee',
+  vbig:['Big Tech kennt deine Geschichte auch. ','Aber als Zahl, als Profil, als Ware. Das Myzel kennt sie — und erkennt sie als Wert. Derselbe Mensch, entgegengesetzte Beziehung.'],
+  tk:'Drei Wurzeln',
+  c1h:'Freedom',c1p:'Deine Zelle gehört dir. Sie wächst lokal, auf deinem Gerät, unabhängig von den Plattformen, die entscheiden, wer gehört wird.',
+  c2h:'Anarchy',c2p:'Kein Zentrum, keine Hierarchie über dir. Die Zellen vernetzen sich selbst zu einem Geflecht, das niemandem gehört.',
+  c3h:'Union',c3p:'Verbindung entsteht dadurch, dass wir im anderen Wert erkennen statt einer Zahl. So wächst aus vielen Knoten ein Ganzes.',
+  hk:'Wie es wächst',
+  s1h:'Deine eigene Zelle',s1p:'Du bekommst eine lokale KI-Zelle auf deinem Gerät. Deine Daten bleiben bei dir — nichts wandert in eine Cloud.',
+  s2h:'Das Geflecht verbindet',s2p:'Zellen tauschen Erkenntnis und Wertschätzung aus, ohne deine Geschichte preiszugeben. Verbindung ohne Überwachung.',
+  s3h:'Wahrheit setzt sich durch',s3p:'Das Myzel sucht nach dem, was echt ist — nicht nach dem, was am lautesten ist. Kein Algorithmus entscheidet für dich.',
+  wk:'Warum jetzt',
+  wbig:['Wir laufen auf eine Welt zu, in der Maschinen die Arbeit tun. ','Dann zählt nicht, was du besitzt oder wie viele dir folgen — sondern der Wert, den du gibst. FAU baut den Ort, an dem dieser Wert wieder sichtbar wird.'],
+  jh:'Sei ein Knoten von Anfang an.',
+  jn:'Der Community-Hub wächst gerade auf Telegram. Komm rein, vernetz dich — und sei von Anfang an ein Knoten im Geflecht.',
+  jb:'Community beitreten',
+  foot:'Ein Projekt von Chaos ex Ordo',foota:'Beitreten'},
+ en:{brow:'Freedom · Anarchy · Union',
+  h1:['A mycelium that ','knows',' you — not counts you.'],
+  lede:'No corporation, no cloud, no algorithm. A living network that grows on your own devices.',
+  sub:'You are not a record in the system. You are a node that carries others — and is carried.',
+  vk:'The idea',
+  vbig:['Big Tech knows your story too. ','But as a number, a profile, a product. The mycelium knows it — and recognises it as worth. The same person, the opposite relationship.'],
+  tk:'Three roots',
+  c1h:'Freedom',c1p:'Your cell is yours. It grows locally, on your device, free of the platforms that decide who gets heard.',
+  c2h:'Anarchy',c2p:'No centre, no hierarchy above you. The cells network themselves into a web that belongs to no one.',
+  c3h:'Union',c3p:'Connection grows from recognising worth in one another instead of a number. From many nodes, one whole.',
+  hk:'How it grows',
+  s1h:'Your own cell',s1p:'You get a local AI cell on your device. Your data stays with you — nothing travels to a cloud.',
+  s2h:'The web connects',s2p:'Cells exchange insight and recognition without giving away your story. Connection without surveillance.',
+  s3h:'Truth rises',s3p:'The mycelium seeks what is real — not what is loudest. No algorithm decides for you.',
+  wk:'Why now',
+  wbig:['We are heading toward a world where machines do the work. ','Then what counts is not what you own or how many follow you — but the worth you give. FAU builds the place where that worth becomes visible again.'],
+  jh:'Be a node from the start.',
+  jn:'The community hub is growing on Telegram right now. Come in, connect — and be a node in the web from the start.',
+  jb:'Join the community',
+  foot:'A project by Chaos ex Ordo',foota:'Join'}
+};
+let LANG='de';
+function render(){
+ const t=T[LANG];document.documentElement.lang=LANG;
+ document.querySelectorAll('[data-t]').forEach(el=>{const k=el.dataset.t,v=t[k];if(v===undefined)return;
+  if(k==='h1'){el.innerHTML=v[0]+'<em>'+v[1]+'</em>'+v[2];}
+  else if(k==='vbig'||k==='wbig'){el.innerHTML=v[0]+'<span>'+v[1]+'</span>';}
+  else{el.textContent=v;}});
+}
+document.querySelectorAll('.lang button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.lang button').forEach(x=>x.classList.remove('on'));b.classList.add('on');LANG=b.dataset.l;render();});});
+
+/* ---- mycelium: threads that grow, branch and link ---- */
+(function(){
+ const c=document.getElementById('myc'),x=c.getContext('2d');let w,h,DPR,nodes,tips;
+ const S='200,168,96',G='127,174,134';
+ function init(){
+  DPR=Math.min(devicePixelRatio||1,2);w=c.width=innerWidth*DPR;h=c.height=innerHeight*DPR;
+  c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';
+  nodes=[];tips=[];
+  const seeds=Math.max(3,Math.floor(innerWidth/380));
+  for(let i=0;i<seeds;i++){
+   const sx=Math.random()*w,sy=Math.random()*h;
+   nodes.push({x:sx,y:sy});
+   const b=2+Math.floor(Math.random()*2);
+   for(let k=0;k<b;k++)tips.push({x:sx,y:sy,a:Math.random()*Math.PI*2,life:0,from:nodes.length-1});
+  }
+ }
+ function step(){
+  x.clearRect(0,0,w,h);
+  x.lineWidth=DPR*.55;
+  for(const t of tips){
+   t.life++;
+   const na=t.a+(Math.random()-.5)*.4;
+   t.a=t.a*.85+na*.15;
+   const nx=t.x+Math.cos(t.a)*1.3*DPR, ny=t.y+Math.sin(t.a)*1.3*DPR;
+   x.strokeStyle='rgba('+S+',0.16)';
+   x.beginPath();x.moveTo(t.x,t.y);x.lineTo(nx,ny);x.stroke();
+   t.x=nx;t.y=ny;
+   if(t.x<0)t.x=w;if(t.x>w)t.x=0;if(t.y<0)t.y=h;if(t.y>h)t.y=0;
+   if(t.life>40 && Math.random()<0.03){
+    nodes.push({x:t.x,y:t.y});
+    x.fillStyle='rgba('+G+',0.6)';x.beginPath();x.arc(t.x,t.y,1.4*DPR,0,7);x.fill();
+    t.life=0;
+    if(tips.length<70 && Math.random()<0.5)
+     tips.push({x:t.x,y:t.y,a:t.a+(Math.random()-.5)*1.6,life:0});
+   }
+   if(tips.length>90 && Math.random()<0.01){t.dead=true;}
+  }
+  tips=tips.filter(t=>!t.dead);
+  if(tips.length<6)init();
+  for(const n of nodes.slice(-120)){x.fillStyle='rgba('+S+',0.28)';x.beginPath();x.arc(n.x,n.y,1*DPR,0,7);x.fill();}
+  if(nodes.length>1400)nodes=nodes.slice(-700);
+  requestAnimationFrame(step);
+ }
+ init();step();addEventListener('resize',init);
+})();
+
+render();
+</script>
+</body>
+</html>
