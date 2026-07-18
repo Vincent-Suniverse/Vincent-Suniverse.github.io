@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>142857 — Der Zyklus der Siebtel</title>
+<style>
+  :root{
+    --bg:#0a0d13;
+    --panel:#10141d;
+    --gold:#f0b45e;
+    --gold-dim:rgba(240,180,94,.35);
+    --teal:#54d0c2;
+    --teal-dim:rgba(84,208,194,.4);
+    --text:#eef1f6;
+    --muted:#8b93a3;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{max-width:100%;overflow-x:hidden}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .wrap{max-width:720px;margin:0 auto;padding:56px 20px 88px;text-align:center}
+
+  header h1{
+    font-family:var(--mono);
+    font-weight:500;
+    font-size:clamp(1.5rem,4.5vw,2.1rem);
+    letter-spacing:.14em;
+    color:var(--gold);
+  }
+  header p.sub{
+    margin-top:14px;color:var(--muted);
+    font-size:.95rem;letter-spacing:.02em;
+  }
+  header p.sub .per{font-family:var(--mono);color:var(--text)}
+  header p.sub .ov{text-decoration:overline;text-decoration-color:var(--gold);color:var(--gold)}
+
+  figure.stage{margin:44px auto 0;max-width:480px}
+  svg{display:block;width:100%;height:auto}
+
+  .legend{
+    margin-top:26px;display:flex;flex-wrap:wrap;gap:10px 28px;
+    justify-content:center;font-size:.82rem;color:var(--muted);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .legend i{width:10px;height:10px;border-radius:50%;flex:none}
+  .legend .g i{background:var(--gold)}
+  .legend .t i{background:var(--teal)}
+
+  .controls{
+    margin-top:44px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;
+  }
+  .controls button{
+    font-family:var(--mono);font-size:1rem;
+    color:var(--gold);
+    background:transparent;
+    border:1px solid var(--gold-dim);
+    border-radius:10px;
+    padding:10px 18px;
+    cursor:pointer;
+    transition:background .25s ease,color .25s ease,border-color .25s ease;
+  }
+  .controls button:hover{border-color:var(--gold);background:rgba(240,180,94,.08)}
+  .controls button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+  .controls button[aria-pressed="true"]{
+    background:var(--gold);color:#0a0d13;border-color:var(--gold);
+  }
+
+  .readout{margin-top:40px}
+  .equation{
+    font-family:var(--mono);
+    font-size:clamp(1.1rem,4vw,1.45rem);
+    letter-spacing:.06em;
+  }
+  .equation .prod{color:var(--gold)}
+  .equation .prod .first{border-bottom:2px solid var(--gold);padding-bottom:2px}
+  .fraction{
+    margin-top:12px;font-family:var(--mono);
+    font-size:.95rem;color:var(--muted);letter-spacing:.05em;
+  }
+  .fraction .ov{text-decoration:overline;text-decoration-color:var(--gold-dim);color:var(--text)}
+
+  .chips{margin-top:26px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .chips .chip{
+    font-family:var(--mono);font-size:1.05rem;
+    width:42px;height:42px;display:inline-flex;
+    align-items:center;justify-content:center;
+    border:1px solid var(--gold-dim);border-radius:50%;
+    color:var(--gold);background:var(--panel);
+    transition:background .25s ease,color .25s ease;
+  }
+  .chips .chip.start{background:var(--gold);color:#0a0d13;border-color:var(--gold)}
+  .chips .arrow{color:var(--muted);align-self:center;font-size:.8rem}
+
+  .shiftnote{margin-top:18px;font-size:.9rem;color:var(--muted)}
+  .shiftnote b{color:var(--text);font-weight:500}
+
+  .facts{
+    margin:64px auto 0;max-width:52ch;text-align:left;
+    color:var(--muted);font-size:.88rem;line-height:1.75;
+    border-top:1px solid rgba(238,241,246,.08);
+    padding-top:36px;
+  }
+  .facts p+p{margin-top:14px}
+  .facts .m{font-family:var(--mono);color:var(--text);font-size:.85em}
+  .facts .g{color:var(--gold)}
+  .facts .t{color:var(--teal)}
+
+  @media (prefers-reduced-motion:reduce){
+    .controls button,.chips .chip{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>1 &frasl; 7 &nbsp;=&nbsp; 0,142857&hellip;</h1>
+    <p class="sub">Sechs Ziffern, ein einziger Kreis. <span class="per">1&frasl;7 = 0,<span class="ov">142857</span></span> &mdash; die Periode wiederholt sich endlos.</p>
+  </header>
+
+  <figure class="stage" aria-label="Rad mit dem Ziffernzyklus 1-4-2-8-5-7, in der Mitte die getrennte Achse 3-6-9">
+    <svg id="scene" viewBox="-232 -244 464 476" role="img" aria-hidden="false">
+      <!-- fixed start marker (does not rotate) -->
+      <g id="marker">
+        <text x="0" y="-222" text-anchor="middle" font-size="11" letter-spacing="3"
+              fill="#8b93a3" font-family="system-ui,sans-serif">START</text>
+        <path d="M -8 -206 L 8 -206 L 0 -192 Z" fill="#8b93a3"/>
+      </g>
+
+      <!-- rotating wheel: ring, direction chevrons, six digit nodes -->
+      <g id="wheel"></g>
+
+      <!-- fixed centre: the 3-6-9 axis, visually separated from the wheel -->
+      <g id="axis"></g>
+    </svg>
+    <figcaption class="legend">
+      <span class="g"><i></i>Zyklus&nbsp;{1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} &mdash; Einheiten mod&nbsp;9</span>
+      <span class="t"><i></i>Achse&nbsp;{3,&thinsp;6,&thinsp;9} &mdash; Vielfache von 3, nicht im Zyklus</span>
+    </figcaption>
+  </figure>
+
+  <nav class="controls" aria-label="Vielfache von 142857 wählen">
+    <button type="button" data-n="1" aria-pressed="true">&times;1</button>
+    <button type="button" data-n="2" aria-pressed="false">&times;2</button>
+    <button type="button" data-n="3" aria-pressed="false">&times;3</button>
+    <button type="button" data-n="4" aria-pressed="false">&times;4</button>
+    <button type="button" data-n="5" aria-pressed="false">&times;5</button>
+    <button type="button" data-n="6" aria-pressed="false">&times;6</button>
+  </nav>
+
+  <section class="readout" aria-live="polite">
+    <p class="equation">142857 &times; <span id="eqN">1</span> = <span class="prod" id="eqProd"></span></p>
+    <p class="fraction" id="eqFrac"></p>
+    <div class="chips" id="chips"></div>
+    <p class="shiftnote" id="shiftNote"></p>
+  </section>
+
+  <section class="facts">
+    <p>Das Rad dreht sich, bis die erste Ziffer des Produkts unter der Markierung
+       <span class="m">START</span> steht. Im Uhrzeigersinn abgelesen entsteht das Produkt &mdash;
+       <span class="g">&times;n ist kein neues Muster, sondern derselbe Zyklus mit anderem Startpunkt.</span></p>
+    <p>Die Ziffern <span class="m g">1, 2, 4, 5, 7, 8</span> sind genau die zu 9 teilerfremden
+       Reste &mdash; die Einheiten mod&nbsp;9. <span class="m t">3, 6, 9</span> &mdash; die Vielfachen
+       von 3 &mdash; kommen in der Periode von 1&frasl;7 nie vor: Sie bilden die ruhende Achse in der Mitte.</p>
+    <p>Gegen&uuml;berliegende Ziffern des Rades erg&auml;nzen sich zu 9:
+       <span class="m">1+8 = 4+5 = 2+7 = 9</span>. Die Quersumme des Zyklus:
+       <span class="m">1+4+2+8+5+7 = 27 &rarr; 2+7 = 9</span>.</p>
+    <p>Und bei &times;7 schlie&szlig;t sich der Kreis:
+       <span class="m">142857 &times; 7 = 999999</span>.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var CYCLE = [1,4,2,8,5,7];     // Zyklus-Reihenfolge im Uhrzeigersinn, Start oben
+  var BASE  = 142857;
+  var R     = 150;               // Radius des Ziffernrings
+  var NODE  = 27;                // Radius eines Ziffernknotens
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var wheel = document.getElementById("wheel");
+  var axis  = document.getElementById("axis");
+
+  function el(name, attrs, parent){
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  // Position auf dem Kreis: Index i (60-Grad-Schritte im Uhrzeigersinn), Start oben
+  function pt(deg, r){
+    var a = deg * Math.PI / 180;
+    return [ r * Math.sin(a), -r * Math.cos(a) ];
+  }
+
+  /* ---------- Rad aufbauen ---------- */
+  el("circle", {cx:0, cy:0, r:R, fill:"none",
+                stroke:"rgba(240,180,94,.28)", "stroke-width":1}, wheel);
+
+  // Richtungs-Chevrons (im Uhrzeigersinn) zwischen den Ziffern
+  for (var c = 0; c < 6; c++){
+    var deg = c * 60 + 30;
+    var p = pt(deg, R);
+    el("path", {d:"M -5 -4 L 5 0 L -5 4",
+                fill:"none", stroke:"rgba(240,180,94,.55)",
+                "stroke-width":1.6, "stroke-linecap":"round", "stroke-linejoin":"round",
+                transform:"translate("+p[0].toFixed(2)+","+p[1].toFixed(2)+") rotate("+deg+")"}, wheel);
+  }
+
+  // Ziffernknoten
+  var nodeCircles = [], nodeTexts = [];
+  for (var i = 0; i < 6; i++){
+    var q = pt(i * 60, R);
+    var g = el("g", {transform:"translate("+q[0].toFixed(2)+","+q[1].toFixed(2)+")"}, wheel);
+    var circ = el("circle", {r:NODE, fill:"#131826",
+                             stroke:"#f0b45e", "stroke-width":1.4}, g);
+    var txt = el("text", {"text-anchor":"middle", dy:".36em",
+                          "font-size":"23", fill:"#f0b45e",
+                          "font-family":"ui-monospace,'SF Mono',Menlo,Consolas,monospace"}, g);
+    txt.textContent = String(CYCLE[i]);
+    nodeCircles.push(circ); nodeTexts.push(txt);
+  }
+
+  /* ---------- 3-6-9-Achse (fest, getrennt vom Rad) ---------- */
+  el("circle", {cx:0, cy:0, r:74, fill:"none",
+                stroke:"rgba(84,208,194,.45)", "stroke-width":1,
+                "stroke-dasharray":"3 8", "stroke-linecap":"round"}, axis);
+  var AX = [3,6,9], axPts = [];
+  for (var a2 = 0; a2 < 3; a2++) axPts.push(pt(a2 * 120, 44));
+  el("path", {d:"M "+axPts.map(function(p){return p[0].toFixed(2)+" "+p[1].toFixed(2);}).join(" L ")+" Z",
+              fill:"none", stroke:"rgba(84,208,194,.55)", "stroke-width":1}, axis);
+  for (var a3 = 0; a3 < 3; a3++){
+    var ag = el("g", {transform:"translate("+axPts[a3][0].toFixed(2)+","+axPts[a3][1].toFixed(2)+")"}, axis);
+    el("circle", {r:16, fill:"#0d1420", stroke:"#54d0c2", "stroke-width":1.2}, ag);
+    var at = el("text", {"text-anchor":"middle", dy:".36em", "font-size":"15",
+                         fill:"#54d0c2",
+                         "font-family":"ui-monospace,'SF Mono',Menlo,Consolas,monospace"}, ag);
+    at.textContent = String(AX[a3]);
+  }
+
+  /* ---------- Rotation ---------- */
+  var rot = 0, raf = null;
+
+  function setRot(deg){
+    rot = deg;
+    wheel.setAttribute("transform", "rotate(" + deg + ")");
+    // Ziffern gegenrotieren, damit sie aufrecht bleiben
+    for (var t = 0; t < 6; t++)
+      nodeTexts[t].setAttribute("transform", "rotate(" + (-deg) + ")");
+  }
+
+  function animateTo(target){
+    if (raf !== null){ cancelAnimationFrame(raf); raf = null; }
+    if (reduce){ setRot(target); return; }
+    var from = rot, delta = target - from;
+    if (delta === 0) return;
+    var dur = 950, t0 = performance.now();
+    function step(now){
+      var p = Math.min(1, (now - t0) / dur);
+      var e = p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2; // easeInOutCubic
+      setRot(from + delta * e);
+      raf = (p < 1) ? requestAnimationFrame(step) : null;
+    }
+    raf = requestAnimationFrame(step);
+  }
+
+  /* ---------- Auswahl ×n ---------- */
+  var eqN = document.getElementById("eqN"),
+      eqProd = document.getElementById("eqProd"),
+      eqFrac = document.getElementById("eqFrac"),
+      chips = document.getElementById("chips"),
+      shiftNote = document.getElementById("shiftNote"),
+      buttons = Array.prototype.slice.call(document.querySelectorAll(".controls button"));
+
+  function select(n, instant){
+    var product = BASE * n;                 // z.B. 285714 bei n=2
+    var s = String(product);
+    var idx = CYCLE.indexOf(+s.charAt(0));  // Startposition im Zyklus
+
+    // Sicherheitspruefung: Zyklus ab idx muss exakt das Produkt ergeben
+    var read = "";
+    for (var j = 0; j < 6; j++) read += CYCLE[(idx + j) % 6];
+    if (read !== s) throw new Error("Zyklus-Pruefung fehlgeschlagen bei n=" + n);
+
+    // Rad drehen: Startziffer unter die START-Markierung, kuerzester Weg
+    var base = -idx * 60;
+    var target = base + 360 * Math.round((rot - base) / 360);
+    if (instant) setRot(target); else animateTo(target);
+
+    // Startknoten hervorheben
+    for (var k = 0; k < 6; k++){
+      var on = (k === idx);
+      nodeCircles[k].setAttribute("fill", on ? "#f0b45e" : "#131826");
+      nodeCircles[k].setAttribute("stroke-width", on ? "0" : "1.4");
+      nodeTexts[k].setAttribute("fill", on ? "#0a0d13" : "#f0b45e");
+    }
+
+    // Gleichung
+    eqN.textContent = String(n);
+    eqProd.innerHTML = '<span class="first">' + s.charAt(0) + "</span>" + s.slice(1);
+    eqFrac.innerHTML = n + "&frasl;7 = 0,<span class=\"ov\">" + s + "</span>&hellip;";
+
+    // Ziffernkette
+    chips.innerHTML = "";
+    for (var m = 0; m < 6; m++){
+      if (m > 0){
+        var ar = document.createElement("span");
+        ar.className = "arrow"; ar.textContent = "→";
+        chips.appendChild(ar);
+      }
+      var ch = document.createElement("span");
+      ch.className = "chip" + (m === 0 ? " start" : "");
+      ch.textContent = String(CYCLE[(idx + m) % 6]);
+      chips.appendChild(ch);
+    }
+
+    // Hinweistext
+    shiftNote.innerHTML = (idx === 0)
+      ? "Ausgangslage: Der Zyklus beginnt bei <b>1</b>."
+      : "Derselbe Zyklus &mdash; nur um <b>" + idx + (idx === 1 ? " Position" : " Positionen") +
+        "</b> gedreht, Start bei <b>" + s.charAt(0) + "</b>.";
+
+    buttons.forEach(function(b){
+      b.setAttribute("aria-pressed", b.dataset.n === String(n) ? "true" : "false");
+    });
+  }
+
+  buttons.forEach(function(b){
+    b.addEventListener("click", function(){ select(+b.dataset.n, false); });
+  });
+
+  select(1, true);
+})();
+</script>
+</body>
+</html>

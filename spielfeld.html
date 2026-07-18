@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Das Feld · 3 — 6 — 9</title>
+<style>
+  :root{
+    --bg:#0a0d13;
+    --panel:#10141d;
+    --ink:#eef1f6;
+    --dim:rgba(238,241,246,.55);
+    --faint:rgba(238,241,246,.28);
+    --gold:#f0b45e;
+    --gold-dim:rgba(240,180,94,.35);
+    --teal:#54d0c2;
+    --teal-dim:rgba(84,208,194,.4);
+    --line:rgba(238,241,246,.10);
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{max-width:100%;overflow-x:hidden;}
+  body{
+    background:
+      radial-gradient(900px 560px at 50% -8%, rgba(240,180,94,.05), transparent 60%),
+      radial-gradient(760px 520px at 84% 108%, rgba(84,208,194,.045), transparent 58%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--serif);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:clamp(3rem,7vh,5rem) 1.25rem 5rem;}
+
+  /* ── Zurück ─────────────────────────────── */
+  .back{
+    position:fixed;top:1.1rem;left:1.2rem;z-index:5;
+    color:var(--dim);text-decoration:none;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
+    padding:.45rem .6rem;
+  }
+  .back:hover,.back:focus-visible{color:var(--gold);}
+  .back:focus-visible{outline:1px solid var(--gold);outline-offset:3px;}
+
+  /* ── Kopf: das 3-6-9-Emblem ─────────────── */
+  header{text-align:center;}
+  .emblem{width:min(46vw,196px);height:auto;display:block;margin:0 auto;overflow:visible;}
+  @media (prefers-reduced-motion:no-preference){
+    .emblem .ring{animation:breathe 8s ease-in-out infinite;transform-origin:center;}
+  }
+  @keyframes breathe{0%,100%{opacity:.5;}50%{opacity:.9;}}
+
+  .kicker{
+    margin-top:1.4rem;font-family:var(--mono);
+    font-size:.72rem;letter-spacing:.34em;text-transform:uppercase;color:var(--faint);
+  }
+  h1{
+    margin-top:.5rem;font-weight:400;
+    font-size:clamp(1.6rem,4.6vw,2.3rem);letter-spacing:.14em;color:var(--ink);
+  }
+  h1 .num{color:var(--gold);}
+  .lede{
+    max-width:44ch;margin:1.2rem auto 0;
+    font-size:clamp(.96rem,2.4vw,1.06rem);color:var(--dim);
+  }
+  .axis-note{
+    max-width:48ch;margin:1rem auto 0;
+    font-family:var(--mono);font-size:.78rem;line-height:1.7;color:var(--faint);letter-spacing:.02em;
+  }
+  .axis-note b{color:var(--teal);font-weight:400;}
+
+  /* ── Knoten-Gitter ──────────────────────── */
+  .grid{
+    margin-top:clamp(2.6rem,5vh,3.6rem);
+    display:grid;gap:1rem;
+    grid-template-columns:repeat(auto-fill,minmax(248px,1fr));
+  }
+  .node{
+    position:relative;display:flex;flex-direction:column;gap:.7rem;
+    border:1px solid var(--line);border-radius:12px;
+    padding:1.15rem 1.25rem 1.3rem;
+    background:linear-gradient(180deg,rgba(238,241,246,.02),transparent);
+    color:inherit;text-decoration:none;
+    transition:border-color .3s ease,transform .3s ease,background .3s ease;
+  }
+  a.node:hover,a.node:focus-visible{
+    border-color:var(--gold-dim);transform:translateY(-2px);
+    background:linear-gradient(180deg,rgba(240,180,94,.05),transparent);
+  }
+  a.node:focus-visible{outline:2px solid var(--gold);outline-offset:3px;}
+
+  .node .glyph{
+    font-family:var(--mono);font-size:1.55rem;letter-spacing:.04em;color:var(--gold);
+    line-height:1;
+  }
+  .node .glyph.small{font-size:1.15rem;}
+  .node h2{
+    font-family:var(--serif);font-weight:400;font-size:1.12rem;letter-spacing:.05em;color:var(--ink);
+  }
+  .node .fakt{font-size:.9rem;color:var(--dim);}
+  .node .fakt .m{font-family:var(--mono);font-size:.86em;color:var(--ink);}
+  .node .lesart{
+    font-size:.86rem;color:var(--dim);border-left:2px dashed var(--teal-dim);
+    padding-left:.7rem;
+  }
+
+  .tags{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.15rem;}
+  .tag{
+    font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+    padding:.2rem .55rem;border-radius:999px;
+  }
+  .tag.fakt{color:var(--gold);border:1px solid var(--gold-dim);}
+  .tag.lesart{color:var(--teal);border:1px dashed var(--teal-dim);}
+
+  .go{
+    margin-top:auto;font-family:var(--mono);font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--gold);opacity:.8;
+  }
+  a.node:hover .go,a.node:focus-visible .go{opacity:1;}
+
+  /* ── gedimmte Roadmap-Knoten ────────────── */
+  .node.soon{opacity:.5;}
+  .node.soon .glyph{color:var(--dim);}
+  .node.soon .badge{
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--faint);margin-top:auto;
+  }
+
+  .section-label{
+    grid-column:1/-1;margin-top:1.4rem;
+    font-family:var(--mono);font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--faint);
+    border-top:1px solid var(--line);padding-top:1.4rem;
+  }
+
+  footer{
+    margin-top:3.4rem;text-align:center;
+    font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;color:var(--faint);
+  }
+  footer .sep{color:var(--gold-dim);margin:0 .5em;}
+</style>
+</head>
+<body>
+
+  <a class="back" href="feld.html">&larr; Feld</a>
+
+  <div class="wrap">
+    <header>
+      <svg class="emblem" viewBox="0 0 200 200" role="img"
+           aria-label="Die 3-6-9-Achse: ein Dreieck aus den Knoten 3, 6 und 9 in einem gestrichelten Ring">
+        <circle class="ring" cx="100" cy="100" r="70" fill="none"
+                stroke="rgba(84,208,194,.45)" stroke-width="1" stroke-dasharray="3 8" stroke-linecap="round"/>
+        <path d="M 100 54 L 139.8 123 L 60.2 123 Z" fill="none"
+              stroke="rgba(84,208,194,.55)" stroke-width="1"/>
+        <g font-family="ui-monospace,Menlo,Consolas,monospace" font-size="15" fill="#54d0c2" text-anchor="middle">
+          <g transform="translate(100,54)"><circle r="16" fill="#0d1420" stroke="#54d0c2" stroke-width="1.2"/><text dy=".36em">3</text></g>
+          <g transform="translate(139.8,123)"><circle r="16" fill="#0d1420" stroke="#54d0c2" stroke-width="1.2"/><text dy=".36em">6</text></g>
+          <g transform="translate(60.2,123)"><circle r="16" fill="#0d1420" stroke="#54d0c2" stroke-width="1.2"/><text dy=".36em">9</text></g>
+        </g>
+      </svg>
+
+      <div class="kicker">Das Feld</div>
+      <h1><span class="num">3</span> &mdash; <span class="num">6</span> &mdash; <span class="num">9</span></h1>
+      <p class="lede">Die tragende Achse. Jeder Knoten ist ein Stück Mathematik, das für sich steht &mdash;
+        Fakt zum Nachrechnen, Lesart klar als Deutung markiert. Fang an, wo du willst.</p>
+      <p class="axis-note">
+        <b>Fakt:</b> 3&sup3; = 27, 3&#8308; = 81, 27&times;27 = 729. Die Ziffernsumme jeder 9er-Vielfachen ist 9.
+        {3,&thinsp;6,&thinsp;9} sind die durch 3 teilbaren Reste mod&nbsp;9 &mdash; die ruhende Achse; {1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} sind die Einheiten, die sich bewegen.
+      </p>
+    </header>
+
+    <div class="grid">
+
+      <!-- ── Live-Knoten ─────────────────────── -->
+      <a class="node" href="anim_142857.html">
+        <span class="glyph">142857</span>
+        <h2>Der Zyklus der Siebtel</h2>
+        <p class="fakt"><span class="m">1/7 = 0,142857&hellip;</span> &mdash; &times;1 bis &times;6 dreht dieselben sechs Ziffern,
+          <span class="m">&times;7 = 999999</span>.</p>
+        <div class="tags"><span class="tag fakt">Fakt</span></div>
+        <span class="go">öffnen &rarr;</span>
+      </a>
+
+      <a class="node" href="anim_3plus4.html">
+        <span class="glyph">3 + 4 = 7</span>
+        <h2>Der Symmetriebruch</h2>
+        <p class="fakt">Dreieck (3) und Viereck (4) im selben Kreis, gemeinsamer Ursprung.
+          Nur 2-, 3-, 4-, 6-zählige Symmetrie kachelt die Ebene &mdash; die <span class="m">7</span> nicht.</p>
+        <div class="tags"><span class="tag fakt">Fakt</span></div>
+        <span class="go">öffnen &rarr;</span>
+      </a>
+
+      <a class="node" href="anim_antarktis_these.html">
+        <span class="glyph small">25.6.2026</span>
+        <h2>Die Bebenkette &amp; eine These</h2>
+        <p class="fakt">Ein Erdbeben-Cluster an einem Tag, gestaffelt entlang der großen Plattengrenzen &mdash; USGS-prüfbar.</p>
+        <p class="lesart">Lesart: ein Antarktis-Ursprung als Auslöser &mdash; <b>Hypothese, kein Beweis</b>, Falsifikation offen.</p>
+        <div class="tags"><span class="tag fakt">Fakt</span><span class="tag lesart">Lesart · kein Beweis</span></div>
+        <span class="go">öffnen &rarr;</span>
+      </a>
+
+      <!-- ── Roadmap (kommt bald) ────────────── -->
+      <div class="section-label">Als nächstes im Feld</div>
+
+      <div class="node soon" aria-hidden="true">
+        <span class="glyph">&alpha; &beta; &gamma;</span>
+        <h2>Der Atem</h2>
+        <p class="fakt">&pi; als lebendiger Prozess: Quelle, Takt, emittierte Ziffer &mdash; die lineare Zeit.</p>
+        <span class="badge">kommt bald</span>
+      </div>
+
+      <div class="node soon" aria-hidden="true">
+        <span class="glyph small">846 + 162</span>
+        <h2>Der Rahmen</h2>
+        <p class="fakt">1008 = 846 + 162: geteilter Kern und freier Raum, ganz aus 3, 4, 7.</p>
+        <span class="badge">kommt bald</span>
+      </div>
+
+      <div class="node soon" aria-hidden="true">
+        <span class="glyph">729</span>
+        <h2>Der Guard</h2>
+        <p class="fakt">729 = 27&times;27 Relationen: erkannt oder markiert &mdash; nie erfunden.</p>
+        <span class="badge">kommt bald</span>
+      </div>
+
+      <div class="node soon" aria-hidden="true">
+        <span class="glyph">6174</span>
+        <h2>Kaprekar</h2>
+        <p class="fakt">Jede 4-stellige Zahl fällt in ≤ 7 Schritten auf den Fixpunkt 6174.</p>
+        <span class="badge">kommt bald</span>
+      </div>
+
+    </div>
+
+    <footer>Fakt <span class="sep">·</span> gold &nbsp;&nbsp; Lesart <span class="sep">·</span> türkis, gestrichelt &nbsp;&nbsp; alles self-contained</footer>
+  </div>
+
+</body>
+</html>
