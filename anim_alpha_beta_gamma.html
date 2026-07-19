@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>α · β · γ — Der π-Strom</title>
+<style>
+:root{
+  --bg:#0a0d13; --panel:#10141d; --ink:#eef1f6;
+  --dim:rgba(238,241,246,.55); --faint:rgba(238,241,246,.28);
+  --gold:#f0b45e; --gold-dim:rgba(240,180,94,.35);
+  --teal:#54d0c2; --teal-dim:rgba(84,208,194,.4);
+  --line:rgba(238,241,246,.10);
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --serif:Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink)}
+body{
+  font-family:var(--serif);
+  line-height:1.6;
+  padding:2.5rem 1.25rem 4rem;
+  overflow-x:hidden;
+}
+main{max-width:640px;margin:0 auto}
+
+/* ---------- Header ---------- */
+header{text-align:center;margin-bottom:2.5rem}
+h1{
+  font-family:var(--mono);
+  font-weight:400;
+  font-size:clamp(1.9rem,7vw,2.6rem);
+  letter-spacing:.06em;
+  color:var(--dim);
+}
+h1 .g{color:var(--teal)}
+.subtitle{
+  font-family:var(--mono);
+  color:var(--dim);
+  font-size:.85rem;
+  letter-spacing:.08em;
+  margin-top:.5rem;
+}
+.intro{
+  color:var(--dim);
+  font-size:.95rem;
+  max-width:34em;
+  margin:.9rem auto 0;
+}
+
+/* ---------- Stage ---------- */
+.stage{
+  display:flex;
+  align-items:stretch;
+  gap:.4rem;
+  margin:0 auto 2.2rem;
+  max-width:520px;
+}
+.node{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:.9rem .5rem .75rem;
+  text-align:center;
+  flex:1 1 0;
+  min-width:0;
+  position:relative;
+}
+.node .letter{
+  font-family:var(--mono);
+  color:var(--teal);
+  font-size:1.7rem;
+  line-height:1.2;
+  position:relative;
+  display:inline-block;
+}
+.node .cap{
+  font-family:var(--mono);
+  color:var(--dim);
+  font-size:.72rem;
+  letter-spacing:.1em;
+  margin-top:.3rem;
+}
+.node .sub{
+  font-family:var(--mono);
+  color:var(--faint);
+  font-size:.72rem;
+  margin-top:.55rem;
+  min-height:1.6em;
+  overflow:hidden;
+}
+#gammaDigit{
+  font-family:var(--mono);
+  color:var(--gold);
+  font-size:1.45rem;
+  line-height:1.1;
+  display:inline-block;
+  min-width:1ch;
+  min-height:1.15em;
+}
+#gammaDigit.appear{animation:appear .55s ease-out}
+@keyframes appear{
+  from{opacity:0;transform:translateY(-7px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* β pulse ring */
+.ring{
+  position:absolute;
+  left:50%;top:50%;
+  width:2.6em;height:2.6em;
+  margin:-1.3em 0 0 -1.3em;
+  border:1px solid var(--teal-dim);
+  border-radius:50%;
+  opacity:0;
+  pointer-events:none;
+}
+.ring.pulse{animation:pulse .9s ease-out}
+@keyframes pulse{
+  0%{opacity:.9;transform:scale(.55)}
+  100%{opacity:0;transform:scale(1.6)}
+}
+/* connectors */
+.conn{
+  flex:0 0 clamp(14px,5vw,34px);
+  align-self:center;
+  height:1px;
+  background:var(--line);
+  position:relative;
+}
+.conn::after{
+  content:"";
+  position:absolute;
+  right:-1px;top:-3px;
+  border-left:6px solid var(--faint);
+  border-top:3.5px solid transparent;
+  border-bottom:3.5px solid transparent;
+}
+
+/* ---------- Tape ---------- */
+.tape-wrap{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:1rem 1.1rem .8rem;
+  margin-bottom:1.4rem;
+}
+.tape{
+  font-family:var(--mono);
+  color:var(--gold);
+  font-size:1.15rem;
+  letter-spacing:.1em;
+  line-height:2;
+  word-break:break-all;
+  min-height:2.3em;
+}
+.tape .comma{color:var(--gold-dim)}
+.tape .d{display:inline-block}
+.tape .d.land{animation:land .55s ease-out}
+@keyframes land{
+  from{opacity:0;transform:translateY(-9px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.count{
+  font-family:var(--mono);
+  color:var(--dim);
+  font-size:.78rem;
+  letter-spacing:.06em;
+  margin-top:.55rem;
+  border-top:1px solid var(--line);
+  padding-top:.55rem;
+}
+.note{
+  font-family:var(--mono);
+  color:var(--faint);
+  font-size:.75rem;
+  margin-top:.4rem;
+}
+.error{
+  font-family:var(--mono);
+  color:var(--ink);
+  background:var(--panel);
+  border:1px solid var(--gold);
+  border-radius:8px;
+  padding:.7rem .9rem;
+  font-size:.82rem;
+  margin-bottom:1.4rem;
+}
+[hidden]{display:none !important}
+
+/* ---------- Controls ---------- */
+.controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.6rem;
+  align-items:center;
+  margin-bottom:2.6rem;
+}
+button{
+  font-family:var(--mono);
+  font-size:.82rem;
+  letter-spacing:.05em;
+  color:var(--gold);
+  background:transparent;
+  border:1px solid var(--gold-dim);
+  border-radius:8px;
+  padding:.5rem .95rem;
+  cursor:pointer;
+}
+button:hover:not(:disabled){border-color:var(--gold)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button:disabled{color:var(--faint);border-color:var(--line);cursor:default}
+.speed{
+  display:flex;
+  gap:.35rem;
+  margin-left:auto;
+  align-items:center;
+}
+.speed .lbl{
+  font-family:var(--mono);
+  color:var(--faint);
+  font-size:.72rem;
+  margin-right:.2rem;
+}
+button.spd{padding:.45rem .7rem;font-size:.75rem;color:var(--dim);border-color:var(--line)}
+button.spd[aria-pressed="true"]{color:var(--gold);border-color:var(--gold-dim)}
+
+/* ---------- Fakt ---------- */
+.fakt{
+  border-top:1px solid var(--line);
+  padding-top:1.6rem;
+}
+.fakt-tag{
+  display:inline-block;
+  font-family:var(--mono);
+  font-size:.7rem;
+  letter-spacing:.18em;
+  color:var(--gold);
+  border:1px solid var(--gold-dim);
+  border-radius:999px;
+  padding:.2rem .75rem;
+  margin-bottom:1rem;
+}
+.fakt p{
+  color:var(--dim);
+  font-size:.92rem;
+  margin-bottom:.85rem;
+  max-width:38em;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+@media (max-width:420px){
+  .stage{gap:.3rem}
+  .node{padding:.7rem .3rem .6rem}
+  .node .cap{font-size:.64rem}
+  .tape{font-size:1rem;letter-spacing:.07em}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1><span class="g">α</span> · <span class="g">β</span> · <span class="g">γ</span></h1>
+    <p class="subtitle">Der π-Strom · ganzzahliger Spigot</p>
+    <p class="intro">Ein Verfahren, das die Ziffern von π einzeln ausgibt — nur mit ganzen Zahlen, ohne Kommazahlen.</p>
+  </header>
+
+  <section class="stage" aria-label="Ein Ausgabeschritt: Zustand, Operator, Ziffer">
+    <div class="node">
+      <span class="letter">α</span>
+      <div class="cap">Zustand</div>
+      <div class="sub" id="alphaSub">k = 0</div>
+    </div>
+    <div class="conn" aria-hidden="true"></div>
+    <div class="node">
+      <span class="letter">β<span class="ring" id="betaRing" aria-hidden="true"></span></span>
+      <div class="cap">Operator</div>
+      <div class="sub">Ganzzahl-Schritt</div>
+    </div>
+    <div class="conn" aria-hidden="true"></div>
+    <div class="node">
+      <span class="letter">γ</span>
+      <div class="cap">Ziffer</div>
+      <div class="sub"><span id="gammaDigit" aria-live="off"></span></div>
+    </div>
+  </section>
+
+  <div class="error" id="err" hidden role="alert"></div>
+
+  <section class="tape-wrap">
+    <div class="tape" id="tape" aria-label="Ziffernstrom von π"></div>
+    <div class="count"><span id="nCount">0</span> Ziffern (nach dem Komma)</div>
+    <div class="note" id="endNote" hidden>Ende der Demonstration: 140 Ziffern insgesamt (mit der 3 vor dem Komma).</div>
+    <div class="note" id="rmNote" hidden>Reduzierte Bewegung aktiv — statische Anzeige. »Schritt« gibt weitere Ziffern ohne Animation aus.</div>
+  </section>
+
+  <section class="controls" aria-label="Steuerung">
+    <button id="btnPlay" aria-pressed="true" aria-label="Atem: automatische Ausgabe an- oder abschalten">⏸ Atem</button>
+    <button id="btnStep" aria-label="Schritt: genau eine weitere Ziffer ausgeben">⏭ Schritt</button>
+    <div class="speed" role="group" aria-label="Geschwindigkeit">
+      <span class="lbl">Tempo</span>
+      <button class="spd" id="spdSlow" aria-pressed="true">langsam</button>
+      <button class="spd" id="spdNorm" aria-pressed="false">normal</button>
+    </div>
+  </section>
+
+  <section class="fakt" aria-label="Fakten">
+    <span class="fakt-tag">FAKT</span>
+    <p>Der Spigot-Algorithmus (Gibbons) erzeugt die Ziffern von π der Reihe nach — mit reiner Ganzzahl-Arithmetik, ganz ohne Gleitkomma. Jede Ziffer ist exakt.</p>
+    <p>α ist der interne Zustand vor einem Schritt, β die feste Ganzzahl-Operation, γ die Ziffer, die dabei ausgegeben wird und den Strom rechts verlängert.</p>
+    <p>Der Strom wächst nur nach rechts — jede Ziffer steht fest, sobald sie ausgegeben ist.</p>
+    <p>Selbstprüfung: die ausgegebene Ziffernfolge wird laufend gegen die bekannten Ziffern von π geprüft.</p>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+/* Ganzzahliger Spigot (Gibbons) — liefert die Ziffern von π der Reihe nach. */
+function* piDigits(){
+  let q=1n,r=0n,t=1n,k=1n,n=3n,l=3n;
+  while(true){
+    if(4n*q+r-t < n*t){
+      yield n;
+      let nr = 10n*(r-n*t);
+      n = 10n*(3n*q+r)/t - 10n*n;
+      q *= 10n; r = nr;
+    } else {
+      let nr = (2n*q+r)*l;
+      let nn = (q*(7n*k)+2n+r*l)/(t*l);
+      q *= k; t *= l; l += 2n; k += 1n;
+      n = nn; r = nr;
+    }
+  }
+}
+
+/* Bekannter Präfix von π für die Selbstprüfung. */
+const KNOWN = "314159265358979323846264338327950288419716939937510582097494459230781640628620899";
+const MAX_DIGITS = 140;           /* Ziffern insgesamt (inkl. der 3) */
+const SPEEDS = { slow: 1500, normal: 850 };
+
+const gen = piDigits();
+let produced = "";                /* alle bisher ausgegebenen Ziffern als String */
+let stepCount = 0;                /* k: Zähler der Ausgabeschritte */
+let playing = false;
+let speedKey = "slow";
+let timer = null;
+let failed = false;
+
+const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const $ = id => document.getElementById(id);
+const tape = $("tape"), nCount = $("nCount"), alphaSub = $("alphaSub"),
+      gammaDigit = $("gammaDigit"), betaRing = $("betaRing"),
+      btnPlay = $("btnPlay"), btnStep = $("btnStep"),
+      spdSlow = $("spdSlow"), spdNorm = $("spdNorm"),
+      err = $("err"), endNote = $("endNote"), rmNote = $("rmNote");
+
+function fail(){
+  failed = true;
+  stopTimer();
+  playing = false;
+  btnPlay.disabled = true;
+  btnStep.disabled = true;
+  btnPlay.setAttribute("aria-pressed","false");
+  btnPlay.textContent = "▶ Atem";
+  err.textContent = "Fehler: Abweichung von den bekannten Ziffern von π festgestellt — Ausgabe gestoppt.";
+  err.hidden = false;
+}
+
+function finish(){
+  stopTimer();
+  playing = false;
+  btnPlay.disabled = true;
+  btnStep.disabled = true;
+  btnPlay.setAttribute("aria-pressed","false");
+  btnPlay.textContent = "▶ Atem";
+  endNote.hidden = false;
+}
+
+function appendToTape(ch, animate){
+  const s = document.createElement("span");
+  s.className = "d";
+  s.textContent = ch;
+  if(animate && !reduced) s.classList.add("land");
+  tape.appendChild(s);
+  if(produced.length === 1){
+    const c = document.createElement("span");
+    c.className = "comma";
+    c.textContent = ",";
+    tape.appendChild(c);
+  }
+}
+
+function emit(animate){
+  if(failed || produced.length >= MAX_DIGITS) return;
+  const ch = gen.next().value.toString();
+  produced += ch;
+
+  /* Selbstprüfung gegen den bekannten Präfix */
+  if(produced.length <= KNOWN.length && KNOWN.slice(0, produced.length) !== produced){
+    fail();
+    return;
+  }
+
+  stepCount++;
+  alphaSub.textContent = "k = " + stepCount;
+
+  gammaDigit.textContent = ch;
+  if(animate && !reduced){
+    gammaDigit.classList.remove("appear");
+    void gammaDigit.offsetWidth;
+    gammaDigit.classList.add("appear");
+    betaRing.classList.remove("pulse");
+    void betaRing.offsetWidth;
+    betaRing.classList.add("pulse");
+  }
+
+  appendToTape(ch, animate);
+  nCount.textContent = String(Math.max(0, produced.length - 1));
+
+  if(produced.length >= MAX_DIGITS) finish();
+}
+
+function stopTimer(){
+  if(timer !== null){ clearTimeout(timer); timer = null; }
+}
+
+function tick(){
+  timer = null;
+  if(!playing) return;
+  emit(true);
+  if(playing && !failed && produced.length < MAX_DIGITS){
+    timer = setTimeout(tick, SPEEDS[speedKey]);
+  }
+}
+
+function setPlaying(on){
+  playing = on && !failed && produced.length < MAX_DIGITS;
+  btnPlay.setAttribute("aria-pressed", playing ? "true" : "false");
+  btnPlay.textContent = playing ? "⏸ Atem" : "▶ Atem";
+  stopTimer();
+  if(playing) timer = setTimeout(tick, SPEEDS[speedKey]);
+}
+
+function setSpeed(key){
+  speedKey = key;
+  spdSlow.setAttribute("aria-pressed", key === "slow" ? "true" : "false");
+  spdNorm.setAttribute("aria-pressed", key === "normal" ? "true" : "false");
+  if(playing){ stopTimer(); timer = setTimeout(tick, SPEEDS[speedKey]); }
+}
+
+btnPlay.addEventListener("click", () => setPlaying(!playing));
+btnStep.addEventListener("click", () => { setPlaying(false); emit(!reduced); });
+spdSlow.addEventListener("click", () => setSpeed("slow"));
+spdNorm.addEventListener("click", () => setSpeed("normal"));
+
+/* Start */
+if(reduced){
+  /* Statischer Präfix, keine Schleifenbewegung. */
+  for(let i = 0; i < 61 && produced.length < MAX_DIGITS; i++) emit(false);
+  rmNote.hidden = false;
+  setPlaying(false);
+}else{
+  emit(false);            /* die 3 steht sofort da */
+  setPlaying(true);       /* sanftes Auto-Abspielen, langsam */
+}
+</script>
+</body>
+</html>
