@@ -301,6 +301,25 @@
   }
   .spot:hover, .spot:focus-visible{ color:var(--gold); border-bottom-color:rgba(200,164,85,.5); }
 
+  /* ── Thesen-Raum ──────────────────────────────── */
+  .thesis-intro{ margin-top:2.4rem; color:var(--cream); opacity:.85; font-size:.92rem; line-height:1.7; }
+  .thesis-card{
+    display:block; margin-top:1.6rem; text-decoration:none;
+    border:1px solid rgba(200,164,85,.18); border-radius:8px;
+    padding:1.15rem 1.25rem; background:rgba(240,232,220,.02);
+    transition:border-color .3s ease, background .3s ease, transform .3s ease;
+  }
+  .thesis-card:hover, .thesis-card:focus-visible{
+    border-color:rgba(200,164,85,.5); background:rgba(240,232,220,.04); transform:translateY(-2px);
+  }
+  .thesis-card:focus-visible{ outline:1px solid var(--gold); outline-offset:3px; }
+  .thesis-card .tt{ color:var(--gold); font-size:1.08rem; letter-spacing:.04em; }
+  .thesis-card .mt{ margin-top:.45rem; font-size:.8rem; color:var(--dim); font-style:italic; }
+  .thesis-card .badges2{ margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+  .thesis-card .b{ font-size:.62rem; letter-spacing:.14em; text-transform:uppercase; padding:.2rem .55rem; border-radius:999px; }
+  .thesis-card .b.f{ color:var(--gold); border:1px solid rgba(200,164,85,.4); }
+  .thesis-card .b.l{ color:var(--tuerkis); border:1px dashed rgba(79,191,174,.5); }
+
   @media (max-width:430px){
     .song{ flex-direction:column; }
   }
@@ -342,7 +361,7 @@
 
       <!-- Die 6 Tore, im Uhrzeigersinn ab oben -->
       <nav aria-label="Eingänge">
-        <a class="gate side-top"    style="left:50%;    top:13.333%; --i:0" href="#geometrie"  data-room="geometrie"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Geometrie</span></a>
+        <a class="gate side-top"    style="left:50%;    top:13.333%; --i:0" href="spielfeld.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">3 · 6 · 9</span></a>
         <a class="gate side-right"  style="left:86.667%;top:50%;     --i:1" href="fau.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">FAU</span></a>
         <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:2" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Thesen</span></a>
         <a class="gate side-bottom" style="left:50%;    top:86.667%; --i:3" href="index.html"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Linktree</span></a>
@@ -584,10 +603,29 @@
     });
   }
 
+  function buildThesen(container){
+    container.appendChild(el('h2','room-title','Thesen & Theorien'));
+    container.appendChild(el('p','thesis-intro',
+      'Deutungen — klar als solche markiert. Fakt und Lesart bleiben getrennt. Bisher eine ausgearbeitete These:'));
+    var card = document.createElement('a');
+    card.className = 'thesis-card';
+    card.href = 'anim_antarktis_these.html';
+    card.appendChild(el('div','tt','Die Bebenkette — und eine These'));
+    card.appendChild(el('div','mt','25. Juni 2026 · Erdbeben-Cluster entlang der Plattengrenzen'));
+    var badges = el('div','badges2');
+    badges.appendChild(el('span','b f','Fakt'));
+    badges.appendChild(el('span','b l','Lesart · kein Beweis'));
+    card.appendChild(badges);
+    container.appendChild(card);
+    container.appendChild(el('p','note','Weitere Thesen folgen.'));
+  }
+
   function buildRoom(slug){
     roomInner.textContent = '';
     if (slug === 'musik'){
       buildMusic(roomInner);
+    } else if (slug === 'thesen'){
+      buildThesen(roomInner);
     } else {
       roomInner.appendChild(el('h2','room-title',ROOM_TITLES[slug]));
       roomInner.appendChild(el('p','soon','kommt bald'));

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="de">
+<meta charset="utf-8">
+<title>Bebenkette 25.6.2026 — Fakt &amp; These</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0a0d13; --ink:#eef1f6; --mut:#8b93a3;
+    --gold:#f0b45e; --teal:#54d0c2;
+    --line:rgba(139,147,163,.16); --land:rgba(139,147,163,.13);
+    --mono:"SFMono-Regular","Cascadia Mono","JetBrains Mono",Consolas,ui-monospace,monospace;
+  }
+  html,body{background:var(--bg);color:var(--ink);margin:0;overflow-x:hidden;}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1060px;margin:0 auto;padding:40px 20px 64px;}
+  header{margin-bottom:28px;}
+  .kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--mut);}
+  h1{font-size:clamp(1.4rem,3.4vw,2rem);font-weight:600;margin:.35em 0 .2em;letter-spacing:.01em;}
+  .sub{color:var(--mut);font-size:.95rem;max-width:60ch;margin:0;}
+
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  .badge{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+    padding:4px 12px;border-radius:999px;}
+  .badge.fakt{color:var(--gold);border:1px solid rgba(240,180,94,.5);}
+  .badge.these{color:var(--teal);border:1px dashed rgba(84,208,194,.6);}
+
+  figure{margin:26px 0 0;}
+  .stage{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:
+      radial-gradient(ellipse 90% 70% at 50% 42%, rgba(84,208,194,.045), transparent 62%),
+      radial-gradient(ellipse 60% 50% at 30% 40%, rgba(240,180,94,.04), transparent 60%),
+      var(--bg);
+    touch-action:pan-y; cursor:grab; user-select:none;}
+  .stage:active{cursor:grabbing;}
+  .stage svg{display:block;width:100%;height:auto;}
+
+  .hint{position:absolute;top:10px;right:14px;font-family:var(--mono);font-size:.64rem;
+    color:var(--mut);letter-spacing:.1em;pointer-events:none;}
+
+  /* markers */
+  .q{opacity:0;transform:scale(.4);transform-origin:center;transform-box:fill-box;
+     transition:opacity .5s ease, transform .5s cubic-bezier(.2,1.2,.4,1);}
+  .q.on{opacity:1;transform:scale(1);}
+  .q circle.core{fill:rgba(240,180,94,.16);stroke:var(--gold);stroke-width:1.6;}
+  .q.cur circle.core{fill:rgba(240,180,94,.32);}
+  .q circle.ring{fill:none;stroke:var(--gold);stroke-width:1;opacity:0;}
+  .q.cur circle.ring{opacity:.7;}
+  .q text{fill:var(--ink);font-size:11.5px;font-weight:600;}
+  .q text .m{fill:var(--gold);font-family:var(--mono);font-weight:400;}
+  .q text.sub{fill:var(--mut);font-size:9.5px;font-weight:400;font-family:var(--mono);}
+
+  /* thesis layer */
+  #layerThese{opacity:0;visibility:hidden;transition:opacity .6s ease, visibility .6s;}
+  #layerThese.show{opacity:1;visibility:visible;}
+  .ant text{font-size:10.5px;fill:var(--teal);font-weight:600;}
+  .ant text.sub{fill:var(--mut);font-weight:400;font-size:9px;font-family:var(--mono);}
+  .ant .dia{fill:rgba(84,208,194,.12);stroke:var(--teal);stroke-width:1.4;stroke-dasharray:3 3;}
+
+  .grid line{stroke:var(--line);stroke-width:.6;}
+  .land{fill:var(--land);stroke:rgba(139,147,163,.22);stroke-width:.7;stroke-linejoin:round;}
+
+  /* controls */
+  .controls{margin-top:22px;display:grid;gap:14px;}
+  .row{display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between;}
+  .scrub{flex:1 1 340px;min-width:260px;}
+  .scrub label{display:block;font-family:var(--mono);font-size:.68rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--mut);margin-bottom:8px;}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;
+    background:linear-gradient(90deg,var(--gold) var(--fill,0%),rgba(139,147,163,.25) var(--fill,0%));}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-7.5px;
+    border-radius:50%;background:var(--bg);border:2px solid var(--gold);box-shadow:0 0 10px rgba(240,180,94,.45);}
+  input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:rgba(139,147,163,.25);}
+  input[type=range]::-moz-range-progress{height:3px;border-radius:2px;background:var(--gold);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--bg);
+    border:2px solid var(--gold);box-shadow:0 0 10px rgba(240,180,94,.45);}
+  .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;
+    color:var(--mut);margin-top:6px;letter-spacing:.05em;}
+  .ticks span.gap{color:var(--mut);opacity:.7;}
+
+  .readout{font-family:var(--mono);font-size:.82rem;border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;min-height:2.6em;display:flex;align-items:center;gap:12px;flex-wrap:wrap;color:var(--mut);}
+  .readout b{color:var(--ink);font-weight:600;}
+  .readout .mag{color:var(--gold);}
+  .readout .tag{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+    border:1px solid rgba(240,180,94,.45);color:var(--gold);border-radius:999px;padding:2px 10px;}
+
+  /* toggle */
+  .toggle{display:inline-flex;align-items:center;gap:12px;cursor:pointer;}
+  .toggle input{position:absolute;opacity:0;pointer-events:none;}
+  .sw{width:44px;height:24px;border-radius:999px;border:1px dashed rgba(84,208,194,.55);
+    position:relative;transition:background .25s;flex:none;}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+    background:var(--mut);transition:transform .25s, background .25s;}
+  .toggle input:checked + .sw{background:rgba(84,208,194,.15);}
+  .toggle input:checked + .sw::after{transform:translateX(20px);background:var(--teal);}
+  .toggle input:focus-visible + .sw{outline:2px solid var(--teal);outline-offset:3px;}
+  .toggle .lab{font-size:.9rem;}
+  .toggle .lab small{display:block;color:var(--mut);font-size:.72rem;font-family:var(--mono);letter-spacing:.06em;}
+
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px;font-size:.8rem;color:var(--mut);align-items:center;}
+  .legend .it{display:inline-flex;align-items:center;gap:8px;}
+  .dotG{width:11px;height:11px;border-radius:50%;background:rgba(240,180,94,.25);border:1.6px solid var(--gold);flex:none;}
+  .diaT{width:10px;height:10px;background:rgba(84,208,194,.12);border:1.4px dashed var(--teal);transform:rotate(45deg);flex:none;}
+  .lineT{width:26px;height:0;border-top:2px dashed var(--teal);flex:none;}
+
+  .facts{margin-top:34px;display:grid;gap:12px;}
+  .fl{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:baseline;
+    border-left:2px solid;padding:10px 16px;border-radius:0 10px 10px 0;background:rgba(139,147,163,.05);}
+  .fl.fakt{border-color:var(--gold);}
+  .fl.these{border-color:var(--teal);border-left-style:dashed;background:rgba(84,208,194,.05);}
+  .fl .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;}
+  .fl.fakt .k{color:var(--gold);} .fl.these .k{color:var(--teal);}
+  .fl p{margin:0;font-size:.92rem;color:var(--ink);}
+  .fl p small{color:var(--mut);}
+
+  details{margin-top:26px;color:var(--mut);font-size:.85rem;}
+  summary{cursor:pointer;font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;}
+  .tblwrap{overflow-x:auto;margin-top:12px;}
+  table{border-collapse:collapse;font-family:var(--mono);font-size:.78rem;min-width:560px;}
+  th,td{text-align:left;padding:6px 16px 6px 0;border-bottom:1px solid var(--line);}
+  th{color:var(--mut);font-weight:400;letter-spacing:.08em;text-transform:uppercase;font-size:.66rem;}
+  td{color:var(--ink);} td.mut{color:var(--mut);}
+  tr.these td{color:var(--teal);}
+
+  footer{margin-top:36px;color:var(--mut);font-size:.75rem;font-family:var(--mono);letter-spacing:.04em;}
+
+  @media (prefers-reduced-motion: reduce){
+    .q,#layerThese,.sw,.sw::after{transition:none !important;}
+    .pulse{animation:none !important;}
+  }
+  @keyframes pulse{0%{r:0;opacity:.8}100%{r:26px;opacity:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="kicker">Geophysik &middot; 25. Juni 2026 (UTC)</div>
+    <h1>Die Bebenkette — und eine These dazu</h1>
+    <p class="sub">Ein Erdbeben-Cluster an einem Tag, zeitlich gestaffelt entlang der gro&szlig;en
+      Plattengrenzen. Darunter, klar getrennt: eine <em>Lesart</em>, die einen Antarktis-Ursprung
+      vermutet — als Hypothese markiert, nicht als Befund.</p>
+    <div class="badges">
+      <span class="badge fakt">Fakt-Ebene &middot; Beben &amp; Orte</span>
+      <span class="badge these">Lesart-Ebene &middot; Hypothese, kein Beweis</span>
+    </div>
+  </header>
+
+  <figure>
+    <div class="stage" id="stage" aria-label="Weltkarte mit Erdbeben-Sequenz, horizontal ziehen um die zeitliche Abfolge zu durchlaufen">
+      <svg id="map" viewBox="0 0 1000 520" role="img" aria-labelledby="mapTitle">
+        <title id="mapTitle">Stilisierte Weltkarte (equirectangular) mit der Beben-Sequenz vom 25.6.2026</title>
+        <g class="grid" id="grid"></g>
+        <g id="landG"></g>
+        <g id="layerThese"></g>
+        <g id="antG"></g>
+        <g id="quakeG"></g>
+      </svg>
+      <div class="hint">&#8596; ziehen &middot; Positionen ungef&auml;hr</div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <div class="scrub">
+          <label for="t">Zeit-Leiste &middot; 25.6.2026 (UTC) &middot; Reihenfolge, nicht gleichzeitig</label>
+          <input type="range" id="t" min="0" max="8" step="1" value="0"
+                 aria-valuetext="Start" aria-label="Zeitliche Abfolge der Beben durchlaufen">
+          <div class="ticks" id="ticks"></div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="tgl">
+          <span class="sw" aria-hidden="true"></span>
+          <span class="lab">These zeigen
+            <small>Antarktis-Lesart &middot; Hypothese, kein Beweis</small></span>
+        </label>
+      </div>
+      <div class="readout" id="readout" aria-live="polite"></div>
+    </div>
+
+    <div class="legend">
+      <span class="it"><span class="dotG"></span> Beben (Fakt) — Gr&ouml;&szlig;e &prop; Magnitude</span>
+      <span class="it"><span class="diaT"></span> Antarktis-Orte der Lesart</span>
+      <span class="it"><span class="lineT"></span> These-Verbindung / Plattengrenzen (schematisch)</span>
+    </div>
+  </figure>
+
+  <div class="facts">
+    <div class="fl fakt"><span class="k">Fakt</span>
+      <p>Bebencluster 25.6.2026, entlang der Haupt-Plattengrenzen, zeitlich gestaffelt —
+        USGS-pr&uuml;fbar. <small>Positionen hier ungef&auml;hr; exakte USGS-Koordinaten folgen.</small></p></div>
+    <div class="fl these"><span class="k">Lesart</span>
+      <p>These: Antarktis-Ursprungsbruch als Ausl&ouml;ser — nicht bewiesen, Falsifikation offen.
+        <small>Verbindung Eintritt West (Rothschild) &rarr; &bdquo;antipodale&ldquo; Wilkes-Anomalie Ost ist Interpretation, kein Messbefund.</small></p></div>
+  </div>
+
+  <details>
+    <summary>Datentabelle (Fakt-Ebene + Lesart-Orte)</summary>
+    <div class="tblwrap"><table>
+      <thead><tr><th>#</th><th>Ort</th><th>Magnitude</th><th>Position (ungef&auml;hr)</th><th>Zeitliche Lage</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+  </details>
+
+  <footer>Karte stilisiert &middot; equirectangular &middot; keine externen Quellen geladen &middot; Fakt = gold, These = t&uuml;rkis (gestrichelt)</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var W=1000,H=500,OFF=10; // map drawn 0..500, svg 520 => 10px top/bottom margin
+function X(lon){return (lon+180)/360*W;}
+function Y(lat){return OFF+(90-lat)/180*H;}
+var svgNS="http://www.w3.org/2000/svg";
+function el(n,a,parent){var e=document.createElementNS(svgNS,n);
+  for(var k in a){e.setAttribute(k,a[k]);} if(parent)parent.appendChild(e); return e;}
+
+/* ---------- graticule ---------- */
+var grid=document.getElementById("grid");
+for(var lo=-150;lo<=150;lo+=30) el("line",{x1:X(lo),y1:Y(90),x2:X(lo),y2:Y(-90)},grid);
+for(var la=-60;la<=60;la+=30) el("line",{x1:0,y1:Y(la),x2:W,y2:Y(la)},grid);
+
+/* ---------- stylised continents (lon,lat polygons — deliberately coarse) ---------- */
+var CONT=[
+/* North America */
+[[-168,66],[-158,70],[-140,70],[-125,71],[-110,72],[-95,72],[-85,68],[-80,62],[-72,60],[-65,60],[-60,54],[-66,49],[-70,44],[-74,40],[-76,35],[-80,32],[-81,25],[-84,30],[-90,29],[-95,29],[-97,26],[-97,21],[-94,18],[-90,15],[-87,13],[-83,9],[-79,8],[-83,8],[-87,12],[-92,15],[-97,17],[-105,20],[-110,24],[-114,29],[-118,33],[-122,37],[-124,43],[-124,48],[-129,52],[-133,57],[-140,60],[-150,60],[-158,57],[-165,61],[-168,66]],
+/* Greenland */
+[[-45,60],[-40,64],[-32,68],[-22,70],[-20,76],[-30,81],[-45,83],[-58,80],[-67,77],[-59,73],[-54,67],[-51,62],[-45,60]],
+/* South America */
+[[-78,7],[-71,12],[-63,11],[-60,8],[-52,5],[-50,0],[-44,-3],[-37,-6],[-35,-9],[-39,-15],[-40,-22],[-48,-26],[-53,-33],[-58,-38],[-62,-41],[-65,-46],[-68,-51],[-71,-55],[-68,-55],[-73,-50],[-73,-43],[-72,-36],[-71,-29],[-70,-19],[-76,-14],[-79,-7],[-81,-3],[-80,1],[-78,7]],
+/* Africa */
+[[-6,35],[3,37],[10,37],[12,33],[20,32],[27,31],[32,31],[34,27],[37,21],[40,15],[43,11],[48,11],[51,12],[46,2],[41,-2],[40,-11],[36,-18],[33,-26],[27,-33],[21,-35],[17,-33],[14,-26],[12,-18],[13,-10],[9,-2],[9,4],[4,6],[-3,5],[-8,4],[-13,9],[-17,15],[-16,21],[-13,27],[-9,32],[-6,35]],
+/* Madagascar */
+[[44,-16],[48,-13],[50,-16],[47,-25],[44,-25],[44,-16]],
+/* Eurasia */
+[[-9,37],[-9,43],[-2,48],[2,51],[8,54],[8,57],[12,56],[11,59],[18,60],[22,65],[28,70],[40,68],[52,68],[60,70],[75,73],[95,74],[115,74],[135,72],[155,70],[178,66],[179,62],[170,60],[160,61],[156,55],[142,50],[140,42],[128,40],[122,35],[120,28],[122,24],[110,20],[108,12],[104,8],[100,4],[98,9],[94,16],[89,22],[85,20],[80,14],[77,7],[72,20],[66,24],[61,25],[57,26],[56,24],[59,22],[58,17],[52,16],[47,13],[43,12],[43,17],[40,21],[36,25],[34,28],[36,32],[36,36],[30,36],[27,37],[22,38],[19,40],[15,40],[12,44],[6,43],[3,43],[0,39],[-6,36],[-9,37]],
+/* Japan */
+[[141,45],[144,43],[141,39],[140,35],[136,34],[131,31],[130,33],[135,36],[139,40],[139,44],[141,45]],
+/* Philippines */
+[[120,18],[122,17],[122,13],[125,11],[126,7],[122,6],[121,10],[120,14],[120,18]],
+/* Sumatra */
+[[95,5],[99,3],[103,-1],[106,-4],[104,-6],[100,-1],[96,3],[95,5]],
+/* Java */
+[[105,-7],[112,-7.5],[114,-8.5],[108,-8],[105,-7]],
+/* Borneo */
+[[109,1],[113,4],[117,6],[119,1],[116,-3],[112,-3],[109,1]],
+/* New Guinea */
+[[131,-1],[136,-2],[141,-3],[146,-6],[150,-9],[147,-10],[142,-9],[138,-8],[134,-4],[131,-1]],
+/* Australia */
+[[114,-22],[114,-34],[118,-35],[124,-33],[130,-32],[135,-35],[138,-35],[140,-38],[147,-38],[150,-37],[153,-30],[153,-25],[148,-20],[143,-14],[142,-11],[138,-12],[136,-15],[132,-11],[128,-15],[122,-17],[114,-22]],
+/* New Zealand */
+[[167,-46],[171,-44],[173,-41],[176,-38],[178,-37],[175,-41],[172,-44],[168,-47],[167,-46]],
+/* Antarctica (band, closed along bottom edge) */
+[[-180,-68],[-160,-73],[-140,-69],[-120,-68],[-100,-73],[-80,-72],[-63,-63],[-58,-62],[-64,-67],[-72,-71],[-85,-74],[-100,-76],[-120,-73],[-140,-74],[-160,-77],[-180,-78],[-180,-90.1],[180,-90.1],[180,-68],[160,-69],[140,-66],[120,-66],[100,-66],[80,-67],[60,-66],[40,-69],[20,-70],[0,-69],[-20,-72],[-40,-71],[-180,-68]]
+];
+/* note: last polygon closes across the bottom; the -90.1 keeps the seam off-canvas */
+var landG=document.getElementById("landG");
+CONT.forEach(function(poly){
+  var d=poly.map(function(p,i){return (i?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1);}).join("")+"Z";
+  el("path",{d:d,"class":"land"},landG);
+});
+
+/* ---------- FAKT: earthquake sequence ---------- */
+var EQ=[
+ {n:"Venezuela",m:7.5,lat:10,  lon:-67, dx:-14,dy:-16,anch:"end",  note:"Auftakt der Kette"},
+ {n:"Venezuela",m:7.2,lat:10.6,lon:-66, dx:14, dy:26, anch:"start",note:"Doppelsto&szlig;, kurz danach"},
+ {n:"Japan",    m:6.9,lat:38,  lon:142, dx:-16,dy:-14,anch:"end",  note:"der Ring beginnt"},
+ {n:"Kalifornien",m:5.6,lat:36,lon:-120,dx:-14,dy:-10,anch:"end",  note:"USA, San-Andreas-Raum"},
+ {n:"Neuguinea",m:5.1,lat:-5,  lon:145, dx:-12,dy:22, anch:"end",  note:"S&uuml;dwest-Pazifik"},
+ {n:"Philippinen",m:4.9,lat:13,lon:122, dx:-14,dy:-8, anch:"end",  note:"Ring schlie&szlig;t sich"},
+ {n:"Afghanistan",m:5.8,lat:36,lon:69,  dx:-2, dy:-30,anch:"middle",note:"zeitversetzt, nach der Kette"},
+ {n:"Afghanistan",m:6.0,lat:36.5,lon:69.8,dx:16,dy:14,anch:"start",note:"zeitversetzt, zweiter Sto&szlig;"}
+];
+function rad(m){return 3.5+(m-4)*2.6;} /* size proportional to magnitude */
+var quakeG=document.getElementById("quakeG");
+EQ.forEach(function(q,i){
+  var g=el("g",{"class":"q"},quakeG);
+  var x=X(q.lon),y=Y(q.lat),r=rad(q.m);
+  el("circle",{"class":"ring",cx:x,cy:y,r:r+4},g);
+  el("circle",{"class":"core",cx:x,cy:y,r:r},g);
+  var ly=y+q.dy;
+  var t=el("text",{x:x+q.dx,y:ly,"text-anchor":q.anch},g);
+  t.innerHTML=(i+1)+"&#8202;&middot;&#8202;"+q.n+' <tspan class="m">M '+q.m.toFixed(1).replace(".",",")+"</tspan>";
+  el("text",{x:x+q.dx,y:ly+12,"text-anchor":q.anch,"class":"sub"},g).textContent="~"+fmt(q.lat,q.lon);
+  q.g=g;
+});
+function fmt(lat,lon){
+  return Math.abs(lat).toFixed(0)+"°"+(lat>=0?"N":"S")+" "+Math.abs(lon).toFixed(0)+"°"+(lon>=0?"O":"W");
+}
+
+/* ---------- LESART: Antarctic sites (always visible, teal = hypothesis layer) ---------- */
+var ANT=[
+ {n:"Eintritt WEST · Rothschild",lat:-69,lon:-72,dx:0,dy:-16,anch:"middle",sub:"~69°S 72°W · These"},
+ {n:"Wilkes-Anomalie OST",           lat:-70,lon:120,dx:0,dy:-16,anch:"middle",sub:"~70°S 120°O · „antipodal“ lt. These"}
+];
+var antG=document.getElementById("antG");
+ANT.forEach(function(a){
+  var g=el("g",{"class":"ant"},antG);
+  var x=X(a.lon),y=Y(a.lat),s=6.5;
+  el("path",{"class":"dia",d:"M"+x+" "+(y-s)+"L"+(x+s)+" "+y+"L"+x+" "+(y+s)+"L"+(x-s)+" "+y+"Z"},g);
+  el("text",{x:x+a.dx,y:y+a.dy-11,"text-anchor":a.anch},g).textContent=a.n;
+  el("text",{x:x+a.dx,y:y+a.dy,"text-anchor":a.anch,"class":"sub"},g).textContent=a.sub;
+  a.x=x;a.y=y;
+});
+
+/* ---------- LESART overlay: connection + schematic plate boundaries ---------- */
+var layer=document.getElementById("layerThese");
+/* schematic plate boundaries (very coarse) */
+var PLATES=[
+ /* East Pacific / Americas margin */
+ [[-70,-55],[-72,-30],[-77,-10],[-85,3],[-95,15],[-105,20],[-114,27],[-121,36],[-125,44],[-130,51],[-145,57],[-158,55],[-170,53],[-180,51]],
+ /* West Pacific margin */
+ [[180,51],[166,50],[156,48],[148,43],[142,36],[141,30],[143,21],[128,14],[123,6],[128,-3],[136,-4],[146,-6],[153,-10],[160,-14],[168,-22],[173,-33],[176,-42],[169,-52],[163,-60]],
+ /* Alpine–Himalaya belt (via Afghanistan) */
+ [[-12,36],[0,38],[14,38],[25,36],[35,36],[45,38],[54,36],[62,34],[69,36],[75,35],[85,29],[94,26],[97,20],[95,10],[97,2],[103,-6],[110,-9],[118,-10],[126,-8],[136,-4]],
+ /* Caribbean / Venezuela margin */
+ [[-88,14],[-82,10],[-75,11],[-67,11],[-61,11],[-59,14]]
+];
+PLATES.forEach(function(line){
+  var d=line.map(function(p,i){return (i?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1);}).join("");
+  el("path",{d:d,fill:"none",stroke:"#54d0c2","stroke-width":1,"stroke-dasharray":"2 5",opacity:.45},layer);
+});
+/* dashed connection West -> East through the polar margin */
+var ax=X(-72),ay=Y(-69),bx=X(120),by=Y(-70);
+el("path",{d:"M"+ax+" "+ay+" Q "+((ax+bx)/2)+" "+(Y(-90)+26)+" "+bx+" "+by,
+  fill:"none",stroke:"#54d0c2","stroke-width":1.6,"stroke-dasharray":"7 6"},layer);
+var mt=el("text",{x:(ax+bx)/2,y:Y(-90)-4,"text-anchor":"middle",fill:"#54d0c2",
+  "font-size":"10.5","font-style":"italic"},layer);
+mt.textContent="THESE · Verschiebung West → Ost · Hypothese, kein Beweis";
+var pt=el("text",{x:X(0),y:Y(52),"text-anchor":"middle",fill:"#54d0c2","font-size":"10",opacity:.85,
+  "font-style":"italic"},layer);
+pt.textContent="These-Kontext: die Kette folgt den großen Plattengrenzen (schematisch) — Korrelation, kein Kausal-Beweis";
+
+/* ---------- timeline scrubbing ---------- */
+var slider=document.getElementById("t"),readout=document.getElementById("readout"),
+    ticks=document.getElementById("ticks"),stage=document.getElementById("stage");
+["Start","1","2","3","4","5","6","| zeitversetzt","7–8"].forEach(function(s,i){
+  var sp=document.createElement("span");sp.textContent=s;
+  if(i===7){sp.className="gap";}
+  ticks.appendChild(sp);
+});
+
+var reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setStage(v){
+  v=Math.max(0,Math.min(8,Math.round(v)));
+  slider.value=v;
+  slider.style.setProperty("--fill",(v/8*100)+"%");
+  EQ.forEach(function(q,i){
+    q.g.classList.toggle("on",v>=i+1);
+    q.g.classList.toggle("cur",v===i+1);
+  });
+  var av;
+  if(v===0){
+    readout.innerHTML='<span class="tag">Fakt</span> Zeit-Leiste ziehen: die Kette l&auml;uft <b>gestaffelt</b> &mdash; Venezuela zuerst, dann der Ring, dann zeitversetzt Afghanistan.';
+    av="Start";
+  }else{
+    var q=EQ[v-1];
+    readout.innerHTML='<span class="tag">Fakt</span> <b>#'+v+" &middot; "+q.n+'</b> <span class="mag">M '
+      +q.m.toFixed(1).replace(".",",")+"</span> &middot; ~"+fmt(q.lat,q.lon)
+      +" <i>(ungef&auml;hr)</i> &middot; 25.6.2026 (UTC) &middot; "+q.note;
+    av="#"+v+" "+q.n+" Magnitude "+q.m;
+  }
+  slider.setAttribute("aria-valuetext",av);
+}
+slider.addEventListener("input",function(){setStage(+slider.value);});
+
+/* swipe / drag on the map — snaps per step, no auto-movement */
+var drag=null;
+stage.addEventListener("pointerdown",function(e){
+  if(e.target.closest("a"))return;
+  drag={x0:e.clientX,v0:+slider.value};
+  stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener("pointermove",function(e){
+  if(!drag)return;
+  var stepPx=Math.max(44,stage.clientWidth/14);
+  var dv=Math.round((e.clientX-drag.x0)/stepPx);
+  if(dv!==0){setStage(drag.v0+dv);}
+});
+function endDrag(){drag=null;}
+stage.addEventListener("pointerup",endDrag);
+stage.addEventListener("pointercancel",endDrag);
+stage.addEventListener("keydown",function(e){
+  if(e.key==="ArrowRight"){setStage(+slider.value+1);e.preventDefault();}
+  if(e.key==="ArrowLeft"){setStage(+slider.value-1);e.preventDefault();}
+});
+stage.tabIndex=0;
+
+/* hover on markers -> readout */
+EQ.forEach(function(q,i){
+  q.g.style.cursor="pointer";
+  q.g.addEventListener("pointerenter",function(){ if(q.g.classList.contains("on")) setStage(i+1); });
+  q.g.addEventListener("click",function(){ setStage(i+1); });
+});
+
+/* thesis toggle */
+var tgl=document.getElementById("tgl");
+tgl.addEventListener("change",function(){
+  layer.classList.toggle("show",tgl.checked);
+});
+
+/* ---------- data table ---------- */
+var tb=document.getElementById("tbody"),rows="";
+EQ.forEach(function(q,i){
+  rows+="<tr><td>"+(i+1)+"</td><td>"+q.n+"</td><td>M "+q.m.toFixed(1).replace(".",",")
+    +"</td><td class=mut>~"+fmt(q.lat,q.lon)+"</td><td class=mut>"
+    +(i<6?"25.6.2026 (UTC), gestaffelt":"25.6.2026 (UTC), zeitversetzt")+"</td></tr>";
+});
+ANT.forEach(function(a){
+  rows+='<tr class=these><td>&mdash;</td><td>'+a.n+"</td><td>&mdash;</td><td>"+a.sub
+    +"</td><td>Lesart-Ebene &middot; Hypothese</td></tr>";
+});
+tb.innerHTML=rows;
+
+setStage(0);
+})();
+</script>
+
+</html>

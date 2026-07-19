@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1008 = 846 + 162</title>
+<style>
+  :root{
+    --bg:#0a0d13; --panel:#10141d; --ink:#eef1f6;
+    --dim:rgba(238,241,246,.55); --faint:rgba(238,241,246,.28);
+    --gold:#f0b45e; --gold-soft:rgba(240,180,94,.16); --gold-dim:rgba(240,180,94,.35);
+    --teal:#54d0c2; --teal-soft:rgba(84,208,194,.14); --teal-dim:rgba(84,208,194,.4);
+    --line:rgba(238,241,246,.10);
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink)}
+  body{
+    font-family:var(--serif);
+    min-height:100vh;
+    display:flex;justify-content:center;
+    padding:32px 16px 48px;
+  }
+  .wrap{width:100%;max-width:620px}
+
+  header{margin-bottom:22px;text-align:center}
+  h1{
+    font-family:var(--mono);font-weight:600;
+    font-size:clamp(1.25rem,4.5vw,1.7rem);
+    letter-spacing:.04em;color:var(--ink);
+  }
+  .subtitle{
+    font-family:var(--mono);font-size:.78rem;letter-spacing:.14em;
+    color:var(--dim);margin-top:8px;text-transform:uppercase;
+  }
+
+  .stage{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 14px;
+    min-height:200px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .stage svg{width:100%;height:auto;display:block}
+
+  .textpanel{
+    margin-top:18px;
+    padding:0 4px;
+    min-height:7.5em;
+  }
+  .counter{
+    font-family:var(--mono);font-size:.75rem;letter-spacing:.18em;
+    color:var(--faint);
+  }
+  .steptitle{
+    font-family:var(--mono);font-size:clamp(1rem,3.6vw,1.2rem);
+    color:var(--ink);margin-top:6px;letter-spacing:.03em;
+  }
+  .stepbody{
+    font-size:.98rem;line-height:1.55;color:var(--dim);
+    margin-top:8px;max-width:56ch;
+  }
+  .stepbody .m{font-family:var(--mono);font-size:.9em}
+
+  nav.controls{
+    margin-top:20px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .navbtn{
+    font-family:var(--mono);font-size:.85rem;
+    color:var(--ink);background:transparent;
+    border:1px solid var(--line);border-radius:8px;
+    padding:9px 16px;cursor:pointer;
+    transition:border-color .25s ease,color .25s ease;
+  }
+  .navbtn:hover:not(:disabled){border-color:var(--gold-dim)}
+  .navbtn:disabled{color:var(--faint);cursor:default;border-color:var(--line)}
+  .dots{display:flex;gap:10px;align-items:center}
+  .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:transparent;border:1px solid var(--faint);
+    cursor:pointer;padding:0;
+    transition:background .25s ease,border-color .25s ease;
+  }
+  .dot[aria-current="true"]{background:var(--gold);border-color:var(--gold)}
+
+  .fakt{
+    margin-top:34px;padding-top:22px;
+    border-top:1px solid var(--line);
+  }
+  .pill{
+    display:inline-block;
+    font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;
+    color:var(--gold);background:var(--gold-soft);
+    border:1px solid var(--gold-dim);border-radius:999px;
+    padding:3px 12px;margin-bottom:12px;
+  }
+  .fakt p{
+    font-size:.92rem;line-height:1.6;color:var(--dim);
+    margin-bottom:8px;
+  }
+  .fakt p .m{font-family:var(--mono);font-size:.88em;color:var(--faint)}
+
+  .err{
+    font-family:var(--mono);color:var(--gold);
+    border:1px solid var(--gold-dim);border-radius:8px;
+    padding:14px;margin-top:16px;
+  }
+
+  :focus{outline:none}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* gentle appearance of stage groups */
+  .a{opacity:0;transform:translateY(7px);
+     transition:opacity .55s ease var(--d,0ms),transform .55s ease var(--d,0ms)}
+  .a.in{opacity:1;transform:none}
+
+  @media (prefers-reduced-motion: reduce){
+    .a{transition:none;opacity:1;transform:none}
+    .navbtn,.dot{transition:none}
+  }
+  @media (max-width:420px){
+    body{padding:20px 10px 36px}
+    .stage{padding:12px 8px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header>
+    <h1 id="title"></h1>
+    <p class="subtitle" id="subtitle"></p>
+  </header>
+
+  <div class="stage" id="stage" role="img" aria-label=""></div>
+
+  <div class="textpanel" aria-live="polite">
+    <p class="counter" id="counter"></p>
+    <h2 class="steptitle" id="steptitle"></h2>
+    <p class="stepbody" id="stepbody"></p>
+  </div>
+
+  <nav class="controls" aria-label="">
+    <button class="navbtn" id="prev" type="button"></button>
+    <div class="dots" id="dots" role="group"></div>
+    <button class="navbtn" id="next" type="button"></button>
+  </nav>
+
+  <footer class="fakt">
+    <span class="pill" id="pill"></span>
+    <div id="facts"></div>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ============ all human-readable strings ============ */
+const LANG = {
+  de: {
+    title: "1008 = 846 + 162",
+    subtitle: "Der Rahmen · alles aus 3, 4, 7",
+    factPill: "FAKT",
+    facts: [
+      "9 + 27 + 81 + 729 = 846. Es sind die Potenzen 3², 3³, 3⁴, 3⁶.",
+      "162 = 2 × 81. Zusammen: 846 + 162 = 1008.",
+      "1008 = 7 × 144 = 7 × 12², und 12 = 3 × 4. Alles aus 3, 4 und 7."
+    ],
+    prev: "‹ Zurück",
+    next: "Weiter ›",
+    prevAria: "Zurück – vorheriger Schritt",
+    nextAria: "Weiter – nächster Schritt",
+    navAria: "Schritt-Navigation",
+    dotAria: "Zu Schritt {n}: {t}",
+    romans: ["I","II","III","IV","V"],
+    counterSep: " / ",
+    errorMsg: "Selbstprüfung fehlgeschlagen – die Arithmetik stimmt nicht. Anzeige gestoppt.",
+    labels: {
+      n1008: "1008", n846: "846", n162: "162",
+      n9: "9", n27: "27", n81: "81", n729: "729", n144: "144",
+      p3_2: "3²", p3_3: "3³", p3_4: "3⁴", p3_6: "3⁶",
+      plus: "+", eq162: "= 162",
+      pct846: "83,9 %", pct162: "16,1 %",
+      whole: "1008 Einheiten"
+    },
+    steps: [
+      {
+        title: "1008",
+        body: "1008 = 7 × 144 = 7 × 12², und 12 = 3 × 4 — ganz aus 3, 4 und 7 gebaut, nichts von außen.",
+        alt: "Die Zahl 1008 als ganzer, gefüllter Balken."
+      },
+      {
+        title: "846 = 9 + 27 + 81 + 729",
+        body: "Die vier Potenzen von 3 — 3², 3³, 3⁴ und 3⁶ — ergeben zusammen 846: 9 + 27 + 81 + 729.",
+        alt: "Vier goldene Blöcke mit 729, 81, 27 und 9 Feldern ergeben zusammen 846."
+      },
+      {
+        title: "162 = 2 × 81",
+        body: "162 sind zwei Blöcke zu je 81 (= 3⁴): 81 + 81 = 162.",
+        alt: "Zwei türkise Quadrate zu je 81 Feldern (9 mal 9) ergeben 162."
+      },
+      {
+        title: "846 + 162 = 1008",
+        body: "Zusammen füllen sie 1008: der goldene Teil ist 846 (83,9 %), der türkise 162 (16,1 %).",
+        alt: "Ein Balken der Länge 1008, geteilt in einen goldenen Teil 846 und einen türkisen Teil 162."
+      },
+      {
+        title: "1008 = 7 × 144",
+        body: "Dieselbe Menge, anders gruppiert — sieben Quadrate zu 12 × 12. Jedes hat 144 Felder, und 12 = 3 × 4: also 7 × 144 = 1008.",
+        alt: "Sieben Quadrate zu je 144 Feldern (12 mal 12) ergeben zusammen 1008."
+      }
+    ]
+  }
+};
+const L = LANG.de;
+
+/* ============ self-check ============ */
+const OK =
+  (9 + 27 + 81 + 729 === 846) &&
+  (846 + 162 === 1008) &&
+  (2 * 81 === 162) &&
+  (7 * 144 === 1008) &&
+  (12 * 12 === 144);
+
+/* ============ svg helpers ============ */
+const NS = "http://www.w3.org/2000/svg";
+function el(name, attrs, parent){
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+function txt(parent, x, y, str, size, fill, anchor){
+  const t = el("text", {
+    x: x, y: y, "font-size": size, fill: fill,
+    "text-anchor": anchor || "middle",
+    "font-family": "ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,monospace"
+  }, parent);
+  t.textContent = str;
+  return t;
+}
+/* a cols x rows block of unit cells (cell size in viewBox units) */
+function gridBlock(parent, x, y, cols, rows, cell, fill, edge){
+  const g = el("g", {}, parent);
+  const w = cols * cell, h = rows * cell;
+  el("rect", {x:x, y:y, width:w, height:h, fill:fill, stroke:edge, "stroke-width":1.2, rx:2}, g);
+  const lines = el("g", {stroke:edge, "stroke-width":0.5, "stroke-opacity":0.55}, g);
+  for (let i = 1; i < cols; i++)
+    el("line", {x1:x+i*cell, y1:y, x2:x+i*cell, y2:y+h}, lines);
+  for (let j = 1; j < rows; j++)
+    el("line", {x1:x, y1:y+j*cell, x2:x+w, y2:y+j*cell}, lines);
+  return g;
+}
+function group(svg, delayMs){
+  const g = el("g", {"class":"a"}, svg);
+  g.style.setProperty("--d", delayMs + "ms");
+  return g;
+}
+function makeSvg(){
+  return el("svg", {viewBox:"0 0 600 310", "aria-hidden":"true", focusable:"false"});
+}
+
+/* palette read once (values match the CSS variables) */
+const C = {
+  ink:"#eef1f6",
+  dim:"rgba(238,241,246,.55)", faint:"rgba(238,241,246,.28)",
+  gold:"#f0b45e", goldSoft:"rgba(240,180,94,.16)", goldDim:"rgba(240,180,94,.35)",
+  teal:"#54d0c2", tealSoft:"rgba(84,208,194,.14)", tealDim:"rgba(84,208,194,.4)",
+  line:"rgba(238,241,246,.10)"
+};
+
+/* ============ step figures (unit cell = 10 viewBox units in steps 2,3,5) ============ */
+const CELL = 10;
+
+function fig1(svg){
+  const lb = L.labels;
+  const g1 = group(svg, 0);
+  txt(g1, 300, 135, lb.n1008, 64, C.ink);
+  const g2 = group(svg, 160);
+  el("rect", {x:20, y:170, width:560, height:44, rx:4,
+              fill:"rgba(238,241,246,.12)", stroke:C.line, "stroke-width":1}, g2);
+  txt(g2, 300, 245, lb.whole, 15, C.faint);
+}
+
+function fig2(svg){
+  const lb = L.labels;
+  /* bottom-aligned row: 729 (27x27), 81 (9x9), 27 (9x3), 9 (3x3); gap 16 */
+  const base = 280, gap = 16;
+  const widths = [27, 9, 9, 3].map(c => c * CELL);
+  const total = widths[0] + widths[1] + widths[2] + widths[3] + 3 * gap; /* 528 */
+  let x = (600 - total) / 2;
+
+  const blocks = [
+    {cols:27, rows:27, val:lb.n729, pow:lb.p3_6},
+    {cols:9,  rows:9,  val:lb.n81,  pow:lb.p3_4},
+    {cols:9,  rows:3,  val:lb.n27,  pow:lb.p3_3},
+    {cols:3,  rows:3,  val:lb.n9,   pow:lb.p3_2}
+  ];
+  blocks.forEach((b, i) => {
+    const w = b.cols * CELL, h = b.rows * CELL;
+    const y = base - h;
+    const g = group(svg, i * 130);
+    gridBlock(g, x, y, b.cols, b.rows, CELL, C.goldSoft, C.goldDim);
+    /* power label above the block (inside for the big one) */
+    if (b.rows >= 9) txt(g, x + w/2, y + 22, b.pow, 15, C.gold);
+    else             txt(g, x + w/2, y - 8,  b.pow, 13, C.gold);
+    txt(g, x + w/2, base + 22, b.val, 16, C.gold);
+    x += w + gap;
+  });
+}
+
+function fig3(svg){
+  const lb = L.labels;
+  const s = 9 * CELL;            /* 90 */
+  const top = 100;
+  const x1 = 150, xp = x1 + s + 22, x2 = xp + 22, xe = x2 + s + 18;
+  const g1 = group(svg, 0);
+  gridBlock(g1, x1, top, 9, 9, CELL, C.tealSoft, C.tealDim);
+  txt(g1, x1 + s/2, top + s + 24, lb.n81, 16, C.teal);
+  const gp = group(svg, 130);
+  txt(gp, xp, top + s/2 + 7, lb.plus, 22, C.dim);
+  const g2 = group(svg, 200);
+  gridBlock(g2, x2, top, 9, 9, CELL, C.tealSoft, C.tealDim);
+  txt(g2, x2 + s/2, top + s + 24, lb.n81, 16, C.teal);
+  const ge = group(svg, 330);
+  txt(ge, xe, top + s/2 + 7, lb.eq162, 22, C.teal, "start");
+}
+
+function fig4(svg){
+  const lb = L.labels;
+  const x = 20, y = 118, h = 58, W = 560;
+  const wGold = W * 846 / 1008;  /* 470 exactly */
+  const wTeal = W - wGold;       /*  90 */
+  const gg = group(svg, 0);
+  el("rect", {x:x, y:y, width:wGold, height:h,
+              fill:C.goldSoft, stroke:C.goldDim, "stroke-width":1.2}, gg);
+  txt(gg, x + wGold/2, y + h/2 + 6, lb.n846, 19, C.gold);
+  txt(gg, x + wGold/2, y + h + 30, lb.pct846, 15, C.faint);
+  const gt = group(svg, 180);
+  el("rect", {x:x + wGold, y:y, width:wTeal, height:h,
+              fill:C.tealSoft, stroke:C.tealDim, "stroke-width":1.2}, gt);
+  txt(gt, x + wGold + wTeal/2, y + h/2 + 6, lb.n162, 17, C.teal);
+  txt(gt, x + wGold + wTeal/2, y + h + 30, lb.pct162, 15, C.faint);
+  const gw = group(svg, 340);
+  el("rect", {x:x, y:y, width:W, height:h, fill:"none",
+              stroke:C.line, "stroke-width":1}, gw);
+  txt(gw, 300, y - 22, lb.n1008, 17, C.dim);
+}
+
+function fig5(svg){
+  const lb = L.labels;
+  const s = 12 * CELL;           /* 120 */
+  const gap = 16;
+  /* row of 4, then row of 3 */
+  const y1 = 16, y2 = y1 + s + gap;
+  const x1 = (600 - 4*s - 3*gap) / 2;   /* 36  */
+  const x2 = (600 - 3*s - 2*gap) / 2;   /* 104 */
+  for (let i = 0; i < 7; i++){
+    const row = i < 4 ? 0 : 1;
+    const col = row === 0 ? i : i - 4;
+    const x = (row === 0 ? x1 : x2) + col * (s + gap);
+    const y = row === 0 ? y1 : y2;
+    const g = group(svg, i * 90);
+    gridBlock(g, x, y, 12, 12, CELL, C.goldSoft, C.goldDim);
+    txt(g, x + s/2, y + s/2 + 6, lb.n144, 17, C.gold);
+  }
+}
+
+const FIGS = [fig1, fig2, fig3, fig4, fig5];
+
+/* ============ app ============ */
+const $ = id => document.getElementById(id);
+let step = 0;
+
+function render(){
+  const s = L.steps[step];
+
+  const stage = $("stage");
+  stage.textContent = "";
+  stage.setAttribute("aria-label", s.alt);
+  const svg = makeSvg();
+  FIGS[step](svg);
+  stage.appendChild(svg);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    svg.querySelectorAll(".a").forEach(g => g.classList.add("in"));
+  }));
+
+  $("counter").textContent = L.romans[step] + L.counterSep + L.romans[L.steps.length - 1];
+  $("steptitle").textContent = s.title;
+  $("stepbody").textContent = s.body;
+
+  $("prev").disabled = step === 0;
+  $("next").disabled = step === L.steps.length - 1;
+
+  document.querySelectorAll(".dot").forEach((d, i) => {
+    if (i === step) d.setAttribute("aria-current", "true");
+    else d.removeAttribute("aria-current");
+  });
+}
+
+function go(n){
+  const max = L.steps.length - 1;
+  const next = Math.min(max, Math.max(0, n));
+  if (next !== step){ step = next; render(); }
+}
+
+function init(){
+  $("title").textContent = L.title;
+  $("subtitle").textContent = L.subtitle;
+  $("pill").textContent = L.factPill;
+
+  const facts = $("facts");
+  L.facts.forEach(f => {
+    const p = document.createElement("p");
+    p.textContent = f;
+    facts.appendChild(p);
+  });
+
+  if (!OK){
+    const e = document.createElement("div");
+    e.className = "err";
+    e.setAttribute("role", "alert");
+    e.textContent = L.errorMsg;
+    $("stage").replaceWith(e);
+    document.querySelector("nav.controls").remove();
+    return;
+  }
+
+  const prev = $("prev"), next = $("next");
+  prev.textContent = L.prev;  prev.setAttribute("aria-label", L.prevAria);
+  next.textContent = L.next;  next.setAttribute("aria-label", L.nextAria);
+  document.querySelector("nav.controls").setAttribute("aria-label", L.navAria);
+  prev.addEventListener("click", () => go(step - 1));
+  next.addEventListener("click", () => go(step + 1));
+
+  const dots = $("dots");
+  L.steps.forEach((s, i) => {
+    const d = document.createElement("button");
+    d.type = "button";
+    d.className = "dot";
+    d.setAttribute("aria-label",
+      L.dotAria.replace("{n}", String(i + 1)).replace("{t}", s.title));
+    d.addEventListener("click", () => go(i));
+    dots.appendChild(d);
+  });
+
+  window.addEventListener("keydown", ev => {
+    if (ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (ev.key === "ArrowRight"){ go(step + 1); ev.preventDefault(); }
+    else if (ev.key === "ArrowLeft"){ go(step - 1); ev.preventDefault(); }
+    else if (ev.key === "Home"){ go(0); ev.preventDefault(); }
+    else if (ev.key === "End"){ go(L.steps.length - 1); ev.preventDefault(); }
+  });
+
+  /* simple swipe */
+  let sx = null;
+  window.addEventListener("touchstart", ev => { sx = ev.touches[0].clientX; }, {passive:true});
+  window.addEventListener("touchend", ev => {
+    if (sx === null) return;
+    const dx = ev.changedTouches[0].clientX - sx;
+    if (dx < -40) go(step + 1);
+    else if (dx > 40) go(step - 1);
+    sx = null;
+  }, {passive:true});
+
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
