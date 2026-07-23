@@ -209,6 +209,15 @@
   .back:hover, .back:focus-visible{ color:var(--gold); }
   .back:focus-visible{ outline:1px solid var(--gold); outline-offset:3px; }
 
+  /* ── Sprach-Umschalter ────────────────────────── */
+  .langbar{ position:fixed; top:1.1rem; right:1.1rem; z-index:30; display:flex; align-items:center; gap:.15rem; }
+  .langbtn{ background:none; border:none; color:var(--dim); font-family:inherit; font-size:.72rem;
+    letter-spacing:.18em; text-transform:uppercase; cursor:pointer; padding:.4rem .5rem; transition:color .3s ease; }
+  .langbtn[aria-pressed="true"]{ color:var(--gold); }
+  .langbtn:hover{ color:var(--cream); }
+  .langbtn:focus-visible{ outline:1px solid var(--gold); outline-offset:2px; }
+  .langbar .sep{ color:var(--dim); opacity:.45; font-size:.7rem; }
+
   .room-title{
     font-size:clamp(1.7rem,4.6vw,2.3rem);
     font-weight:normal;
@@ -335,7 +344,14 @@
 </head>
 <body>
 
+  <div class="langbar" role="group" aria-label="Language / Sprache">
+    <button class="langbtn" type="button" data-lang="de" aria-pressed="true">DE</button>
+    <span class="sep" aria-hidden="true">·</span>
+    <button class="langbtn" type="button" data-lang="en" aria-pressed="false">EN</button>
+  </div>
+
   <div class="fig" id="fig" role="button" tabindex="0"
+       data-i18n-aria="figAria"
        aria-label="Das Feld öffnen: die sechs Eingänge einblenden">
     <div class="fig-inner" id="figInner">
       <svg viewBox="0 0 600 600" aria-hidden="true">
@@ -360,13 +376,13 @@
       </svg>
 
       <!-- Die 6 Tore, im Uhrzeigersinn ab oben -->
-      <nav aria-label="Eingänge">
+      <nav aria-label="Eingänge" data-i18n-aria="navAria">
         <a class="gate side-top"    style="left:50%;    top:13.333%; --i:0" href="spielfeld.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">3 · 6 · 9</span></a>
         <a class="gate side-right"  style="left:86.667%;top:50%;     --i:1" href="fau.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">FAU</span></a>
-        <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:2" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Thesen</span></a>
+        <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:2" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_thesen">Thesen</span></a>
         <a class="gate side-bottom" style="left:50%;    top:86.667%; --i:3" href="index.html"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Linktree</span></a>
         <a class="gate side-left"   style="left:18.245%;top:68.333%; --i:4" href="#highlights" data-room="highlights" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Highlights</span></a>
-        <a class="gate side-left"   style="left:13.333%;top:50%;     --i:5" href="#musik"      data-room="musik"      tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Musik</span></a>
+        <a class="gate side-left"   style="left:13.333%;top:50%;     --i:5" href="#musik"      data-room="musik"      tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_musik">Musik</span></a>
       </nav>
     </div>
   </div>
@@ -374,16 +390,76 @@
   <div class="copy">
     <h1>Chaos ex Ordo</h1>
     <p class="byline">Vincent Weber</p>
-    <p class="intro">Musik, ein Denk-Rahmen, und eine andere Art,<br>die Ordnung hinter dem Chaos zu sehen.</p>
-    <p class="three-six-nine"><span class="nums">Drei — Sechs — Neun.</span><br>Fang an, wo du willst. Jedes Feld ist ein Weg.</p>
-    <p class="hint" id="hint">[ an der Form ziehen, um das Feld zu öffnen ]</p>
+    <p class="intro" data-i18n-html="intro">Musik, ein Denk-Rahmen, und eine andere Art,<br>die Ordnung hinter dem Chaos zu sehen.</p>
+    <p class="three-six-nine" data-i18n-html="tsn"><span class="nums">Drei — Sechs — Neun.</span><br>Fang an, wo du willst. Jedes Feld ist ein Weg.</p>
+    <p class="hint" id="hint" data-i18n="hint">[ an der Form ziehen, um das Feld zu öffnen ]</p>
   </div>
 
   <!-- ── Raum-Overlay ─────────────────────────────────── -->
   <section class="room" id="room" aria-hidden="true">
-    <a class="back" id="backLink" href="#" aria-label="Zurück zum Feld">&larr; Feld</a>
+    <a class="back" id="backLink" href="#" data-i18n="back" data-i18n-aria="backAria" aria-label="Zurück zum Feld">&larr; Feld</a>
     <div class="room-inner" id="roomInner"></div>
   </section>
+
+<script>
+/* ── Sprachen (DE/EN, erweiterbar: neuer Block = neue Sprache) ───────── */
+(function(){
+  'use strict';
+  window.I18N = {
+    de:{
+      figAria:'Das Feld öffnen: die sechs Eingänge einblenden',
+      navAria:'Eingänge',
+      g_thesen:'Thesen', g_musik:'Musik',
+      intro:'Musik, ein Denk-Rahmen, und eine andere Art,<br>die Ordnung hinter dem Chaos zu sehen.',
+      tsn:'<span class="nums">Drei — Sechs — Neun.</span><br>Fang an, wo du willst. Jedes Feld ist ein Weg.',
+      hint:'[ an der Form ziehen, um das Feld zu öffnen ]',
+      back:'← Feld', backAria:'Zurück zum Feld',
+      soon:'kommt bald', lyrics:'Lyrics', listen:'Auf Spotify hören ↗',
+      room_geometrie:'Geometrie', room_thesen:'Thesen & Theorien', room_highlights:'Highlights', room_musik:'Musik',
+      th_intro:'Deutungen — klar als solche markiert. Fakt und Lesart bleiben getrennt. Bisher eine ausgearbeitete These:',
+      th_title:'Die Bebenkette — und eine These',
+      th_meta:'25. Juni 2026 · Erdbeben-Cluster entlang der Plattengrenzen',
+      th_fakt:'Fakt', th_lesart:'Lesart · kein Beweis', th_more:'Weitere Thesen folgen.',
+      months:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+    },
+    en:{
+      figAria:'Open the field: reveal the six entrances',
+      navAria:'Entrances',
+      g_thesen:'Theses', g_musik:'Music',
+      intro:'Music, a framework for thinking, and another way<br>to see the order behind the chaos.',
+      tsn:'<span class="nums">Three — Six — Nine.</span><br>Start wherever you like. Every field is a path.',
+      hint:'[ drag the shape to open the field ]',
+      back:'← Field', backAria:'Back to the field',
+      soon:'coming soon', lyrics:'Lyrics', listen:'Listen on Spotify ↗',
+      room_geometrie:'Geometry', room_thesen:'Theses & Theories', room_highlights:'Highlights', room_musik:'Music',
+      th_intro:'Readings — clearly marked as such. Fact and interpretation stay separate. One worked-out thesis so far:',
+      th_title:'The Quake Chain — and a Thesis',
+      th_meta:'25 June 2026 · earthquake cluster along the plate boundaries',
+      th_fakt:'Fact', th_lesart:'Reading · no proof', th_more:'More theses to follow.',
+      months:['January','February','March','April','May','June','July','August','September','October','November','December']
+    }
+  };
+  var LS='cxo_lang';
+  function detect(){ try{ var s=localStorage.getItem(LS); if(s&&window.I18N[s]) return s; }catch(_){}
+    return ((navigator.language||'en').slice(0,2)==='de') ? 'de':'en'; }
+  var lang = detect();
+  window.getLang=function(){ return lang; };
+  window.t=function(k){ var d=window.I18N[lang]||window.I18N.en; return (k in d)?d[k]:(window.I18N.en[k]||k); };
+  function applyStatic(){
+    document.documentElement.lang=lang;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent=window.t(el.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el){ el.innerHTML=window.t(el.getAttribute('data-i18n-html')); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function(el){ if(el.hasAttribute('aria-label')) el.setAttribute('aria-label',window.t(el.getAttribute('data-i18n-aria'))); });
+    document.querySelectorAll('.langbtn').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-lang')===lang ? 'true':'false'); });
+  }
+  window.setLang=function(l){ if(l!==lang && window.I18N[l]){ lang=l; try{localStorage.setItem(LS,l);}catch(_){}}
+    applyStatic(); if(typeof window.__rebuildRoom==='function') window.__rebuildRoom(); };
+  document.querySelectorAll('.langbtn').forEach(function(b){
+    b.addEventListener('click', function(){ window.setLang(b.getAttribute('data-lang')); });
+  });
+  applyStatic();
+})();
+</script>
 
 <script>
 (function(){
@@ -507,12 +583,8 @@
   var backLink = document.getElementById('backLink');
   var gates    = Array.prototype.slice.call(document.querySelectorAll('.gate[data-room]'));
 
-  var ROOM_TITLES = {
-    geometrie:  'Geometrie',
-    thesen:     'Thesen & Theorien',
-    highlights: 'Highlights',
-    musik:      'Musik'
-  };
+  /* gültige Raum-Slugs (Titel kommen übersetzt aus t('room_'+slug)) */
+  var ROOM_TITLES = { geometrie:1, thesen:1, highlights:1, musik:1 };
 
   /* Daten-getrieben: füllt sich beim Deploy automatisch aus music.json (Spotify).
      Bis dahin leer → Raum zeigt "kommt bald". */
@@ -523,11 +595,12 @@
   var travelTimer  = 0;
   var lastGate     = null;
 
-  var MONATE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
   function fmtDate(iso){
     var p = String(iso).split('-');
     if (p.length !== 3) return iso;
-    return parseInt(p[2],10) + '. ' + (MONATE[parseInt(p[1],10)-1] || p[1]) + ' ' + p[0];
+    var months = window.t('months');
+    var day = parseInt(p[2],10), mon = months[parseInt(p[1],10)-1] || p[1];
+    return (window.getLang()==='de') ? (day + '. ' + mon + ' ' + p[0]) : (day + ' ' + mon + ' ' + p[0]);
   }
 
   /* Platzhalter-Cover: kleines Kreis+Dreieck-Motiv, komplett inline */
@@ -556,9 +629,9 @@
   }
 
   function buildMusic(container){
-    container.appendChild(el('h2','room-title','Musik'));
+    container.appendChild(el('h2','room-title',window.t('room_musik')));
     if (!MUSIC.length){
-      container.appendChild(el('p','soon','kommt bald'));
+      container.appendChild(el('p','soon',window.t('soon')));
       return;
     }
     MUSIC.forEach(function(song){
@@ -582,7 +655,7 @@
         var det = document.createElement('details');
         det.className = 'lyrics';
         var sum = document.createElement('summary');
-        sum.textContent = 'Lyrics';
+        sum.textContent = window.t('lyrics');
         var pre = document.createElement('pre');
         pre.textContent = song.lyrics;
         det.appendChild(sum); det.appendChild(pre);
@@ -592,7 +665,7 @@
         body.appendChild(el('p','note',song.note));
       }
 
-      var link = el('a','spot','Auf Spotify hören ↗');
+      var link = el('a','spot',window.t('listen'));
       link.href = song.spotifyUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
@@ -604,20 +677,19 @@
   }
 
   function buildThesen(container){
-    container.appendChild(el('h2','room-title','Thesen & Theorien'));
-    container.appendChild(el('p','thesis-intro',
-      'Deutungen — klar als solche markiert. Fakt und Lesart bleiben getrennt. Bisher eine ausgearbeitete These:'));
+    container.appendChild(el('h2','room-title',window.t('room_thesen')));
+    container.appendChild(el('p','thesis-intro', window.t('th_intro')));
     var card = document.createElement('a');
     card.className = 'thesis-card';
     card.href = 'anim_antarktis_these.html';
-    card.appendChild(el('div','tt','Die Bebenkette — und eine These'));
-    card.appendChild(el('div','mt','25. Juni 2026 · Erdbeben-Cluster entlang der Plattengrenzen'));
+    card.appendChild(el('div','tt',window.t('th_title')));
+    card.appendChild(el('div','mt',window.t('th_meta')));
     var badges = el('div','badges2');
-    badges.appendChild(el('span','b f','Fakt'));
-    badges.appendChild(el('span','b l','Lesart · kein Beweis'));
+    badges.appendChild(el('span','b f',window.t('th_fakt')));
+    badges.appendChild(el('span','b l',window.t('th_lesart')));
     card.appendChild(badges);
     container.appendChild(card);
-    container.appendChild(el('p','note','Weitere Thesen folgen.'));
+    container.appendChild(el('p','note',window.t('th_more')));
   }
 
   function buildRoom(slug){
@@ -627,10 +699,13 @@
     } else if (slug === 'thesen'){
       buildThesen(roomInner);
     } else {
-      roomInner.appendChild(el('h2','room-title',ROOM_TITLES[slug]));
-      roomInner.appendChild(el('p','soon','kommt bald'));
+      roomInner.appendChild(el('h2','room-title',window.t('room_'+slug)));
+      roomInner.appendChild(el('p','soon',window.t('soon')));
     }
   }
+
+  /* Sprach-Umschaltung: offenen Raum neu aufbauen */
+  window.__rebuildRoom = function(){ if (current !== null) buildRoom(current); };
 
   function gateFor(slug){
     for (var i = 0; i < gates.length; i++){
