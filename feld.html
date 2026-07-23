@@ -344,12 +344,6 @@
 </head>
 <body>
 
-  <div class="langbar" role="group" aria-label="Language / Sprache">
-    <button class="langbtn" type="button" data-lang="de" aria-pressed="true">DE</button>
-    <span class="sep" aria-hidden="true">·</span>
-    <button class="langbtn" type="button" data-lang="en" aria-pressed="false">EN</button>
-  </div>
-
   <div class="fig" id="fig" role="button" tabindex="0"
        data-i18n-aria="figAria"
        aria-label="Das Feld öffnen: die sechs Eingänge einblenden">
@@ -402,9 +396,6 @@
   </section>
 
 <script>
-/* ── Sprachen (DE/EN, erweiterbar: neuer Block = neue Sprache) ───────── */
-(function(){
-  'use strict';
   window.I18N = {
     de:{
       figAria:'Das Feld öffnen: die sechs Eingänge einblenden',
@@ -439,27 +430,8 @@
       months:['January','February','March','April','May','June','July','August','September','October','November','December']
     }
   };
-  var LS='cxo_lang';
-  function detect(){ try{ var s=localStorage.getItem(LS); if(s&&window.I18N[s]) return s; }catch(_){}
-    return ((navigator.language||'en').slice(0,2)==='de') ? 'de':'en'; }
-  var lang = detect();
-  window.getLang=function(){ return lang; };
-  window.t=function(k){ var d=window.I18N[lang]||window.I18N.en; return (k in d)?d[k]:(window.I18N.en[k]||k); };
-  function applyStatic(){
-    document.documentElement.lang=lang;
-    document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent=window.t(el.getAttribute('data-i18n')); });
-    document.querySelectorAll('[data-i18n-html]').forEach(function(el){ el.innerHTML=window.t(el.getAttribute('data-i18n-html')); });
-    document.querySelectorAll('[data-i18n-aria]').forEach(function(el){ if(el.hasAttribute('aria-label')) el.setAttribute('aria-label',window.t(el.getAttribute('data-i18n-aria'))); });
-    document.querySelectorAll('.langbtn').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-lang')===lang ? 'true':'false'); });
-  }
-  window.setLang=function(l){ if(l!==lang && window.I18N[l]){ lang=l; try{localStorage.setItem(LS,l);}catch(_){}}
-    applyStatic(); if(typeof window.__rebuildRoom==='function') window.__rebuildRoom(); };
-  document.querySelectorAll('.langbtn').forEach(function(b){
-    b.addEventListener('click', function(){ window.setLang(b.getAttribute('data-lang')); });
-  });
-  applyStatic();
-})();
 </script>
+<script src="lang.js"></script>
 
 <script>
 (function(){
@@ -705,7 +677,7 @@
   }
 
   /* Sprach-Umschaltung: offenen Raum neu aufbauen */
-  window.__rebuildRoom = function(){ if (current !== null) buildRoom(current); };
+  window.onLangChange = function(){ if (current !== null) buildRoom(current); };
 
   function gateFor(slug){
     for (var i = 0; i < gates.length; i++){
