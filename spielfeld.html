@@ -143,11 +143,11 @@
 </head>
 <body>
 
-  <a class="back" href="feld.html">&larr; Feld</a>
+  <a class="back" href="feld.html" data-i18n="back">&larr; Feld</a>
 
   <div class="wrap">
     <header>
-      <svg class="emblem" viewBox="0 0 200 200" role="img"
+      <svg class="emblem" viewBox="0 0 200 200" role="img" data-i18n-aria="emblemAria"
            aria-label="Die 3-6-9-Achse: ein Dreieck aus den Knoten 3, 6 und 9 in einem gestrichelten Ring">
         <circle class="ring" cx="100" cy="100" r="70" fill="none"
                 stroke="rgba(84,208,194,.45)" stroke-width="1" stroke-dasharray="3 8" stroke-linecap="round"/>
@@ -160,11 +160,11 @@
         </g>
       </svg>
 
-      <div class="kicker">Das Feld</div>
+      <div class="kicker" data-i18n="kicker">Das Feld</div>
       <h1><span class="num">3</span> &mdash; <span class="num">6</span> &mdash; <span class="num">9</span></h1>
-      <p class="lede">Die tragende Achse. Jeder Knoten ist ein Stück Mathematik, das für sich steht &mdash;
+      <p class="lede" data-i18n-html="lede">Die tragende Achse. Jeder Knoten ist ein Stück Mathematik, das für sich steht &mdash;
         Fakt zum Nachrechnen, Lesart klar als Deutung markiert. Fang an, wo du willst.</p>
-      <p class="axis-note">
+      <p class="axis-note" data-i18n-html="axisNote">
         <b>Fakt:</b> 3&sup3; = 27, 3&#8308; = 81, 27&times;27 = 729. Die Ziffernsumme jeder 9er-Vielfachen ist 9.
         {3,&thinsp;6,&thinsp;9} sind die durch 3 teilbaren Reste mod&nbsp;9 &mdash; die ruhende Achse; {1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} sind die Einheiten, die sich bewegen.
       </p>
@@ -175,72 +175,131 @@
       <!-- ── Live-Knoten ─────────────────────── -->
       <a class="node" href="anim_142857.html">
         <span class="glyph">142857</span>
-        <h2>Der Zyklus der Siebtel</h2>
-        <p class="fakt"><span class="m">1/7 = 0,142857&hellip;</span> &mdash; &times;1 bis &times;6 dreht dieselben sechs Ziffern,
+        <h2 data-i18n="n1_t">Der Zyklus der Siebtel</h2>
+        <p class="fakt" data-i18n-html="n1_f"><span class="m">1/7 = 0,142857&hellip;</span> &mdash; &times;1 bis &times;6 dreht dieselben sechs Ziffern,
           <span class="m">&times;7 = 999999</span>.</p>
-        <div class="tags"><span class="tag fakt">Fakt</span></div>
-        <span class="go">öffnen &rarr;</span>
+        <div class="tags"><span class="tag fakt" data-i18n="t_fakt">Fakt</span></div>
+        <span class="go" data-i18n="open">öffnen &rarr;</span>
       </a>
 
       <a class="node" href="anim_3plus4.html">
         <span class="glyph">3 + 4 = 7</span>
-        <h2>Der Symmetriebruch</h2>
-        <p class="fakt">Dreieck (3) und Viereck (4) im selben Kreis, gemeinsamer Ursprung.
+        <h2 data-i18n="n2_t">Der Symmetriebruch</h2>
+        <p class="fakt" data-i18n-html="n2_f">Dreieck (3) und Viereck (4) im selben Kreis, gemeinsamer Ursprung.
           Nur 2-, 3-, 4-, 6-zählige Symmetrie kachelt die Ebene &mdash; die <span class="m">7</span> nicht.</p>
-        <div class="tags"><span class="tag fakt">Fakt</span></div>
-        <span class="go">öffnen &rarr;</span>
+        <div class="tags"><span class="tag fakt" data-i18n="t_fakt">Fakt</span></div>
+        <span class="go" data-i18n="open">öffnen &rarr;</span>
       </a>
 
       <a class="node" href="anim_antarktis_these.html">
         <span class="glyph small">25.6.2026</span>
-        <h2>Die Bebenkette &amp; eine These</h2>
-        <p class="fakt">Ein Erdbeben-Cluster an einem Tag, gestaffelt entlang der großen Plattengrenzen &mdash; USGS-prüfbar.</p>
-        <p class="lesart">Lesart: ein Antarktis-Ursprung als Auslöser &mdash; <b>Hypothese, kein Beweis</b>, Falsifikation offen.</p>
-        <div class="tags"><span class="tag fakt">Fakt</span><span class="tag lesart">Lesart · kein Beweis</span></div>
-        <span class="go">öffnen &rarr;</span>
+        <h2 data-i18n="n3_t">Die Bebenkette &amp; eine These</h2>
+        <p class="fakt" data-i18n-html="n3_f">Ein Erdbeben-Cluster an einem Tag, gestaffelt entlang der großen Plattengrenzen &mdash; USGS-prüfbar.</p>
+        <p class="lesart" data-i18n-html="n3_l">Lesart: ein Antarktis-Ursprung als Auslöser &mdash; <b>Hypothese, kein Beweis</b>, Falsifikation offen.</p>
+        <div class="tags"><span class="tag fakt" data-i18n="t_fakt">Fakt</span><span class="tag lesart" data-i18n="t_les_np">Lesart · kein Beweis</span></div>
+        <span class="go" data-i18n="open">öffnen &rarr;</span>
       </a>
 
       <a class="node" href="anim_alpha_beta_gamma.html">
         <span class="glyph">&alpha; &beta; &gamma;</span>
-        <h2>Der Atem</h2>
-        <p class="fakt">Ganzzahliger Spigot (Gibbons) gibt die Ziffern von <span class="m">&pi;</span> exakt aus &mdash; ohne Gleitkomma.
+        <h2 data-i18n="n4_t">Der Atem</h2>
+        <p class="fakt" data-i18n-html="n4_f">Ganzzahliger Spigot (Gibbons) gibt die Ziffern von <span class="m">&pi;</span> exakt aus &mdash; ohne Gleitkomma.
           &alpha; Zustand &rarr; &beta; Operator &rarr; &gamma; emittierte Ziffer.</p>
-        <p class="lesart">Lesart: &gamma; als Takt gelesen &mdash; ein Zeitgefühl aus dem &pi;-Strom. <b>Deutung.</b></p>
-        <div class="tags"><span class="tag fakt">Fakt</span><span class="tag lesart">Lesart · Deutung</span></div>
-        <span class="go">öffnen &rarr;</span>
+        <p class="lesart" data-i18n-html="n4_l">Lesart: &gamma; als Takt gelesen &mdash; ein Zeitgefühl aus dem &pi;-Strom. <b>Deutung.</b></p>
+        <div class="tags"><span class="tag fakt" data-i18n="t_fakt">Fakt</span><span class="tag lesart" data-i18n="t_les_d">Lesart · Deutung</span></div>
+        <span class="go" data-i18n="open">öffnen &rarr;</span>
       </a>
 
       <a class="node" href="anim_1008.html">
         <span class="glyph small">846 + 162</span>
-        <h2>Der Rahmen</h2>
-        <p class="fakt"><span class="m">1008 = 846 + 162</span>. 846 = 9+27+81+729 (3&sup2;, 3&sup3;, 3&#8308;, 3&#8310;),
+        <h2 data-i18n="n5_t">Der Rahmen</h2>
+        <p class="fakt" data-i18n-html="n5_f"><span class="m">1008 = 846 + 162</span>. 846 = 9+27+81+729 (3&sup2;, 3&sup3;, 3&#8308;, 3&#8310;),
           162 = 2&middot;81 &mdash; alles aus 3, 4, 7.</p>
-        <p class="lesart">Lesart: 846 als geteilter Kern, 162 als freier Raum je Zelle. <b>Deutung.</b></p>
-        <div class="tags"><span class="tag fakt">Fakt</span><span class="tag lesart">Lesart · Deutung</span></div>
-        <span class="go">öffnen &rarr;</span>
+        <p class="lesart" data-i18n-html="n5_l">Lesart: 846 als geteilter Kern, 162 als freier Raum je Zelle. <b>Deutung.</b></p>
+        <div class="tags"><span class="tag fakt" data-i18n="t_fakt">Fakt</span><span class="tag lesart" data-i18n="t_les_d">Lesart · Deutung</span></div>
+        <span class="go" data-i18n="open">öffnen &rarr;</span>
       </a>
 
       <!-- ── Roadmap (kommt bald) ────────────── -->
-      <div class="section-label">Als nächstes im Feld</div>
+      <div class="section-label" data-i18n="next">Als nächstes im Feld</div>
 
       <div class="node soon" aria-hidden="true">
         <span class="glyph">729</span>
-        <h2>Der Guard</h2>
-        <p class="fakt">729 = 27&times;27 Relationen: erkannt oder markiert &mdash; nie erfunden.</p>
-        <span class="badge">kommt bald</span>
+        <h2 data-i18n="n6_t">Der Guard</h2>
+        <p class="fakt" data-i18n-html="n6_f">729 = 27&times;27 Relationen: erkannt oder markiert &mdash; nie erfunden.</p>
+        <span class="badge" data-i18n="soon">kommt bald</span>
       </div>
 
       <div class="node soon" aria-hidden="true">
         <span class="glyph">6174</span>
         <h2>Kaprekar</h2>
-        <p class="fakt">Jede 4-stellige Zahl fällt in ≤ 7 Schritten auf den Fixpunkt 6174.</p>
-        <span class="badge">kommt bald</span>
+        <p class="fakt" data-i18n-html="n7_f">Jede 4-stellige Zahl fällt in ≤ 7 Schritten auf den Fixpunkt 6174.</p>
+        <span class="badge" data-i18n="soon">kommt bald</span>
       </div>
 
     </div>
 
-    <footer>Fakt <span class="sep">·</span> gold &nbsp;&nbsp; Lesart <span class="sep">·</span> türkis, gestrichelt &nbsp;&nbsp; alles self-contained</footer>
+    <footer data-i18n-html="footer">Fakt <span class="sep">·</span> gold &nbsp;&nbsp; Lesart <span class="sep">·</span> türkis, gestrichelt &nbsp;&nbsp; alles self-contained</footer>
   </div>
 
+<script>
+window.I18N = {
+  de:{
+    back:'← Feld',
+    emblemAria:'Die 3-6-9-Achse: ein Dreieck aus den Knoten 3, 6 und 9 in einem gestrichelten Ring',
+    kicker:'Das Feld',
+    lede:'Die tragende Achse. Jeder Knoten ist ein Stück Mathematik, das für sich steht — Fakt zum Nachrechnen, Lesart klar als Deutung markiert. Fang an, wo du willst.',
+    axisNote:'<b>Fakt:</b> 3² = 27, 3⁴ = 81, 27×27 = 729. Die Ziffernsumme jeder 9er-Vielfachen ist 9. {3, 6, 9} sind die durch 3 teilbaren Reste mod 9 — die ruhende Achse; {1, 2, 4, 5, 7, 8} sind die Einheiten, die sich bewegen.',
+    n1_t:'Der Zyklus der Siebtel',
+    n1_f:'<span class="m">1/7 = 0,142857…</span> — ×1 bis ×6 dreht dieselben sechs Ziffern, <span class="m">×7 = 999999</span>.',
+    n2_t:'Der Symmetriebruch',
+    n2_f:'Dreieck (3) und Viereck (4) im selben Kreis, gemeinsamer Ursprung. Nur 2-, 3-, 4-, 6-zählige Symmetrie kachelt die Ebene — die <span class="m">7</span> nicht.',
+    n3_t:'Die Bebenkette & eine These',
+    n3_f:'Ein Erdbeben-Cluster an einem Tag, gestaffelt entlang der großen Plattengrenzen — USGS-prüfbar.',
+    n3_l:'Lesart: ein Antarktis-Ursprung als Auslöser — <b>Hypothese, kein Beweis</b>, Falsifikation offen.',
+    n4_t:'Der Atem',
+    n4_f:'Ganzzahliger Spigot (Gibbons) gibt die Ziffern von <span class="m">π</span> exakt aus — ohne Gleitkomma. α Zustand → β Operator → γ emittierte Ziffer.',
+    n4_l:'Lesart: γ als Takt gelesen — ein Zeitgefühl aus dem π-Strom. <b>Deutung.</b>',
+    n5_t:'Der Rahmen',
+    n5_f:'<span class="m">1008 = 846 + 162</span>. 846 = 9+27+81+729 (3², 3³, 3⁴, 3⁶), 162 = 2·81 — alles aus 3, 4, 7.',
+    n5_l:'Lesart: 846 als geteilter Kern, 162 als freier Raum je Zelle. <b>Deutung.</b>',
+    next:'Als nächstes im Feld',
+    n6_t:'Der Guard',
+    n6_f:'729 = 27×27 Relationen: erkannt oder markiert — nie erfunden.',
+    n7_f:'Jede 4-stellige Zahl fällt in ≤ 7 Schritten auf den Fixpunkt 6174.',
+    t_fakt:'Fakt', t_les_np:'Lesart · kein Beweis', t_les_d:'Lesart · Deutung',
+    open:'öffnen →', soon:'kommt bald',
+    footer:'Fakt <span class="sep">·</span> gold &nbsp;&nbsp; Lesart <span class="sep">·</span> türkis, gestrichelt &nbsp;&nbsp; alles self-contained'
+  },
+  en:{
+    back:'← Field',
+    emblemAria:'The 3-6-9 axis: a triangle of the nodes 3, 6 and 9 in a dashed ring',
+    kicker:'The Field',
+    lede:'The load-bearing axis. Each node is a piece of mathematics that stands on its own — fact to recompute, reading clearly marked as interpretation. Start wherever you like.',
+    axisNote:'<b>Fact:</b> 3² = 27, 3⁴ = 81, 27×27 = 729. The digit sum of every multiple of 9 is 9. {3, 6, 9} are the residues divisible by 3 mod 9 — the resting axis; {1, 2, 4, 5, 7, 8} are the units that move.',
+    n1_t:'The Cycle of Sevenths',
+    n1_f:'<span class="m">1/7 = 0.142857…</span> — ×1 to ×6 rotate the same six digits, <span class="m">×7 = 999999</span>.',
+    n2_t:'The Symmetry Break',
+    n2_f:'Triangle (3) and square (4) in the same circle, shared origin. Only 2-, 3-, 4-, 6-fold symmetry tiles the plane — the <span class="m">7</span> does not.',
+    n3_t:'The Quake Chain & a Thesis',
+    n3_f:'An earthquake cluster in a single day, staggered along the major plate boundaries — USGS-checkable.',
+    n3_l:'Reading: an Antarctic origin as the trigger — <b>hypothesis, no proof</b>, falsification open.',
+    n4_t:'The Breath',
+    n4_f:'An integer spigot (Gibbons) outputs the digits of <span class="m">π</span> exactly — without floating point. α state → β operator → γ emitted digit.',
+    n4_l:'Reading: γ read as a beat — a sense of time from the π-stream. <b>Interpretation.</b>',
+    n5_t:'The Frame',
+    n5_f:'<span class="m">1008 = 846 + 162</span>. 846 = 9+27+81+729 (3², 3³, 3⁴, 3⁶), 162 = 2·81 — all from 3, 4, 7.',
+    n5_l:'Reading: 846 as the shared core, 162 as free space per cell. <b>Interpretation.</b>',
+    next:'Next in the field',
+    n6_t:'The Guard',
+    n6_f:'729 = 27×27 relations: recognized or flagged — never invented.',
+    n7_f:'Every 4-digit number falls to the fixed point 6174 in ≤ 7 steps.',
+    t_fakt:'Fact', t_les_np:'Reading · no proof', t_les_d:'Reading · interpretation',
+    open:'open →', soon:'coming soon',
+    footer:'Fact <span class="sep">·</span> gold &nbsp;&nbsp; Reading <span class="sep">·</span> teal, dashed &nbsp;&nbsp; all self-contained'
+  }
+};
+</script>
+<script src="lang.js"></script>
 </body>
 </html>
