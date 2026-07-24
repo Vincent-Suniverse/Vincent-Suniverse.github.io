@@ -133,7 +133,7 @@ const T={
   jb:'Join the community',
   foot:'A project by Chaos ex Ordo',foota:'Join'}
 };
-let LANG='de';
+let LANG=(function(){try{var s=localStorage.getItem('cxo_lang');if(s&&T[s])return s;}catch(_){}return (navigator.language||'en').slice(0,2)==='de'?'de':'en';})();
 function render(){
  const t=T[LANG];document.documentElement.lang=LANG;
  document.querySelectorAll('[data-t]').forEach(el=>{const k=el.dataset.t,v=t[k];if(v===undefined)return;
@@ -141,7 +141,7 @@ function render(){
   else if(k==='vbig'||k==='wbig'){el.innerHTML=v[0]+'<span>'+v[1]+'</span>';}
   else{el.textContent=v;}});
 }
-document.querySelectorAll('.lang button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.lang button').forEach(x=>x.classList.remove('on'));b.classList.add('on');LANG=b.dataset.l;render();});});
+document.querySelectorAll('.lang button').forEach(b=>{b.addEventListener('click',()=>{document.querySelectorAll('.lang button').forEach(x=>x.classList.remove('on'));b.classList.add('on');LANG=b.dataset.l;try{localStorage.setItem('cxo_lang',LANG);}catch(_){}render();});});
 
 /* ---- mycelium: threads that grow, branch and link ---- */
 (function(){
@@ -189,6 +189,7 @@ document.querySelectorAll('.lang button').forEach(b=>{b.addEventListener('click'
  init();step();addEventListener('resize',init);
 })();
 
+document.querySelectorAll('.lang button').forEach(x=>x.classList.toggle('on', x.dataset.l===LANG));
 render();
 </script>
 </body>
