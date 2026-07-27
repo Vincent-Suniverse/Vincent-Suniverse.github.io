@@ -120,11 +120,11 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>1 &frasl; 7 &nbsp;=&nbsp; 0,142857&hellip;</h1>
-    <p class="sub">Sechs Ziffern, ein einziger Kreis. <span class="per">1&frasl;7 = 0,<span class="ov">142857</span></span> &mdash; die Periode wiederholt sich endlos.</p>
+    <h1 data-i18n-html="h1">1 &frasl; 7 &nbsp;=&nbsp; 0,142857&hellip;</h1>
+    <p class="sub" data-i18n-html="sub">Sechs Ziffern, ein einziger Kreis. <span class="per">1&frasl;7 = 0,<span class="ov">142857</span></span> &mdash; die Periode wiederholt sich endlos.</p>
   </header>
 
-  <figure class="stage" aria-label="Rad mit dem Ziffernzyklus 1-4-2-8-5-7, in der Mitte die getrennte Achse 3-6-9">
+  <figure class="stage" data-i18n-aria="figAria" aria-label="Rad mit dem Ziffernzyklus 1-4-2-8-5-7, in der Mitte die getrennte Achse 3-6-9">
     <svg id="scene" viewBox="-232 -244 464 476" role="img" aria-hidden="false">
       <!-- fixed start marker (does not rotate) -->
       <g id="marker">
@@ -140,12 +140,12 @@
       <g id="axis"></g>
     </svg>
     <figcaption class="legend">
-      <span class="g"><i></i>Zyklus&nbsp;{1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} &mdash; Einheiten mod&nbsp;9</span>
-      <span class="t"><i></i>Achse&nbsp;{3,&thinsp;6,&thinsp;9} &mdash; Vielfache von 3, nicht im Zyklus</span>
+      <span class="g" data-i18n-html="legendCycle"><i></i>Zyklus&nbsp;{1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} &mdash; Einheiten mod&nbsp;9</span>
+      <span class="t" data-i18n-html="legendAxis"><i></i>Achse&nbsp;{3,&thinsp;6,&thinsp;9} &mdash; Vielfache von 3, nicht im Zyklus</span>
     </figcaption>
   </figure>
 
-  <nav class="controls" aria-label="Vielfache von 142857 wählen">
+  <nav class="controls" data-i18n-aria="navAria" aria-label="Vielfache von 142857 wählen">
     <button type="button" data-n="1" aria-pressed="true">&times;1</button>
     <button type="button" data-n="2" aria-pressed="false">&times;2</button>
     <button type="button" data-n="3" aria-pressed="false">&times;3</button>
@@ -162,24 +162,75 @@
   </section>
 
   <section class="facts">
-    <p>Das Rad dreht sich, bis die erste Ziffer des Produkts unter der Markierung
+    <p data-i18n-html="fact1">Das Rad dreht sich, bis die erste Ziffer des Produkts unter der Markierung
        <span class="m">START</span> steht. Im Uhrzeigersinn abgelesen entsteht das Produkt &mdash;
        <span class="g">&times;n ist kein neues Muster, sondern derselbe Zyklus mit anderem Startpunkt.</span></p>
-    <p>Die Ziffern <span class="m g">1, 2, 4, 5, 7, 8</span> sind genau die zu 9 teilerfremden
+    <p data-i18n-html="fact2">Die Ziffern <span class="m g">1, 2, 4, 5, 7, 8</span> sind genau die zu 9 teilerfremden
        Reste &mdash; die Einheiten mod&nbsp;9. <span class="m t">3, 6, 9</span> &mdash; die Vielfachen
        von 3 &mdash; kommen in der Periode von 1&frasl;7 nie vor: Sie bilden die ruhende Achse in der Mitte.</p>
-    <p>Gegen&uuml;berliegende Ziffern des Rades erg&auml;nzen sich zu 9:
+    <p data-i18n-html="fact3">Gegen&uuml;berliegende Ziffern des Rades erg&auml;nzen sich zu 9:
        <span class="m">1+8 = 4+5 = 2+7 = 9</span>. Die Quersumme des Zyklus:
        <span class="m">1+4+2+8+5+7 = 27 &rarr; 2+7 = 9</span>.</p>
-    <p>Und bei &times;7 schlie&szlig;t sich der Kreis:
+    <p data-i18n-html="fact4">Und bei &times;7 schlie&szlig;t sich der Kreis:
        <span class="m">142857 &times; 7 = 999999</span>.</p>
   </section>
 </div>
 
 <script>
+window.I18N = {
+  de: {
+    h1: '1 &frasl; 7 &nbsp;=&nbsp; 0,142857&hellip;',
+    sub: 'Sechs Ziffern, ein einziger Kreis. <span class="per">1&frasl;7 = 0,<span class="ov">142857</span></span> &mdash; die Periode wiederholt sich endlos.',
+    figAria: 'Rad mit dem Ziffernzyklus 1-4-2-8-5-7, in der Mitte die getrennte Achse 3-6-9',
+    legendCycle: '<i></i>Zyklus&nbsp;{1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} &mdash; Einheiten mod&nbsp;9',
+    legendAxis: '<i></i>Achse&nbsp;{3,&thinsp;6,&thinsp;9} &mdash; Vielfache von 3, nicht im Zyklus',
+    navAria: 'Vielfache von 142857 wählen',
+    fact1: 'Das Rad dreht sich, bis die erste Ziffer des Produkts unter der Markierung <span class="m">START</span> steht. Im Uhrzeigersinn abgelesen entsteht das Produkt &mdash; <span class="g">&times;n ist kein neues Muster, sondern derselbe Zyklus mit anderem Startpunkt.</span>',
+    fact2: 'Die Ziffern <span class="m g">1, 2, 4, 5, 7, 8</span> sind genau die zu 9 teilerfremden Reste &mdash; die Einheiten mod&nbsp;9. <span class="m t">3, 6, 9</span> &mdash; die Vielfachen von 3 &mdash; kommen in der Periode von 1&frasl;7 nie vor: Sie bilden die ruhende Achse in der Mitte.',
+    fact3: 'Gegen&uuml;berliegende Ziffern des Rades erg&auml;nzen sich zu 9: <span class="m">1+8 = 4+5 = 2+7 = 9</span>. Die Quersumme des Zyklus: <span class="m">1+4+2+8+5+7 = 27 &rarr; 2+7 = 9</span>.',
+    fact4: 'Und bei &times;7 schlie&szlig;t sich der Kreis: <span class="m">142857 &times; 7 = 999999</span>.'
+  },
+  en: {
+    h1: '1 &frasl; 7 &nbsp;=&nbsp; 0.142857&hellip;',
+    sub: 'Six digits, a single circle. <span class="per">1&frasl;7 = 0.<span class="ov">142857</span></span> &mdash; the period repeats forever.',
+    figAria: 'Wheel with the digit cycle 1-4-2-8-5-7, at the centre the separate axis 3-6-9',
+    legendCycle: '<i></i>Cycle&nbsp;{1,&thinsp;2,&thinsp;4,&thinsp;5,&thinsp;7,&thinsp;8} &mdash; units mod&nbsp;9',
+    legendAxis: '<i></i>Axis&nbsp;{3,&thinsp;6,&thinsp;9} &mdash; multiples of 3, not in the cycle',
+    navAria: 'Choose a multiple of 142857',
+    fact1: 'The wheel turns until the first digit of the product sits under the <span class="m">START</span> marker. Read clockwise, the product appears &mdash; <span class="g">&times;n is not a new pattern, but the same cycle with a different starting point.</span>',
+    fact2: 'The digits <span class="m g">1, 2, 4, 5, 7, 8</span> are exactly the residues coprime to 9 &mdash; the units mod&nbsp;9. <span class="m t">3, 6, 9</span> &mdash; the multiples of 3 &mdash; never appear in the period of 1&frasl;7: they form the resting axis at the centre.',
+    fact3: 'Opposite digits on the wheel add up to 9: <span class="m">1+8 = 4+5 = 2+7 = 9</span>. The digit sum of the cycle: <span class="m">1+4+2+8+5+7 = 27 &rarr; 2+7 = 9</span>.',
+    fact4: 'And at &times;7 the circle closes: <span class="m">142857 &times; 7 = 999999</span>.'
+  }
+};
+</script>
+<script src="lang.js"></script>
+
+<script>
 (function(){
   "use strict";
   var NS = "http://www.w3.org/2000/svg";
+  var STR = {
+    de: {
+      dec: ",",
+      err: "Zyklus-Prüfung fehlgeschlagen bei n=",
+      shiftStart: "Ausgangslage: Der Zyklus beginnt bei <b>1</b>.",
+      shiftRot: function(idx, first){
+        return "Derselbe Zyklus &mdash; nur um <b>" + idx + (idx === 1 ? " Position" : " Positionen") +
+               "</b> gedreht, Start bei <b>" + first + "</b>.";
+      }
+    },
+    en: {
+      dec: ".",
+      err: "Cycle check failed at n=",
+      shiftStart: "Starting position: the cycle begins at <b>1</b>.",
+      shiftRot: function(idx, first){
+        return "The same cycle &mdash; just rotated by <b>" + idx + (idx === 1 ? " position" : " positions") +
+               "</b>, starting at <b>" + first + "</b>.";
+      }
+    }
+  };
+  function S(){ return STR[(window.getLang && window.getLang()) || 'de'] || STR.de; }
   var CYCLE = [1,4,2,8,5,7];     // Zyklus-Reihenfolge im Uhrzeigersinn, Start oben
   var BASE  = 142857;
   var R     = 150;               // Radius des Ziffernrings
@@ -280,7 +331,11 @@
       shiftNote = document.getElementById("shiftNote"),
       buttons = Array.prototype.slice.call(document.querySelectorAll(".controls button"));
 
+  var currentN = 1;
+
   function select(n, instant){
+    currentN = n;
+    var str = S();
     var product = BASE * n;                 // z.B. 285714 bei n=2
     var s = String(product);
     var idx = CYCLE.indexOf(+s.charAt(0));  // Startposition im Zyklus
@@ -288,7 +343,7 @@
     // Sicherheitspruefung: Zyklus ab idx muss exakt das Produkt ergeben
     var read = "";
     for (var j = 0; j < 6; j++) read += CYCLE[(idx + j) % 6];
-    if (read !== s) throw new Error("Zyklus-Pruefung fehlgeschlagen bei n=" + n);
+    if (read !== s) throw new Error(str.err + n);
 
     // Rad drehen: Startziffer unter die START-Markierung, kuerzester Weg
     var base = -idx * 60;
@@ -306,7 +361,7 @@
     // Gleichung
     eqN.textContent = String(n);
     eqProd.innerHTML = '<span class="first">' + s.charAt(0) + "</span>" + s.slice(1);
-    eqFrac.innerHTML = n + "&frasl;7 = 0,<span class=\"ov\">" + s + "</span>&hellip;";
+    eqFrac.innerHTML = n + "&frasl;7 = 0" + str.dec + "<span class=\"ov\">" + s + "</span>&hellip;";
 
     // Ziffernkette
     chips.innerHTML = "";
@@ -323,10 +378,7 @@
     }
 
     // Hinweistext
-    shiftNote.innerHTML = (idx === 0)
-      ? "Ausgangslage: Der Zyklus beginnt bei <b>1</b>."
-      : "Derselbe Zyklus &mdash; nur um <b>" + idx + (idx === 1 ? " Position" : " Positionen") +
-        "</b> gedreht, Start bei <b>" + s.charAt(0) + "</b>.";
+    shiftNote.innerHTML = (idx === 0) ? str.shiftStart : str.shiftRot(idx, s.charAt(0));
 
     buttons.forEach(function(b){
       b.setAttribute("aria-pressed", b.dataset.n === String(n) ? "true" : "false");
@@ -338,6 +390,8 @@
   });
 
   select(1, true);
+
+  window.onLangChange = function(){ select(currentN, true); };
 })();
 </script>
 </body>
