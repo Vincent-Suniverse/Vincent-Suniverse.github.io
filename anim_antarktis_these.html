@@ -137,42 +137,42 @@
 
 <div class="wrap">
   <header>
-    <div class="kicker">Geophysik &middot; 25. Juni 2026 (UTC)</div>
-    <h1>Die Bebenkette — und eine These dazu</h1>
-    <p class="sub">Ein Erdbeben-Cluster an einem Tag, zeitlich gestaffelt entlang der gro&szlig;en
+    <div class="kicker" data-i18n="kicker">Geophysik &middot; 25. Juni 2026 (UTC)</div>
+    <h1 data-i18n="h1">Die Bebenkette — und eine These dazu</h1>
+    <p class="sub" data-i18n-html="sub">Ein Erdbeben-Cluster an einem Tag, zeitlich gestaffelt entlang der gro&szlig;en
       Plattengrenzen. Darunter, klar getrennt: eine <em>Lesart</em>, die einen Antarktis-Ursprung
       vermutet — als Hypothese markiert, nicht als Befund.</p>
     <div class="badges">
-      <span class="badge fakt">Fakt-Ebene &middot; Beben &amp; Orte</span>
-      <span class="badge these">Lesart-Ebene &middot; Hypothese, kein Beweis</span>
+      <span class="badge fakt" data-i18n="badgeFakt">Fakt-Ebene &middot; Beben &amp; Orte</span>
+      <span class="badge these" data-i18n="badgeThese">Lesart-Ebene &middot; Hypothese, kein Beweis</span>
     </div>
   </header>
 
   <figure>
-    <div class="stage" id="stage" aria-label="Weltkarte mit Erdbeben-Sequenz, horizontal ziehen um die zeitliche Abfolge zu durchlaufen">
+    <div class="stage" id="stage" data-i18n-aria="stageAria" aria-label="Weltkarte mit Erdbeben-Sequenz, horizontal ziehen um die zeitliche Abfolge zu durchlaufen">
       <svg id="map" viewBox="0 0 1000 520" role="img" aria-labelledby="mapTitle">
-        <title id="mapTitle">Stilisierte Weltkarte (equirectangular) mit der Beben-Sequenz vom 25.6.2026</title>
+        <title id="mapTitle" data-i18n="mapTitle">Stilisierte Weltkarte (equirectangular) mit der Beben-Sequenz vom 25.6.2026</title>
         <g class="grid" id="grid"></g>
         <g id="landG"></g>
         <g id="layerThese"></g>
         <g id="antG"></g>
         <g id="quakeG"></g>
       </svg>
-      <div class="hint">&#8596; ziehen &middot; Positionen ungef&auml;hr</div>
+      <div class="hint" data-i18n-html="hint">&#8596; ziehen &middot; Positionen ungef&auml;hr</div>
     </div>
 
     <div class="controls">
       <div class="row">
         <div class="scrub">
-          <label for="t">Zeit-Leiste &middot; 25.6.2026 (UTC) &middot; Reihenfolge, nicht gleichzeitig</label>
+          <label for="t" data-i18n="scrubLabel">Zeit-Leiste &middot; 25.6.2026 (UTC) &middot; Reihenfolge, nicht gleichzeitig</label>
           <input type="range" id="t" min="0" max="8" step="1" value="0"
-                 aria-valuetext="Start" aria-label="Zeitliche Abfolge der Beben durchlaufen">
+                 aria-valuetext="Start" data-i18n-aria="sliderAria" aria-label="Zeitliche Abfolge der Beben durchlaufen">
           <div class="ticks" id="ticks"></div>
         </div>
         <label class="toggle">
           <input type="checkbox" id="tgl">
           <span class="sw" aria-hidden="true"></span>
-          <span class="lab">These zeigen
+          <span class="lab" data-i18n-html="toggleLab">These zeigen
             <small>Antarktis-Lesart &middot; Hypothese, kein Beweis</small></span>
         </label>
       </div>
@@ -180,31 +180,81 @@
     </div>
 
     <div class="legend">
-      <span class="it"><span class="dotG"></span> Beben (Fakt) — Gr&ouml;&szlig;e &prop; Magnitude</span>
-      <span class="it"><span class="diaT"></span> Antarktis-Orte der Lesart</span>
-      <span class="it"><span class="lineT"></span> These-Verbindung / Plattengrenzen (schematisch)</span>
+      <span class="it"><span class="dotG"></span> <span data-i18n="legQuake">Beben (Fakt) — Gr&ouml;&szlig;e &prop; Magnitude</span></span>
+      <span class="it"><span class="diaT"></span> <span data-i18n="legSites">Antarktis-Orte der Lesart</span></span>
+      <span class="it"><span class="lineT"></span> <span data-i18n="legConn">These-Verbindung / Plattengrenzen (schematisch)</span></span>
     </div>
   </figure>
 
   <div class="facts">
-    <div class="fl fakt"><span class="k">Fakt</span>
-      <p>Bebencluster 25.6.2026, entlang der Haupt-Plattengrenzen, zeitlich gestaffelt —
+    <div class="fl fakt"><span class="k" data-i18n="kFakt">Fakt</span>
+      <p data-i18n-html="factFakt">Bebencluster 25.6.2026, entlang der Haupt-Plattengrenzen, zeitlich gestaffelt —
         USGS-pr&uuml;fbar. <small>Positionen hier ungef&auml;hr; exakte USGS-Koordinaten folgen.</small></p></div>
-    <div class="fl these"><span class="k">Lesart</span>
-      <p>These: Antarktis-Ursprungsbruch als Ausl&ouml;ser — nicht bewiesen, Falsifikation offen.
+    <div class="fl these"><span class="k" data-i18n="kLesart">Lesart</span>
+      <p data-i18n-html="factThese">These: Antarktis-Ursprungsbruch als Ausl&ouml;ser — nicht bewiesen, Falsifikation offen.
         <small>Verbindung Eintritt West (Rothschild) &rarr; &bdquo;antipodale&ldquo; Wilkes-Anomalie Ost ist Interpretation, kein Messbefund.</small></p></div>
   </div>
 
   <details>
-    <summary>Datentabelle (Fakt-Ebene + Lesart-Orte)</summary>
+    <summary data-i18n="tblSummary">Datentabelle (Fakt-Ebene + Lesart-Orte)</summary>
     <div class="tblwrap"><table>
-      <thead><tr><th>#</th><th>Ort</th><th>Magnitude</th><th>Position (ungef&auml;hr)</th><th>Zeitliche Lage</th></tr></thead>
+      <thead><tr><th data-i18n="thNum">#</th><th data-i18n="thPlace">Ort</th><th data-i18n="thMag">Magnitude</th><th data-i18n="thPos">Position (ungef&auml;hr)</th><th data-i18n="thTime">Zeitliche Lage</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
   </details>
 
-  <footer>Karte stilisiert &middot; equirectangular &middot; keine externen Quellen geladen &middot; Fakt = gold, These = t&uuml;rkis (gestrichelt)</footer>
+  <footer data-i18n="footer">Karte stilisiert &middot; equirectangular &middot; keine externen Quellen geladen &middot; Fakt = gold, These = t&uuml;rkis (gestrichelt)</footer>
 </div>
+
+<script>
+window.I18N = {
+  de: {
+    kicker: 'Geophysik &middot; 25. Juni 2026 (UTC)',
+    h1: 'Die Bebenkette — und eine These dazu',
+    sub: 'Ein Erdbeben-Cluster an einem Tag, zeitlich gestaffelt entlang der gro&szlig;en Plattengrenzen. Darunter, klar getrennt: eine <em>Lesart</em>, die einen Antarktis-Ursprung vermutet — als Hypothese markiert, nicht als Befund.',
+    badgeFakt: 'Fakt-Ebene · Beben & Orte',
+    badgeThese: 'Lesart-Ebene · Hypothese, kein Beweis',
+    stageAria: 'Weltkarte mit Erdbeben-Sequenz, horizontal ziehen um die zeitliche Abfolge zu durchlaufen',
+    mapTitle: 'Stilisierte Weltkarte (equirectangular) mit der Beben-Sequenz vom 25.6.2026',
+    hint: '&#8596; ziehen &middot; Positionen ungef&auml;hr',
+    scrubLabel: 'Zeit-Leiste · 25.6.2026 (UTC) · Reihenfolge, nicht gleichzeitig',
+    sliderAria: 'Zeitliche Abfolge der Beben durchlaufen',
+    toggleLab: 'These zeigen <small>Antarktis-Lesart &middot; Hypothese, kein Beweis</small>',
+    legQuake: 'Beben (Fakt) — Gr&ouml;&szlig;e &prop; Magnitude',
+    legSites: 'Antarktis-Orte der Lesart',
+    legConn: 'These-Verbindung / Plattengrenzen (schematisch)',
+    kFakt: 'Fakt', kLesart: 'Lesart',
+    factFakt: 'Bebencluster 25.6.2026, entlang der Haupt-Plattengrenzen, zeitlich gestaffelt — USGS-pr&uuml;fbar. <small>Positionen hier ungef&auml;hr; exakte USGS-Koordinaten folgen.</small>',
+    factThese: 'These: Antarktis-Ursprungsbruch als Ausl&ouml;ser — nicht bewiesen, Falsifikation offen. <small>Verbindung Eintritt West (Rothschild) &rarr; &bdquo;antipodale&ldquo; Wilkes-Anomalie Ost ist Interpretation, kein Messbefund.</small>',
+    tblSummary: 'Datentabelle (Fakt-Ebene + Lesart-Orte)',
+    thNum: '#', thPlace: 'Ort', thMag: 'Magnitude', thPos: 'Position (ungefähr)', thTime: 'Zeitliche Lage',
+    footer: 'Karte stilisiert · equirectangular · keine externen Quellen geladen · Fakt = gold, These = türkis (gestrichelt)'
+  },
+  en: {
+    kicker: 'Geophysics &middot; 25 June 2026 (UTC)',
+    h1: 'The Quake Chain — and a Thesis on It',
+    sub: 'An earthquake cluster in a single day, staggered in time along the great plate boundaries. Below it, clearly separated: a <em>reading</em> that suspects an Antarctic origin — marked as a hypothesis, not a finding.',
+    badgeFakt: 'Fact layer · quakes & places',
+    badgeThese: 'Reading layer · hypothesis, no proof',
+    stageAria: 'World map with an earthquake sequence; drag horizontally to step through the timeline',
+    mapTitle: 'Stylised world map (equirectangular) with the quake sequence of 25 June 2026',
+    hint: '&#8596; drag &middot; positions approximate',
+    scrubLabel: 'Timeline · 25 June 2026 (UTC) · order, not simultaneous',
+    sliderAria: 'Step through the quakes in time',
+    toggleLab: 'Show thesis <small>Antarctic reading &middot; hypothesis, no proof</small>',
+    legQuake: 'Quakes (fact) — size &prop; magnitude',
+    legSites: 'Antarctic sites of the reading',
+    legConn: 'Thesis link / plate boundaries (schematic)',
+    kFakt: 'Fact', kLesart: 'Reading',
+    factFakt: 'Quake cluster 25 June 2026, along the main plate boundaries, staggered in time — USGS-verifiable. <small>Positions here approximate; exact USGS coordinates to follow.</small>',
+    factThese: 'Thesis: an Antarctic origin fracture as trigger — not proven, falsification open. <small>The link from western entry (Rothschild) &rarr; the &bdquo;antipodal&ldquo; Wilkes anomaly in the east is interpretation, not a measured finding.</small>',
+    tblSummary: 'Data table (fact layer + reading sites)',
+    thNum: '#', thPlace: 'Place', thMag: 'Magnitude', thPos: 'Position (approx.)', thTime: 'Timing',
+    footer: 'Map stylised · equirectangular · no external sources loaded · fact = gold, thesis = teal (dashed)'
+  }
+};
+</script>
+<script src="lang.js"></script>
 
 <script>
 (function(){
@@ -215,6 +265,48 @@ function Y(lat){return OFF+(90-lat)/180*H;}
 var svgNS="http://www.w3.org/2000/svg";
 function el(n,a,parent){var e=document.createElementNS(svgNS,n);
   for(var k in a){e.setAttribute(k,a[k]);} if(parent)parent.appendChild(e); return e;}
+
+/* ---------- dynamic (JS-generated) strings ---------- */
+var T={
+ de:{
+  dirN:"N",dirS:"S",dirE:"O",dirW:"W",dec:",",
+  eqNames:["Venezuela","Venezuela","Japan","Kalifornien","Neuguinea","Philippinen","Afghanistan","Afghanistan"],
+  eqNotes:["Auftakt der Kette","Doppelstoß, kurz danach","der Ring beginnt","USA, San-Andreas-Raum","Südwest-Pazifik","Ring schließt sich","zeitversetzt, nach der Kette","zeitversetzt, zweiter Stoß"],
+  antNames:["Eintritt WEST · Rothschild","Wilkes-Anomalie OST"],
+  antSubs:["~69°S 72°W · These","~70°S 120°O · „antipodal“ lt. These"],
+  ticks:["Start","1","2","3","4","5","6","| zeitversetzt","7–8"],
+  connLabel:"THESE · Verschiebung West → Ost · Hypothese, kein Beweis",
+  plateLabel:"These-Kontext: die Kette folgt den großen Plattengrenzen (schematisch) — Korrelation, kein Kausal-Beweis",
+  readStart:'<span class="tag">Fakt</span> Zeit-Leiste ziehen: die Kette läuft <b>gestaffelt</b> — Venezuela zuerst, dann der Ring, dann zeitversetzt Afghanistan.',
+  readStep:function(v,i){var q=EQ[i];return '<span class="tag">Fakt</span> <b>#'+v+" · "+T_.eqNames[i]+'</b> <span class="mag">M '+mag(q.m)+"</span> · ~"+fmt(q.lat,q.lon)+" <i>(ungefähr)</i> · 25.6.2026 (UTC) · "+T_.eqNotes[i];},
+  tag:"Fakt",
+  tblStaggered:"25.6.2026 (UTC), gestaffelt",
+  tblOffset:"25.6.2026 (UTC), zeitversetzt",
+  tblLesart:"Lesart-Ebene · Hypothese",
+  dash:"—"
+ },
+ en:{
+  dirN:"N",dirS:"S",dirE:"E",dirW:"W",dec:".",
+  eqNames:["Venezuela","Venezuela","Japan","California","New Guinea","Philippines","Afghanistan","Afghanistan"],
+  eqNotes:["start of the chain","double shock, shortly after","the ring begins","USA, San Andreas zone","south-west Pacific","the ring closes","time-shifted, after the chain","time-shifted, second shock"],
+  antNames:["Western entry · Rothschild","Wilkes anomaly · EAST"],
+  antSubs:["~69°S 72°W · thesis","~70°S 120°E · „antipodal“ per thesis"],
+  ticks:["Start","1","2","3","4","5","6","| shifted","7–8"],
+  connLabel:"THESIS · shift west → east · hypothesis, no proof",
+  plateLabel:"Thesis context: the chain follows the great plate boundaries (schematic) — correlation, not causal proof",
+  readStart:'<span class="tag">Fact</span> Drag the timeline: the chain runs <b>staggered</b> — Venezuela first, then the ring, then Afghanistan time-shifted.',
+  readStep:function(v,i){var q=EQ[i];return '<span class="tag">Fact</span> <b>#'+v+" · "+T_.eqNames[i]+'</b> <span class="mag">M '+mag(q.m)+"</span> · ~"+fmt(q.lat,q.lon)+" <i>(approx.)</i> · 25 June 2026 (UTC) · "+T_.eqNotes[i];},
+  tag:"Fact",
+  tblStaggered:"25 June 2026 (UTC), staggered",
+  tblOffset:"25 June 2026 (UTC), time-shifted",
+  tblLesart:"Reading layer · hypothesis",
+  dash:"—"
+ }
+};
+function LG(){return (window.getLang&&window.getLang())||'de';}
+var T_=T[LG()]||T.de;
+function fmt(lat,lon){return Math.abs(lat).toFixed(0)+"°"+(lat>=0?T_.dirN:T_.dirS)+" "+Math.abs(lon).toFixed(0)+"°"+(lon>=0?T_.dirE:T_.dirW);}
+function mag(m){return m.toFixed(1).replace(".",T_.dec);}
 
 /* ---------- graticule ---------- */
 var grid=document.getElementById("grid");
@@ -263,14 +355,14 @@ CONT.forEach(function(poly){
 
 /* ---------- FAKT: earthquake sequence ---------- */
 var EQ=[
- {n:"Venezuela",m:7.5,lat:10,  lon:-67, dx:-14,dy:-16,anch:"end",  note:"Auftakt der Kette"},
- {n:"Venezuela",m:7.2,lat:10.6,lon:-66, dx:14, dy:26, anch:"start",note:"Doppelsto&szlig;, kurz danach"},
- {n:"Japan",    m:6.9,lat:38,  lon:142, dx:-16,dy:-14,anch:"end",  note:"der Ring beginnt"},
- {n:"Kalifornien",m:5.6,lat:36,lon:-120,dx:-14,dy:-10,anch:"end",  note:"USA, San-Andreas-Raum"},
- {n:"Neuguinea",m:5.1,lat:-5,  lon:145, dx:-12,dy:22, anch:"end",  note:"S&uuml;dwest-Pazifik"},
- {n:"Philippinen",m:4.9,lat:13,lon:122, dx:-14,dy:-8, anch:"end",  note:"Ring schlie&szlig;t sich"},
- {n:"Afghanistan",m:5.8,lat:36,lon:69,  dx:-2, dy:-30,anch:"middle",note:"zeitversetzt, nach der Kette"},
- {n:"Afghanistan",m:6.0,lat:36.5,lon:69.8,dx:16,dy:14,anch:"start",note:"zeitversetzt, zweiter Sto&szlig;"}
+ {m:7.5,lat:10,  lon:-67, dx:-14,dy:-16,anch:"end"},
+ {m:7.2,lat:10.6,lon:-66, dx:14, dy:26, anch:"start"},
+ {m:6.9,lat:38,  lon:142, dx:-16,dy:-14,anch:"end"},
+ {m:5.6,lat:36,  lon:-120,dx:-14,dy:-10,anch:"end"},
+ {m:5.1,lat:-5,  lon:145, dx:-12,dy:22, anch:"end"},
+ {m:4.9,lat:13,  lon:122, dx:-14,dy:-8, anch:"end"},
+ {m:5.8,lat:36,  lon:69,  dx:-2, dy:-30,anch:"middle"},
+ {m:6.0,lat:36.5,lon:69.8,dx:16, dy:14, anch:"start"}
 ];
 function rad(m){return 3.5+(m-4)*2.6;} /* size proportional to magnitude */
 var quakeG=document.getElementById("quakeG");
@@ -280,29 +372,39 @@ EQ.forEach(function(q,i){
   el("circle",{"class":"ring",cx:x,cy:y,r:r+4},g);
   el("circle",{"class":"core",cx:x,cy:y,r:r},g);
   var ly=y+q.dy;
-  var t=el("text",{x:x+q.dx,y:ly,"text-anchor":q.anch},g);
-  t.innerHTML=(i+1)+"&#8202;&middot;&#8202;"+q.n+' <tspan class="m">M '+q.m.toFixed(1).replace(".",",")+"</tspan>";
-  el("text",{x:x+q.dx,y:ly+12,"text-anchor":q.anch,"class":"sub"},g).textContent="~"+fmt(q.lat,q.lon);
+  q.tEl=el("text",{x:x+q.dx,y:ly,"text-anchor":q.anch},g);
+  q.subEl=el("text",{x:x+q.dx,y:ly+12,"text-anchor":q.anch,"class":"sub"},g);
   q.g=g;
 });
-function fmt(lat,lon){
-  return Math.abs(lat).toFixed(0)+"°"+(lat>=0?"N":"S")+" "+Math.abs(lon).toFixed(0)+"°"+(lon>=0?"O":"W");
+function drawEqText(){
+  EQ.forEach(function(q,i){
+    q.tEl.innerHTML=(i+1)+"&#8202;&middot;&#8202;"+T_.eqNames[i]+' <tspan class="m">M '+mag(q.m)+"</tspan>";
+    q.subEl.textContent="~"+fmt(q.lat,q.lon);
+  });
 }
+drawEqText();
 
 /* ---------- LESART: Antarctic sites (always visible, teal = hypothesis layer) ---------- */
 var ANT=[
- {n:"Eintritt WEST · Rothschild",lat:-69,lon:-72,dx:0,dy:-16,anch:"middle",sub:"~69°S 72°W · These"},
- {n:"Wilkes-Anomalie OST",           lat:-70,lon:120,dx:0,dy:-16,anch:"middle",sub:"~70°S 120°O · „antipodal“ lt. These"}
+ {lat:-69,lon:-72,dx:0,dy:-16,anch:"middle"},
+ {lat:-70,lon:120,dx:0,dy:-16,anch:"middle"}
 ];
 var antG=document.getElementById("antG");
-ANT.forEach(function(a){
+ANT.forEach(function(a,i){
   var g=el("g",{"class":"ant"},antG);
   var x=X(a.lon),y=Y(a.lat),s=6.5;
   el("path",{"class":"dia",d:"M"+x+" "+(y-s)+"L"+(x+s)+" "+y+"L"+x+" "+(y+s)+"L"+(x-s)+" "+y+"Z"},g);
-  el("text",{x:x+a.dx,y:y+a.dy-11,"text-anchor":a.anch},g).textContent=a.n;
-  el("text",{x:x+a.dx,y:y+a.dy,"text-anchor":a.anch,"class":"sub"},g).textContent=a.sub;
+  a.nameEl=el("text",{x:x+a.dx,y:y+a.dy-11,"text-anchor":a.anch},g);
+  a.subEl=el("text",{x:x+a.dx,y:y+a.dy,"text-anchor":a.anch,"class":"sub"},g);
   a.x=x;a.y=y;
 });
+function drawAntText(){
+  ANT.forEach(function(a,i){
+    a.nameEl.textContent=T_.antNames[i];
+    a.subEl.textContent=T_.antSubs[i];
+  });
+}
+drawAntText();
 
 /* ---------- LESART overlay: connection + schematic plate boundaries ---------- */
 var layer=document.getElementById("layerThese");
@@ -327,21 +429,26 @@ el("path",{d:"M"+ax+" "+ay+" Q "+((ax+bx)/2)+" "+(Y(-90)+26)+" "+bx+" "+by,
   fill:"none",stroke:"#54d0c2","stroke-width":1.6,"stroke-dasharray":"7 6"},layer);
 var mt=el("text",{x:(ax+bx)/2,y:Y(-90)-4,"text-anchor":"middle",fill:"#54d0c2",
   "font-size":"10.5","font-style":"italic"},layer);
-mt.textContent="THESE · Verschiebung West → Ost · Hypothese, kein Beweis";
 var pt=el("text",{x:X(0),y:Y(52),"text-anchor":"middle",fill:"#54d0c2","font-size":"10",opacity:.85,
   "font-style":"italic"},layer);
-pt.textContent="These-Kontext: die Kette folgt den großen Plattengrenzen (schematisch) — Korrelation, kein Kausal-Beweis";
+function drawPlateText(){ mt.textContent=T_.connLabel; pt.textContent=T_.plateLabel; }
+drawPlateText();
 
 /* ---------- timeline scrubbing ---------- */
 var slider=document.getElementById("t"),readout=document.getElementById("readout"),
     ticks=document.getElementById("ticks"),stage=document.getElementById("stage");
-["Start","1","2","3","4","5","6","| zeitversetzt","7–8"].forEach(function(s,i){
-  var sp=document.createElement("span");sp.textContent=s;
-  if(i===7){sp.className="gap";}
-  ticks.appendChild(sp);
-});
+function drawTicks(){
+  ticks.innerHTML="";
+  T_.ticks.forEach(function(s,i){
+    var sp=document.createElement("span");sp.textContent=s;
+    if(i===7){sp.className="gap";}
+    ticks.appendChild(sp);
+  });
+}
+drawTicks();
 
 var reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var curV=0;
 function setStage(v){
   v=Math.max(0,Math.min(8,Math.round(v)));
   slider.value=v;
@@ -350,16 +457,15 @@ function setStage(v){
     q.g.classList.toggle("on",v>=i+1);
     q.g.classList.toggle("cur",v===i+1);
   });
+  curV=v;
   var av;
   if(v===0){
-    readout.innerHTML='<span class="tag">Fakt</span> Zeit-Leiste ziehen: die Kette l&auml;uft <b>gestaffelt</b> &mdash; Venezuela zuerst, dann der Ring, dann zeitversetzt Afghanistan.';
-    av="Start";
+    readout.innerHTML=T_.readStart;
+    av=T_.ticks[0];
   }else{
     var q=EQ[v-1];
-    readout.innerHTML='<span class="tag">Fakt</span> <b>#'+v+" &middot; "+q.n+'</b> <span class="mag">M '
-      +q.m.toFixed(1).replace(".",",")+"</span> &middot; ~"+fmt(q.lat,q.lon)
-      +" <i>(ungef&auml;hr)</i> &middot; 25.6.2026 (UTC) &middot; "+q.note;
-    av="#"+v+" "+q.n+" Magnitude "+q.m;
+    readout.innerHTML=T_.readStep(v,v-1);
+    av="#"+v+" "+T_.eqNames[v-1]+" Magnitude "+q.m;
   }
   slider.setAttribute("aria-valuetext",av);
 }
@@ -401,19 +507,33 @@ tgl.addEventListener("change",function(){
 });
 
 /* ---------- data table ---------- */
-var tb=document.getElementById("tbody"),rows="";
-EQ.forEach(function(q,i){
-  rows+="<tr><td>"+(i+1)+"</td><td>"+q.n+"</td><td>M "+q.m.toFixed(1).replace(".",",")
-    +"</td><td class=mut>~"+fmt(q.lat,q.lon)+"</td><td class=mut>"
-    +(i<6?"25.6.2026 (UTC), gestaffelt":"25.6.2026 (UTC), zeitversetzt")+"</td></tr>";
-});
-ANT.forEach(function(a){
-  rows+='<tr class=these><td>&mdash;</td><td>'+a.n+"</td><td>&mdash;</td><td>"+a.sub
-    +"</td><td>Lesart-Ebene &middot; Hypothese</td></tr>";
-});
-tb.innerHTML=rows;
+var tb=document.getElementById("tbody");
+function buildTable(){
+  var rows="";
+  EQ.forEach(function(q,i){
+    rows+="<tr><td>"+(i+1)+"</td><td>"+T_.eqNames[i]+"</td><td>M "+mag(q.m)
+      +"</td><td class=mut>~"+fmt(q.lat,q.lon)+"</td><td class=mut>"
+      +(i<6?T_.tblStaggered:T_.tblOffset)+"</td></tr>";
+  });
+  ANT.forEach(function(a,i){
+    rows+='<tr class=these><td>'+T_.dash+'</td><td>'+T_.antNames[i]+"</td><td>"+T_.dash+"</td><td>"+T_.antSubs[i]
+      +"</td><td>"+T_.tblLesart+"</td></tr>";
+  });
+  tb.innerHTML=rows;
+}
+buildTable();
 
 setStage(0);
+
+window.onLangChange=function(){
+  T_=T[LG()]||T.de;
+  drawEqText();
+  drawAntText();
+  drawPlateText();
+  drawTicks();
+  buildTable();
+  setStage(curV);
+};
 })();
 </script>
 

@@ -154,6 +154,9 @@
   </footer>
 </div>
 
+<script>window.I18N = { de:{}, en:{} };</script>
+<script src="lang.js"></script>
+
 <script>
 "use strict";
 
@@ -212,9 +215,63 @@ const LANG = {
         alt: "Sieben Quadrate zu je 144 Feldern (12 mal 12) ergeben zusammen 1008."
       }
     ]
+  },
+  en: {
+    title: "1008 = 846 + 162",
+    subtitle: "The Frame · all from 3, 4, 7",
+    factPill: "FACT",
+    facts: [
+      "9 + 27 + 81 + 729 = 846. These are the powers 3², 3³, 3⁴, 3⁶.",
+      "162 = 2 × 81. Together: 846 + 162 = 1008.",
+      "1008 = 7 × 144 = 7 × 12², and 12 = 3 × 4. All from 3, 4 and 7."
+    ],
+    prev: "‹ Back",
+    next: "Next ›",
+    prevAria: "Back – previous step",
+    nextAria: "Next – next step",
+    navAria: "Step navigation",
+    dotAria: "Go to step {n}: {t}",
+    romans: ["I","II","III","IV","V"],
+    counterSep: " / ",
+    errorMsg: "Self-check failed – the arithmetic doesn't add up. Display stopped.",
+    labels: {
+      n1008: "1008", n846: "846", n162: "162",
+      n9: "9", n27: "27", n81: "81", n729: "729", n144: "144",
+      p3_2: "3²", p3_3: "3³", p3_4: "3⁴", p3_6: "3⁶",
+      plus: "+", eq162: "= 162",
+      pct846: "83.9 %", pct162: "16.1 %",
+      whole: "1008 units"
+    },
+    steps: [
+      {
+        title: "1008",
+        body: "1008 = 7 × 144 = 7 × 12², and 12 = 3 × 4 — built entirely from 3, 4 and 7, nothing from outside.",
+        alt: "The number 1008 as a single filled bar."
+      },
+      {
+        title: "846 = 9 + 27 + 81 + 729",
+        body: "The four powers of 3 — 3², 3³, 3⁴ and 3⁶ — add up to 846: 9 + 27 + 81 + 729.",
+        alt: "Four golden blocks with 729, 81, 27 and 9 cells add up to 846."
+      },
+      {
+        title: "162 = 2 × 81",
+        body: "162 is two blocks of 81 each (= 3⁴): 81 + 81 = 162.",
+        alt: "Two teal squares of 81 cells each (9 by 9) make 162."
+      },
+      {
+        title: "846 + 162 = 1008",
+        body: "Together they fill 1008: the golden part is 846 (83.9 %), the teal part 162 (16.1 %).",
+        alt: "A bar of length 1008, split into a golden part 846 and a teal part 162."
+      },
+      {
+        title: "1008 = 7 × 144",
+        body: "The same amount, grouped differently — seven squares of 12 × 12. Each has 144 cells, and 12 = 3 × 4: so 7 × 144 = 1008.",
+        alt: "Seven squares of 144 cells each (12 by 12) make 1008."
+      }
+    ]
   }
 };
-const L = LANG.de;
+let L = LANG[(window.getLang && window.getLang()) || 'de'] || LANG.de;
 
 /* ============ self-check ============ */
 const OK =
@@ -467,6 +524,37 @@ function init(){
 
   render();
 }
+
+/* ============ language switch ============ */
+window.onLangChange = function(){
+  L = LANG[(window.getLang && window.getLang()) || 'de'] || LANG.de;
+
+  $("title").textContent = L.title;
+  $("subtitle").textContent = L.subtitle;
+  $("pill").textContent = L.factPill;
+
+  const facts = $("facts");
+  facts.textContent = "";
+  L.facts.forEach(f => {
+    const p = document.createElement("p");
+    p.textContent = f;
+    facts.appendChild(p);
+  });
+
+  const prev = $("prev"), next = $("next");
+  if (prev){ prev.textContent = L.prev; prev.setAttribute("aria-label", L.prevAria); }
+  if (next){ next.textContent = L.next; next.setAttribute("aria-label", L.nextAria); }
+  const nav = document.querySelector("nav.controls");
+  if (nav) nav.setAttribute("aria-label", L.navAria);
+
+  document.querySelectorAll(".dot").forEach((d, i) => {
+    const s = L.steps[i];
+    if (s) d.setAttribute("aria-label",
+      L.dotAria.replace("{n}", String(i + 1)).replace("{t}", s.title));
+  });
+
+  render();
+};
 
 init();
 </script>

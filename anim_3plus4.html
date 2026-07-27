@@ -193,14 +193,14 @@
 <body>
 <main data-step="1">
   <header>
-    <h1>Der 3+4-Bruch</h1>
-    <div class="sub">Ternär trifft Dual</div>
+    <h1 data-i18n="h1">Der 3+4-Bruch</h1>
+    <div class="sub" data-i18n="sub">Ternär trifft Dual</div>
     <div class="equation" aria-hidden="true">
       <span class="n3">3</span> + <span class="n4">4</span> = <span class="n7">7</span>
     </div>
   </header>
 
-  <figure aria-label="Kreis mit einbeschriebenem Dreieck und Viereck, die die obere Ecke teilen">
+  <figure data-i18n-aria="figAria" aria-label="Kreis mit einbeschriebenem Dreieck und Viereck, die die obere Ecke teilen">
   <svg viewBox="0 0 500 500" role="img">
     <defs>
       <linearGradient id="coreGrad" x1="0" y1="0" x2="0" y2="1">
@@ -266,7 +266,7 @@
       <circle cx="250" cy="60" r="26" fill="url(#originGlow)"/>
       <circle cx="250" cy="60" r="5" fill="#f0b45e" stroke="#0a0d13" stroke-width="2"/>
       <text x="250" y="26" text-anchor="middle" font-family="Georgia, serif"
-        font-size="14" letter-spacing="2" fill="rgba(238,241,246,.6)">URSPRUNG</text>
+        font-size="14" letter-spacing="2" fill="rgba(238,241,246,.6)" data-i18n="origin">URSPRUNG</text>
     </g>
 
     <!-- Step 4: die vier Pole -->
@@ -282,7 +282,7 @@
         <circle cx="389.09" cy="300.91" r="9" fill="none"/>
       </g>
       <text x="250" y="322" text-anchor="middle" class="mono-t"
-        font-size="13" fill="rgba(238,241,246,.75)" id="coreLabel">∩ ≈ 38,6 %</text>
+        font-size="13" fill="rgba(238,241,246,.75)" id="coreLabel" data-i18n="coreLabel">∩ ≈ 38,6 %</text>
     </g>
 
     <!-- Step 5: Flächen-Labels -->
@@ -297,11 +297,11 @@
 
   <div class="stats" id="stats" aria-hidden="true">
     <div class="stat"><span class="chip" style="background:rgba(240,180,94,.85)"></span>
-      Struktur <span class="v">≈ 66 %</span></div>
+      <span data-i18n="lblStruktur">Struktur</span> <span class="v">≈ 66 %</span></div>
     <div class="stat"><span class="chip" style="background:rgba(110,124,158,.9)"></span>
-      Chaos <span class="v">≈ 34 %</span></div>
+      <span data-i18n="lblChaos">Chaos</span> <span class="v">≈ 34 %</span></div>
     <div class="stat"><span class="chip" style="background:linear-gradient(180deg,#f0b45e,#54d0c2)"></span>
-      Kern <span class="v">≈ 38,6 %</span></div>
+      <span data-i18n="lblKern">Kern</span> <span class="v" data-i18n="valKern">≈ 38,6 %</span></div>
   </div>
 
   <section class="panel" aria-live="polite">
@@ -312,45 +312,73 @@
     </div>
   </section>
 
-  <nav aria-label="Schritte">
-    <button id="btnPrev" type="button">‹ Zurück</button>
+  <nav data-i18n-aria="navAria" aria-label="Schritte">
+    <button id="btnPrev" type="button" data-i18n="btnPrev">‹ Zurück</button>
     <div class="dots" id="dots" role="tablist"></div>
-    <button id="btnNext" type="button">Weiter ›</button>
+    <button id="btnNext" type="button" data-i18n="btnNext">Weiter ›</button>
   </nav>
-  <div class="hint">Pfeiltasten · Wischen · Klick</div>
+  <div class="hint" data-i18n="hint">Pfeiltasten · Wischen · Klick</div>
 </main>
+
+<script>
+window.I18N = {
+  de: {
+    h1: 'Der 3+4-Bruch',
+    sub: 'Ternär trifft Dual',
+    figAria: 'Kreis mit einbeschriebenem Dreieck und Viereck, die die obere Ecke teilen',
+    origin: 'URSPRUNG',
+    coreLabel: '∩ ≈ 38,6 %',
+    lblStruktur: 'Struktur', lblChaos: 'Chaos', lblKern: 'Kern', valKern: '≈ 38,6 %',
+    btnPrev: '‹ Zurück', btnNext: 'Weiter ›', navAria: 'Schritte',
+    hint: 'Pfeiltasten · Wischen · Klick'
+  },
+  en: {
+    h1: 'The 3+4 Break',
+    sub: 'Ternary meets Dual',
+    figAria: 'Circle with an inscribed triangle and square sharing the top vertex',
+    origin: 'ORIGIN',
+    coreLabel: '∩ ≈ 38.6 %',
+    lblStruktur: 'Structure', lblChaos: 'Chaos', lblKern: 'Core', valKern: '≈ 38.6 %',
+    btnPrev: '‹ Back', btnNext: 'Next ›', navAria: 'Steps',
+    hint: 'Arrow keys · Swipe · Click'
+  }
+};
+</script>
+<script src="lang.js"></script>
 
 <script>
 (function () {
   "use strict";
 
-  var STEPS = [
-    {
-      no: "I / V",
-      title: "Die Einheit",
-      body: 'Der Kreis: das Ganze, ungeteilt. Oben liegt der <b>gemeinsame Ursprung</b> — der eine Punkt, von dem jede Teilung ausgeht.'
-    },
-    {
-      no: "II / V",
-      title: "Die 3 — ternär",
-      body: 'Das <span class="g">Dreieck</span> teilt den Kreis in Drittel, ab dem Ursprung: <span class="m">90° · 210° · 330°</span>. Die erste ungerade Ordnung — das Ternäre.'
-    },
-    {
-      no: "III / V",
-      title: "Die 4 — dual",
-      body: 'Das <span class="t">Viereck</span> viertelt den Kreis, aus demselben Ursprung: <span class="m">90° · 180° · 270° · 0°</span>. Das Duale. <b>Bis 6 hält Symmetrie; die 7&nbsp;=&nbsp;3+4 bricht sie.</b>'
-    },
-    {
-      no: "IV / V",
-      title: "Der geteilte Kern",
-      body: 'Dreieck und Viereck überlappen sich zu <span class="m">≈ 38,6 %</span> des Kreises — der gemeinsame Kern. An <b>vier Polen</b> kreuzen sich ihre Kanten: dort reibt Ternär an Dual.'
-    },
-    {
-      no: "V / V",
-      title: "Struktur und Chaos",
-      body: 'Zusammen füllen 3 und 4 <span class="m">≈ 66 %</span> des Kreises — Struktur. <span class="m">≈ 34 %</span> bleiben frei — Chaos. Die 7 ist <b>nicht der Ursprung</b>, sie ist der Verbindungspunkt: <span class="g">3</span>&nbsp;+&nbsp;<span class="t">4</span>&nbsp;=&nbsp;<b>7</b>, der erste erzwungene asymmetrische Bruch.'
-    }
-  ];
+  var STEP_TEXT = {
+    de: [
+      { no: "I / V",   title: "Die Einheit",
+        body: 'Der Kreis: das Ganze, ungeteilt. Oben liegt der <b>gemeinsame Ursprung</b> — der eine Punkt, von dem jede Teilung ausgeht.' },
+      { no: "II / V",  title: "Die 3 — ternär",
+        body: 'Das <span class="g">Dreieck</span> teilt den Kreis in Drittel, ab dem Ursprung: <span class="m">90° · 210° · 330°</span>. Die erste ungerade Ordnung — das Ternäre.' },
+      { no: "III / V", title: "Die 4 — dual",
+        body: 'Das <span class="t">Viereck</span> viertelt den Kreis, aus demselben Ursprung: <span class="m">90° · 180° · 270° · 0°</span>. Das Duale. <b>Bis 6 hält Symmetrie; die 7&nbsp;=&nbsp;3+4 bricht sie.</b>' },
+      { no: "IV / V",  title: "Der geteilte Kern",
+        body: 'Dreieck und Viereck überlappen sich zu <span class="m">≈ 38,6 %</span> des Kreises — der gemeinsame Kern. An <b>vier Polen</b> kreuzen sich ihre Kanten: dort reibt Ternär an Dual.' },
+      { no: "V / V",   title: "Struktur und Chaos",
+        body: 'Zusammen füllen 3 und 4 <span class="m">≈ 66 %</span> des Kreises — Struktur. <span class="m">≈ 34 %</span> bleiben frei — Chaos. Die 7 ist <b>nicht der Ursprung</b>, sie ist der Verbindungspunkt: <span class="g">3</span>&nbsp;+&nbsp;<span class="t">4</span>&nbsp;=&nbsp;<b>7</b>, der erste erzwungene asymmetrische Bruch.' }
+    ],
+    en: [
+      { no: "I / V",   title: "Unity",
+        body: 'The circle: the whole, undivided. At the top lies the <b>shared origin</b> — the single point from which every division proceeds.' },
+      { no: "II / V",  title: "The 3 — ternary",
+        body: 'The <span class="g">triangle</span> divides the circle into thirds, from the origin: <span class="m">90° · 210° · 330°</span>. The first odd order — the ternary.' },
+      { no: "III / V", title: "The 4 — dual",
+        body: 'The <span class="t">square</span> quarters the circle, from the same origin: <span class="m">90° · 180° · 270° · 0°</span>. The dual. <b>Up to 6 symmetry holds; the 7&nbsp;=&nbsp;3+4 breaks it.</b>' },
+      { no: "IV / V",  title: "The shared core",
+        body: 'Triangle and square overlap across <span class="m">≈ 38.6 %</span> of the circle — the shared core. At <b>four poles</b> their edges cross: there the ternary rubs against the dual.' },
+      { no: "V / V",   title: "Structure and Chaos",
+        body: 'Together 3 and 4 fill <span class="m">≈ 66 %</span> of the circle — structure. <span class="m">≈ 34 %</span> stay free — chaos. The 7 is <b>not the origin</b>, it is the junction: <span class="g">3</span>&nbsp;+&nbsp;<span class="t">4</span>&nbsp;=&nbsp;<b>7</b>, the first forced asymmetric break.' }
+    ]
+  };
+  var DOT_LABEL = { de: "Schritt ", en: "Step " };
+  function LG(){ return (window.getLang && window.getLang()) || 'de'; }
+  var STEPS = STEP_TEXT[LG()] || STEP_TEXT.de;
 
   // element id -> step from which it is visible (1-based)
   var REVEAL = {
@@ -382,7 +410,7 @@
     (function (n) {
       var d = document.createElement("button");
       d.type = "button";
-      d.setAttribute("aria-label", "Schritt " + n);
+      d.setAttribute("aria-label", (DOT_LABEL[LG()] || DOT_LABEL.de) + n);
       d.addEventListener("click", function () { go(n); });
       dotsBox.appendChild(d);
       dots.push(d);
@@ -462,6 +490,14 @@
       window.requestAnimationFrame(render);
     });
   }
+
+  window.onLangChange = function () {
+    STEPS = STEP_TEXT[LG()] || STEP_TEXT.de;
+    setText();
+    dots.forEach(function (d, idx) {
+      d.setAttribute("aria-label", (DOT_LABEL[LG()] || DOT_LABEL.de) + (idx + 1));
+    });
+  };
 })();
 </script>
 </body>

@@ -263,26 +263,26 @@ button.spd[aria-pressed="true"]{color:var(--gold);border-color:var(--gold-dim)}
 <main>
   <header>
     <h1><span class="g">α</span> · <span class="g">β</span> · <span class="g">γ</span></h1>
-    <p class="subtitle">Der π-Strom · ganzzahliger Spigot</p>
-    <p class="intro">Ein Verfahren, das die Ziffern von π einzeln ausgibt — nur mit ganzen Zahlen, ohne Kommazahlen.</p>
+    <p class="subtitle" data-i18n="subtitle">Der π-Strom · ganzzahliger Spigot</p>
+    <p class="intro" data-i18n="intro">Ein Verfahren, das die Ziffern von π einzeln ausgibt — nur mit ganzen Zahlen, ohne Kommazahlen.</p>
   </header>
 
-  <section class="stage" aria-label="Ein Ausgabeschritt: Zustand, Operator, Ziffer">
+  <section class="stage" data-i18n-aria="stageAria" aria-label="Ein Ausgabeschritt: Zustand, Operator, Ziffer">
     <div class="node">
       <span class="letter">α</span>
-      <div class="cap">Zustand</div>
+      <div class="cap" data-i18n="cap_state">Zustand</div>
       <div class="sub" id="alphaSub">k = 0</div>
     </div>
     <div class="conn" aria-hidden="true"></div>
     <div class="node">
       <span class="letter">β<span class="ring" id="betaRing" aria-hidden="true"></span></span>
-      <div class="cap">Operator</div>
-      <div class="sub">Ganzzahl-Schritt</div>
+      <div class="cap" data-i18n="cap_op">Operator</div>
+      <div class="sub" data-i18n="sub_op">Ganzzahl-Schritt</div>
     </div>
     <div class="conn" aria-hidden="true"></div>
     <div class="node">
       <span class="letter">γ</span>
-      <div class="cap">Ziffer</div>
+      <div class="cap" data-i18n="cap_digit">Ziffer</div>
       <div class="sub"><span id="gammaDigit" aria-live="off"></span></div>
     </div>
   </section>
@@ -290,30 +290,74 @@ button.spd[aria-pressed="true"]{color:var(--gold);border-color:var(--gold-dim)}
   <div class="error" id="err" hidden role="alert"></div>
 
   <section class="tape-wrap">
-    <div class="tape" id="tape" aria-label="Ziffernstrom von π"></div>
-    <div class="count"><span id="nCount">0</span> Ziffern (nach dem Komma)</div>
-    <div class="note" id="endNote" hidden>Ende der Demonstration: 140 Ziffern insgesamt (mit der 3 vor dem Komma).</div>
-    <div class="note" id="rmNote" hidden>Reduzierte Bewegung aktiv — statische Anzeige. »Schritt« gibt weitere Ziffern ohne Animation aus.</div>
+    <div class="tape" id="tape" data-i18n-aria="tapeAria" aria-label="Ziffernstrom von π"></div>
+    <div class="count"><span id="nCount">0</span> <span data-i18n="count_suffix">Ziffern (nach dem Komma)</span></div>
+    <div class="note" id="endNote" hidden data-i18n="endNote">Ende der Demonstration: 140 Ziffern insgesamt (mit der 3 vor dem Komma).</div>
+    <div class="note" id="rmNote" hidden data-i18n="rmNote">Reduzierte Bewegung aktiv — statische Anzeige. »Schritt« gibt weitere Ziffern ohne Animation aus.</div>
   </section>
 
   <section class="controls" aria-label="Steuerung">
-    <button id="btnPlay" aria-pressed="true" aria-label="Atem: automatische Ausgabe an- oder abschalten">⏸ Atem</button>
-    <button id="btnStep" aria-label="Schritt: genau eine weitere Ziffer ausgeben">⏭ Schritt</button>
-    <div class="speed" role="group" aria-label="Geschwindigkeit">
-      <span class="lbl">Tempo</span>
-      <button class="spd" id="spdSlow" aria-pressed="true">langsam</button>
-      <button class="spd" id="spdNorm" aria-pressed="false">normal</button>
+    <button id="btnPlay" aria-pressed="true" data-i18n-aria="btn_play_aria" aria-label="Atem: automatische Ausgabe an- oder abschalten">⏸ Atem</button>
+    <button id="btnStep" data-i18n="btn_step" data-i18n-aria="btn_step_aria" aria-label="Schritt: genau eine weitere Ziffer ausgeben">⏭ Schritt</button>
+    <div class="speed" role="group" data-i18n-aria="speedAria" aria-label="Geschwindigkeit">
+      <span class="lbl" data-i18n="tempo">Tempo</span>
+      <button class="spd" id="spdSlow" aria-pressed="true" data-i18n="spd_slow">langsam</button>
+      <button class="spd" id="spdNorm" aria-pressed="false" data-i18n="spd_norm">normal</button>
     </div>
   </section>
 
   <section class="fakt" aria-label="Fakten">
-    <span class="fakt-tag">FAKT</span>
-    <p>Der Spigot-Algorithmus (Gibbons) erzeugt die Ziffern von π der Reihe nach — mit reiner Ganzzahl-Arithmetik, ganz ohne Gleitkomma. Jede Ziffer ist exakt.</p>
-    <p>α ist der interne Zustand vor einem Schritt, β die feste Ganzzahl-Operation, γ die Ziffer, die dabei ausgegeben wird und den Strom rechts verlängert.</p>
-    <p>Der Strom wächst nur nach rechts — jede Ziffer steht fest, sobald sie ausgegeben ist.</p>
-    <p>Selbstprüfung: die ausgegebene Ziffernfolge wird laufend gegen die bekannten Ziffern von π geprüft.</p>
+    <span class="fakt-tag" data-i18n="fakt_tag">FAKT</span>
+    <p data-i18n="f1">Der Spigot-Algorithmus (Gibbons) erzeugt die Ziffern von π der Reihe nach — mit reiner Ganzzahl-Arithmetik, ganz ohne Gleitkomma. Jede Ziffer ist exakt.</p>
+    <p data-i18n="f2">α ist der interne Zustand vor einem Schritt, β die feste Ganzzahl-Operation, γ die Ziffer, die dabei ausgegeben wird und den Strom rechts verlängert.</p>
+    <p data-i18n="f3">Der Strom wächst nur nach rechts — jede Ziffer steht fest, sobald sie ausgegeben ist.</p>
+    <p data-i18n="f4">Selbstprüfung: die ausgegebene Ziffernfolge wird laufend gegen die bekannten Ziffern von π geprüft.</p>
   </section>
 </main>
+
+<script>
+window.I18N = {
+  de:{
+    subtitle:'Der π-Strom · ganzzahliger Spigot',
+    intro:'Ein Verfahren, das die Ziffern von π einzeln ausgibt — nur mit ganzen Zahlen, ohne Kommazahlen.',
+    stageAria:'Ein Ausgabeschritt: Zustand, Operator, Ziffer',
+    cap_state:'Zustand', cap_op:'Operator', sub_op:'Ganzzahl-Schritt', cap_digit:'Ziffer',
+    tapeAria:'Ziffernstrom von π', count_suffix:'Ziffern (nach dem Komma)',
+    endNote:'Ende der Demonstration: 140 Ziffern insgesamt (mit der 3 vor dem Komma).',
+    rmNote:'Reduzierte Bewegung aktiv — statische Anzeige. »Schritt« gibt weitere Ziffern ohne Animation aus.',
+    btn_play_aria:'Atem: automatische Ausgabe an- oder abschalten',
+    btn_step:'⏭ Schritt', btn_step_aria:'Schritt: genau eine weitere Ziffer ausgeben',
+    speedAria:'Geschwindigkeit', tempo:'Tempo', spd_slow:'langsam', spd_norm:'normal',
+    fakt_tag:'FAKT',
+    f1:'Der Spigot-Algorithmus (Gibbons) erzeugt die Ziffern von π der Reihe nach — mit reiner Ganzzahl-Arithmetik, ganz ohne Gleitkomma. Jede Ziffer ist exakt.',
+    f2:'α ist der interne Zustand vor einem Schritt, β die feste Ganzzahl-Operation, γ die Ziffer, die dabei ausgegeben wird und den Strom rechts verlängert.',
+    f3:'Der Strom wächst nur nach rechts — jede Ziffer steht fest, sobald sie ausgegeben ist.',
+    f4:'Selbstprüfung: die ausgegebene Ziffernfolge wird laufend gegen die bekannten Ziffern von π geprüft.',
+    err:'Fehler: Abweichung von den bekannten Ziffern von π festgestellt — Ausgabe gestoppt.',
+    play_on:'⏸ Atem', play_off:'▶ Atem'
+  },
+  en:{
+    subtitle:'The π-stream · integer spigot',
+    intro:'A method that outputs the digits of π one at a time — using only whole numbers, no decimals.',
+    stageAria:'One output step: state, operator, digit',
+    cap_state:'State', cap_op:'Operator', sub_op:'integer step', cap_digit:'Digit',
+    tapeAria:'Digit stream of π', count_suffix:'digits (after the point)',
+    endNote:'End of the demonstration: 140 digits total (including the 3 before the point).',
+    rmNote:'Reduced motion active — static display. »Step« outputs more digits without animation.',
+    btn_play_aria:'Breath: turn automatic output on or off',
+    btn_step:'⏭ Step', btn_step_aria:'Step: output exactly one more digit',
+    speedAria:'Speed', tempo:'Tempo', spd_slow:'slow', spd_norm:'normal',
+    fakt_tag:'FACT',
+    f1:'The spigot algorithm (Gibbons) produces the digits of π in order — with pure integer arithmetic, no floating point at all. Every digit is exact.',
+    f2:'α is the internal state before a step, β the fixed integer operation, γ the digit that is emitted and extends the stream to the right.',
+    f3:'The stream grows only to the right — every digit is fixed the moment it is emitted.',
+    f4:'Self-check: the emitted digit sequence is continuously verified against the known digits of π.',
+    err:'Error: deviation from the known digits of π detected — output stopped.',
+    play_on:'⏸ Breath', play_off:'▶ Breath'
+  }
+};
+</script>
+<script src="lang.js"></script>
 
 <script>
 "use strict";
@@ -358,6 +402,12 @@ const tape = $("tape"), nCount = $("nCount"), alphaSub = $("alphaSub"),
       spdSlow = $("spdSlow"), spdNorm = $("spdNorm"),
       err = $("err"), endNote = $("endNote"), rmNote = $("rmNote");
 
+/* Sprach-Umschaltung: dynamisch gesetzte Texte neu anwenden */
+window.onLangChange = function(){
+  btnPlay.textContent = window.t(playing ? 'play_on' : 'play_off');
+  if(err && !err.hidden) err.textContent = window.t('err');
+};
+
 function fail(){
   failed = true;
   stopTimer();
@@ -365,8 +415,8 @@ function fail(){
   btnPlay.disabled = true;
   btnStep.disabled = true;
   btnPlay.setAttribute("aria-pressed","false");
-  btnPlay.textContent = "▶ Atem";
-  err.textContent = "Fehler: Abweichung von den bekannten Ziffern von π festgestellt — Ausgabe gestoppt.";
+  btnPlay.textContent = window.t('play_off');
+  err.textContent = window.t('err');
   err.hidden = false;
 }
 
@@ -376,7 +426,7 @@ function finish(){
   btnPlay.disabled = true;
   btnStep.disabled = true;
   btnPlay.setAttribute("aria-pressed","false");
-  btnPlay.textContent = "▶ Atem";
+  btnPlay.textContent = window.t('play_off');
   endNote.hidden = false;
 }
 
@@ -440,7 +490,7 @@ function tick(){
 function setPlaying(on){
   playing = on && !failed && produced.length < MAX_DIGITS;
   btnPlay.setAttribute("aria-pressed", playing ? "true" : "false");
-  btnPlay.textContent = playing ? "⏸ Atem" : "▶ Atem";
+  btnPlay.textContent = playing ? window.t('play_on') : window.t('play_off');
   stopTimer();
   if(playing) timer = setTimeout(tick, SPEEDS[speedKey]);
 }
