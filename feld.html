@@ -346,7 +346,7 @@
 
   <div class="fig" id="fig" role="button" tabindex="0"
        data-i18n-aria="figAria"
-       aria-label="Das Feld öffnen: die sechs Eingänge einblenden">
+       aria-label="Das Feld öffnen: die sieben Eingänge einblenden">
     <div class="fig-inner" id="figInner">
       <svg viewBox="0 0 600 600" aria-hidden="true">
         <defs>
@@ -372,11 +372,12 @@
       <!-- Die 6 Tore, im Uhrzeigersinn ab oben -->
       <nav aria-label="Eingänge" data-i18n-aria="navAria">
         <a class="gate side-top"    style="left:50%;    top:13.333%; --i:0" href="spielfeld.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">3 · 6 · 9</span></a>
-        <a class="gate side-right"  style="left:86.667%;top:50%;     --i:1" href="fau.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">FAU</span></a>
-        <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:2" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_thesen">Thesen</span></a>
-        <a class="gate side-bottom" style="left:50%;    top:86.667%; --i:3" href="index.html"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Linktree</span></a>
-        <a class="gate side-left"   style="left:18.245%;top:68.333%; --i:4" href="#highlights" data-room="highlights" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Highlights</span></a>
-        <a class="gate side-left"   style="left:13.333%;top:50%;     --i:5" href="#musik"      data-room="musik"      tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_musik">Musik</span></a>
+        <a class="gate side-right"  style="left:81.755%;top:31.667%; --i:1" href="https://vincent-suniverse.github.io/Public-project/" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">UVB-76</span></a>
+        <a class="gate side-right"  style="left:86.667%;top:50%;     --i:2" href="fau.html" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">FAU</span></a>
+        <a class="gate side-right"  style="left:81.755%;top:68.333%; --i:3" href="#thesen"     data-room="thesen"     tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_thesen">Thesen</span></a>
+        <a class="gate side-bottom" style="left:50%;    top:86.667%; --i:4" href="index.html"  tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Linktree</span></a>
+        <a class="gate side-left"   style="left:18.245%;top:68.333%; --i:5" href="#highlights" data-room="highlights" tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl">Highlights</span></a>
+        <a class="gate side-left"   style="left:13.333%;top:50%;     --i:6" href="#musik"      data-room="musik"      tabindex="-1" aria-hidden="true"><span class="dot"></span><span class="lbl" data-i18n="g_musik">Musik</span></a>
       </nav>
     </div>
   </div>
@@ -398,7 +399,7 @@
 <script>
   window.I18N = {
     de:{
-      figAria:'Das Feld öffnen: die sechs Eingänge einblenden',
+      figAria:'Das Feld öffnen: die sieben Eingänge einblenden',
       navAria:'Eingänge',
       g_thesen:'Thesen', g_musik:'Musik',
       intro:'Musik, ein Denk-Rahmen, und eine andere Art,<br>die Ordnung hinter dem Chaos zu sehen.',
@@ -414,7 +415,7 @@
       months:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
     },
     en:{
-      figAria:'Open the field: reveal the six entrances',
+      figAria:'Open the field: reveal the seven entrances',
       navAria:'Entrances',
       g_thesen:'Theses', g_musik:'Music',
       intro:'Music, a framework for thinking, and another way<br>to see the order behind the chaos.',
@@ -477,7 +478,7 @@
   function schedule(){ if (!raf) raf = requestAnimationFrame(render); }
 
   function updateLit(){
-    var n = Math.floor(progress * 6 + 1e-4);
+    var n = Math.floor(progress * 7 + 1e-4);
     for (var i = 0; i < gates.length; i++){
       if (i < n) gates[i].classList.add('lit');
     }
