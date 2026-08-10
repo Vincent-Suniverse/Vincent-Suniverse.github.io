@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Die Brückenformel — n + m + 7·(m/n) = 9</title>
+<style>
+  :root {
+    --bg: #0a0d13;
+    --ink: #eef1f6;
+    --ink-dim: rgba(238,241,246,.55);
+    --ink-faint: rgba(238,241,246,.22);
+    --gold: #f0b45e;
+    --teal: #54d0c2;
+    --red: #e05555;
+    --purple: #9b7ed8;
+    --line: rgba(238,241,246,.10);
+    --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.55;
+    overflow-x: hidden;
+    display: flex;
+    justify-content: center;
+  }
+  main {
+    width: 100%;
+    max-width: 720px;
+    padding: clamp(20px, 5vw, 48px) clamp(16px, 4vw, 32px) 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(20px, 4vh, 40px);
+  }
+  header { text-align: center; }
+  header h1 {
+    font-weight: 400;
+    font-size: clamp(1.2rem, 4vw, 1.5rem);
+    letter-spacing: .18em;
+    text-transform: uppercase;
+  }
+  header .sub {
+    margin-top: 6px;
+    font-size: .8rem;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  .formula {
+    font-family: var(--mono);
+    font-size: clamp(1.1rem, 3.5vw, 1.4rem);
+    letter-spacing: .08em;
+    text-align: center;
+    color: var(--ink-dim);
+  }
+  .formula .n { color: var(--gold); }
+  .formula .m { color: var(--teal); }
+  .formula .seven { color: var(--purple); }
+  .formula .nine { color: var(--red); }
+
+  section { width: 100%; }
+  section h2 {
+    font-weight: 400;
+    font-size: clamp(.95rem, 3vw, 1.15rem);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+    margin-bottom: 16px;
+  }
+
+  figure { width: 100%; display: flex; justify-content: center; }
+  svg { display: block; overflow: visible; }
+  canvas { display: block; border-radius: 8px; }
+
+  .note {
+    font-size: .82rem;
+    color: var(--ink-faint);
+    text-align: center;
+    line-height: 1.5;
+    max-width: 520px;
+  }
+
+  /* reveal */
+  .rv { opacity: 0; transition: opacity 1.2s ease; }
+  .rv.on { opacity: 1; }
+
+  /* controls */
+  .ctrl {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  }
+  .ctrl button {
+    padding: 8px 18px;
+    border: 1px solid var(--ink-faint);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .85rem;
+    cursor: pointer;
+    transition: border-color .3s, color .3s;
+  }
+  .ctrl button:hover, .ctrl button.active {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  #info {
+    font-family: var(--mono);
+    font-size: .82rem;
+    color: var(--ink-dim);
+    text-align: center;
+    min-height: 2.4em;
+    transition: opacity .4s;
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header class="rv">
+  <h1>Die Brückenformel</h1>
+  <div class="sub">das fehlende Bindeglied</div>
+</header>
+
+<div class="formula rv">
+  <span class="n">n</span> + <span class="m">m</span> +
+  <span class="seven">7</span>·(<span class="m">m</span>/<span class="n">n</span>)
+  = <span class="nine">9</span>
+</div>
+
+<section class="rv">
+  <h2>I — Das Dreieck</h2>
+  <figure>
+    <svg id="triangle" viewBox="0 0 400 360" width="400" height="360">
+      <defs>
+        <marker id="arw" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6" fill="none" stroke="var(--ink-dim)" stroke-width="1"/>
+        </marker>
+        <radialGradient id="glow-gold" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--gold)" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glow-teal" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--teal)" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="var(--teal)" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glow-purple" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--purple)" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="var(--purple)" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <!-- edges -->
+      <path id="edge-gb" d="" stroke="var(--ink-faint)" stroke-width="1" fill="none" marker-end="url(#arw)"/>
+      <path id="edge-bv" d="" stroke="var(--ink-faint)" stroke-width="1" fill="none" marker-end="url(#arw)"/>
+      <path id="edge-vg" d="" stroke="var(--ink-faint)" stroke-width="1" fill="none" marker-end="url(#arw)"/>
+      <!-- flow particle -->
+      <circle id="particle" r="4" fill="var(--gold)" opacity="0"/>
+      <!-- nodes -->
+      <circle id="glow-g" r="40" fill="url(#glow-gold)"/>
+      <circle id="glow-b" r="40" fill="url(#glow-teal)"/>
+      <circle id="glow-v" r="40" fill="url(#glow-purple)"/>
+      <circle id="node-g" r="22" fill="none" stroke="var(--gold)" stroke-width="1.5"/>
+      <circle id="node-b" r="22" fill="none" stroke="var(--teal)" stroke-width="1.5"/>
+      <circle id="node-v" r="22" fill="none" stroke="var(--purple)" stroke-width="1.5"/>
+      <text id="label-g" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--gold)">GAUSS</text>
+      <text id="label-b" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--teal)">BRÜCKE</text>
+      <text id="label-v" text-anchor="middle" font-family="var(--mono)" font-size="11" fill="var(--purple)">VERSCH.</text>
+      <!-- edge labels -->
+      <text id="elabel-gb" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--ink-faint)">Messung</text>
+      <text id="elabel-bv" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--ink-faint)">Korrektur</text>
+      <text id="elabel-vg" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--ink-faint)">Kohärenz</text>
+    </svg>
+  </figure>
+  <p class="note">
+    Drei Knoten bilden den Kreislauf: Gauss misst die Asymmetrie,
+    die Brückenformel gleicht aus, die Verschränkung verbindet die Pole.
+    Der Fluss kehrt nach einem Umlauf transformiert zurück — die Möbius-Schleife.
+  </p>
+</section>
+
+<section class="rv">
+  <h2>II — Die Möbius-Schleife</h2>
+  <figure>
+    <canvas id="moebius" width="600" height="280"></canvas>
+  </figure>
+  <p class="note">
+    M(x) = 12 − x &nbsp;→&nbsp; 3↔9 invertiert, 6 bleibt (Fixpunkt).<br>
+    Information fließt durch die Schleife und kehrt gespiegelt zurück.
+  </p>
+</section>
+
+<section class="rv">
+  <h2>III — Das Asymmetrie-Feld</h2>
+  <div class="ctrl">
+    <button class="active" data-view="field">Feld</button>
+    <button data-view="pairs">Verschränkung</button>
+    <button data-view="balance">Balance-Partner</button>
+  </div>
+  <figure>
+    <canvas id="field" width="600" height="340"></canvas>
+  </figure>
+  <div id="info"></div>
+</section>
+
+</main>
+
+<script>
+// ── Brückenformel ────────────────────────────────────────
+const VALS = [3, 6, 9];
+const BF = 7, ATT = 9;
+
+function bruecke(n, m) { return n + m + BF * (m / n); }
+function asym(n, m) { return bruecke(n, m) - ATT; }
+function balPartner(n) { return n * (ATT - n) / (n + BF); }
+function moebius(x) { return 12 - x; }
+
+function essences() {
+  const out = [];
+  for (const a of VALS) for (const b of VALS) for (const c of VALS) out.push([a, b, c]);
+  return out;
+}
+
+function essAsym(e) {
+  const pairs = [[e[0],e[1]], [e[1],e[2]], [e[2],e[0]]];
+  return pairs.reduce((s, [n, m]) => s + Math.abs(asym(n, m)), 0) / 3;
+}
+
+function moebiusEss(e) { return e.map(moebius); }
+
+function entanglement(a, b) {
+  const aa = essAsym(a), ab = essAsym(b);
+  const total = aa + ab;
+  if (total === 0) return 1;
+  return 1 - Math.abs(aa - ab) / total;
+}
+
+// ── Reveal ───────────────────────────────────────────────
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('on'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.rv').forEach(el => obs.observe(el));
+
+// ── Dreieck-Animation ────────────────────────────────────
+(function() {
+  const cx = 200, cy = 175, R = 120;
+  const nodes = [
+    { angle: -Math.PI/2, color: '#f0b45e', label: 'GAUSS' },
+    { angle: -Math.PI/2 + 2*Math.PI/3, color: '#54d0c2', label: 'BRÜCKE' },
+    { angle: -Math.PI/2 + 4*Math.PI/3, color: '#9b7ed8', label: 'VERSCH.' }
+  ];
+
+  let t = 0;
+  const particle = document.getElementById('particle');
+
+  function pos(i, tt) {
+    const a = nodes[i].angle + tt * 0.15;
+    return [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+  }
+
+  function edgePath(p1, p2) {
+    const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const nx = dx/len, ny = dy/len;
+    const x1 = p1[0] + nx*24, y1 = p1[1] + ny*24;
+    const x2 = p2[0] - nx*24, y2 = p2[1] - ny*24;
+    const mx = (x1+x2)/2 + ny*18, my = (y1+y2)/2 - nx*18;
+    return `M${x1},${y1} Q${mx},${my} ${x2},${y2}`;
+  }
+
+  function frame() {
+    t += 0.012;
+    const ps = nodes.map((_, i) => pos(i, t));
+
+    // update nodes
+    ['g','b','v'].forEach((id, i) => {
+      document.getElementById('node-'+id).setAttribute('cx', ps[i][0]);
+      document.getElementById('node-'+id).setAttribute('cy', ps[i][1]);
+      document.getElementById('glow-'+id).setAttribute('cx', ps[i][0]);
+      document.getElementById('glow-'+id).setAttribute('cy', ps[i][1]);
+      const labelY = ps[i][1] > cy ? ps[i][1] + 38 : ps[i][1] - 32;
+      document.getElementById('label-'+id).setAttribute('x', ps[i][0]);
+      document.getElementById('label-'+id).setAttribute('y', labelY);
+    });
+
+    // edges
+    const edges = [[0,1,'gb'],[1,2,'bv'],[2,0,'vg']];
+    const elabels = ['elabel-gb','elabel-bv','elabel-vg'];
+    edges.forEach(([a,b,id], idx) => {
+      document.getElementById('edge-'+id).setAttribute('d', edgePath(ps[a], ps[b]));
+      const mx = (ps[a][0]+ps[b][0])/2, my = (ps[a][1]+ps[b][1])/2;
+      const dx = ps[b][0]-ps[a][0], dy = ps[b][1]-ps[a][1];
+      const len = Math.sqrt(dx*dx+dy*dy);
+      document.getElementById(elabels[idx]).setAttribute('x', mx + (dy/len)*14);
+      document.getElementById(elabels[idx]).setAttribute('y', my - (dx/len)*14);
+    });
+
+    // particle flow along triangle
+    const speed = t * 0.8;
+    const seg = speed % 3;
+    const segI = Math.floor(seg) % 3;
+    const segF = seg - Math.floor(seg);
+    const p1 = ps[segI], p2 = ps[(segI+1)%3];
+    const px = p1[0] + (p2[0]-p1[0]) * segF;
+    const py = p1[1] + (p2[1]-p1[1]) * segF;
+    particle.setAttribute('cx', px);
+    particle.setAttribute('cy', py);
+    particle.setAttribute('opacity', 0.7 + 0.3 * Math.sin(t * 3));
+    particle.setAttribute('fill', nodes[segI].color);
+
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+// ── Möbius-Schleife (Canvas) ─────────────────────────────
+(function() {
+  const c = document.getElementById('moebius');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const cx = W/2, cy = H/2;
+
+  let t = 0;
+
+  function draw() {
+    t += 0.008;
+    ctx.clearRect(0, 0, W, H);
+
+    // Möbius strip (parametric)
+    const N = 200;
+    const a = 100, b = 30;
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const u = (i / N) * 2 * Math.PI;
+        const w = (pass === 0 ? -1 : 1) * b * 0.4;
+        const x = cx + (a + w * Math.cos(u/2 + t)) * Math.cos(u);
+        const y = cy + (a * 0.45 + w * 0.45 * Math.cos(u/2 + t)) * Math.sin(u);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = pass === 0
+        ? 'rgba(240,180,94,' + (0.25 + 0.1*Math.sin(t*2)) + ')'
+        : 'rgba(84,208,194,' + (0.25 + 0.1*Math.cos(t*2)) + ')';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // three points on the strip: 3, 6, 9
+    const markers = [
+      { val: 3, color: '#f0b45e', u: 0 },
+      { val: 6, color: '#54d0c2', u: 2*Math.PI/3 },
+      { val: 9, color: '#9b7ed8', u: 4*Math.PI/3 },
+    ];
+    markers.forEach(mk => {
+      const u = mk.u + t * 0.5;
+      const x = cx + a * Math.cos(u);
+      const y = cy + a * 0.45 * Math.sin(u);
+      const pulse = 8 + 3 * Math.sin(t * 2 + mk.val);
+
+      ctx.beginPath();
+      ctx.arc(x, y, pulse, 0, 2*Math.PI);
+      ctx.fillStyle = mk.color + '30';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, 2*Math.PI);
+      ctx.fillStyle = mk.color;
+      ctx.fill();
+
+      ctx.fillStyle = mk.color;
+      ctx.font = '12px SFMono-Regular, ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(mk.val, x, y - 14);
+    });
+
+    // Möbius inversion arrows
+    const arrowAlpha = 0.3 + 0.15 * Math.sin(t * 1.5);
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(238,241,246,' + arrowAlpha + ')';
+    ctx.lineWidth = 1;
+    // 3 ↔ 9
+    const u3 = markers[0].u + t * 0.5;
+    const u9 = markers[2].u + t * 0.5;
+    const x3 = cx + a * Math.cos(u3), y3 = cy + a*0.45*Math.sin(u3);
+    const x9 = cx + a * Math.cos(u9), y9 = cy + a*0.45*Math.sin(u9);
+    ctx.beginPath(); ctx.moveTo(x3, y3); ctx.lineTo(x9, y9); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // label
+    ctx.fillStyle = 'rgba(238,241,246,0.35)';
+    ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('M(x) = 12 − x', cx, H - 12);
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── Asymmetrie-Feld (Canvas) ─────────────────────────────
+(function() {
+  const c = document.getElementById('field');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const info = document.getElementById('info');
+  let view = 'field';
+  let hoverEss = null;
+
+  const ess = essences();
+  const sorted = ess.slice().sort((a, b) => essAsym(a) - essAsym(b));
+  const maxA = Math.max(...ess.map(essAsym));
+
+  function colA(a) {
+    const f = a / maxA;
+    const r = Math.round(54 + 186 * f);
+    const g = Math.round(208 - 153 * f);
+    const b2 = Math.round(194 - 139 * f);
+    return `rgb(${r},${g},${b2})`;
+  }
+
+  function drawField() {
+    ctx.clearRect(0, 0, W, H);
+    const cols = 9, rows = 3;
+    const cw = (W - 40) / cols, ch = (H - 60) / rows;
+    const ox = 20, oy = 30;
+
+    ctx.fillStyle = 'rgba(238,241,246,.35)';
+    ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('27 Essenzen — sortiert nach Asymmetrie (dunkel = gering)', W/2, 16);
+
+    sorted.forEach((e, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const x = ox + col * cw, y = oy + row * ch;
+      const a = essAsym(e);
+
+      ctx.fillStyle = colA(a);
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(x + 2, y + 2, cw - 4, ch - 4);
+      ctx.globalAlpha = 1;
+
+      if (hoverEss && hoverEss.join(',') === e.join(',')) {
+        ctx.strokeStyle = 'var(--gold)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 1, y + 1, cw - 2, ch - 2);
+      }
+
+      ctx.fillStyle = a < maxA * 0.5 ? '#eef1f6' : '#0a0d13';
+      ctx.font = '11px SFMono-Regular, ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`(${e.join(',')})`, x + cw/2, y + ch/2 - 6);
+      ctx.font = '9px SFMono-Regular, ui-monospace, monospace';
+      ctx.fillText(`A=${a.toFixed(1)}`, x + cw/2, y + ch/2 + 10);
+    });
+  }
+
+  function drawPairs() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(238,241,246,.35)';
+    ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Möbius-Paare — Verschränkungsgrad', W/2, 16);
+
+    const seen = new Set();
+    const pairs = [];
+    ess.forEach(e => {
+      const m = moebiusEss(e);
+      const key = [e.join(','), m.join(',')].sort().join('|');
+      if (!seen.has(key)) {
+        seen.add(key);
+        pairs.push({ a: e, b: m, ent: entanglement(e, m) });
+      }
+    });
+    pairs.sort((a, b) => b.ent - a.ent);
+
+    const show = pairs.slice(0, 14);
+    const bh = 18, gap = 3, ox = 40, oy = 36;
+    show.forEach((p, i) => {
+      const y = oy + i * (bh + gap);
+      const bw = (W - 100) * p.ent;
+
+      ctx.fillStyle = `rgba(155,126,216,${0.3 + 0.5 * p.ent})`;
+      ctx.fillRect(ox, y, bw, bh);
+
+      ctx.fillStyle = '#eef1f6';
+      ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`(${p.a.join(',')}) ↔ (${p.b.join(',')})`, ox + 4, y + 13);
+      ctx.textAlign = 'right';
+      ctx.fillText(p.ent.toFixed(3), W - 20, y + 13);
+    });
+  }
+
+  function drawBalance() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(238,241,246,.35)';
+    ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Balance-Partner: m = n·(9−n) / (n+7)', W/2, 16);
+
+    const ox = 60, oy = 50, gw = W - 120, gh = H - 90;
+    // axes
+    ctx.strokeStyle = 'rgba(238,241,246,.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(ox, oy + gh); ctx.lineTo(ox + gw, oy + gh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox, oy + gh); ctx.stroke();
+
+    ctx.fillStyle = 'rgba(238,241,246,.4)';
+    ctx.font = '9px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('n', ox + gw/2, oy + gh + 20);
+    ctx.save();
+    ctx.translate(ox - 16, oy + gh/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText('m_bal', 0, 0);
+    ctx.restore();
+
+    // curve
+    ctx.beginPath();
+    ctx.strokeStyle = '#f0b45e';
+    ctx.lineWidth = 2;
+    for (let n = 0.2; n <= 9; n += 0.05) {
+      const m = balPartner(n);
+      const x = ox + (n / 9) * gw;
+      const y = oy + gh - (m / 2) * gh;
+      if (n < 0.25) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // mark {3,6,9}
+    [3, 6, 9].forEach(n => {
+      const m = balPartner(n);
+      const x = ox + (n / 9) * gw;
+      const y = oy + gh - (m / 2) * gh;
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, 2*Math.PI);
+      ctx.fillStyle = '#f0b45e';
+      ctx.fill();
+      ctx.fillStyle = '#eef1f6';
+      ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`n=${n}`, x, y - 14);
+      ctx.fillText(`m=${m.toFixed(2)}`, x, y + 20);
+    });
+
+    // B(n,m)=9 line annotation
+    ctx.fillStyle = 'rgba(238,241,246,.3)';
+    ctx.font = '10px SFMono-Regular, ui-monospace, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('n + m + 7·(m/n) = 9', ox + gw, oy + 14);
+  }
+
+  function render() {
+    if (view === 'field') drawField();
+    else if (view === 'pairs') drawPairs();
+    else drawBalance();
+  }
+
+  render();
+
+  // controls
+  document.querySelectorAll('.ctrl button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ctrl button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      view = btn.dataset.view;
+      hoverEss = null;
+      info.textContent = '';
+      render();
+    });
+  });
+
+  // hover on field view
+  c.addEventListener('mousemove', e => {
+    if (view !== 'field') return;
+    const rect = c.getBoundingClientRect();
+    const sx = c.width / rect.width, sy = c.height / rect.height;
+    const mx = (e.clientX - rect.left) * sx;
+    const my = (e.clientY - rect.top) * sy;
+
+    const cols = 9, rows = 3;
+    const cw = (W - 40) / cols, ch = (H - 60) / rows;
+    const ox = 20, oy = 30;
+    const col = Math.floor((mx - ox) / cw);
+    const row = Math.floor((my - oy) / ch);
+    const idx = row * cols + col;
+
+    if (col >= 0 && col < cols && row >= 0 && row < rows && idx < 27) {
+      const es = sorted[idx];
+      if (!hoverEss || hoverEss.join(',') !== es.join(',')) {
+        hoverEss = es;
+        const mirr = moebiusEss(es);
+        const a = essAsym(es);
+        const ent = entanglement(es, mirr);
+        info.textContent = `(${es.join(',')})  Asymmetrie ${a.toFixed(3)}  |  `
+          + `Spiegel (${mirr.join(',')})  Verschränkung ${ent.toFixed(3)}`;
+        render();
+      }
+    } else if (hoverEss) {
+      hoverEss = null;
+      info.textContent = '';
+      render();
+    }
+  });
+
+  c.addEventListener('mouseleave', () => {
+    if (hoverEss) { hoverEss = null; info.textContent = ''; render(); }
+  });
+})();
+</script>
+</body>
+</html>
