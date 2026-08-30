@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spannungsgeometrie — V13 | Chaos ex Ordo</title>
+<meta name="description" content="Lehre der Spannungsgeometrie (V13) — begehbare 3D-Darstellung: Genesis 1–11, Master-Geometrie, Brückenformel, S6-Achse und die Orbits auf ℤ₉*. Von Vincent Weber (Chaos ex Ordo).">
+<style>
+  :root {
+    --bg:      #050507;
+    --bg-soft: #0b0b10;
+    --fg:      #f0efe9;
+    --dim:     #8f8f97;
+    --gold:    #d9b45b;
+    --gold-hi: #f0d998;
+    --red:     #e05545;
+    --red-dim: #b33a2e;
+    --blue:    #5b9be6;
+    --blue-dim:#3a6aa8;
+    --line:    rgba(240,239,233,0.12);
+    --card:    rgba(18,18,24,0.72);
+    --serif:   Palatino, 'Palatino Linotype', 'Book Antiqua', Georgia, 'Times New Roman', serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  html, body { overflow-x: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--serif);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  canvas#stars {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .wrap { position: relative; z-index: 1; }
+
+  /* ---------- Navigation ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; gap: 2px; justify-content: center;
+    padding: 10px 8px;
+    background: rgba(5,5,7,0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav a {
+    color: var(--dim); text-decoration: none;
+    font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 6px 14px; border-radius: 999px;
+    white-space: nowrap; transition: color .25s, background .25s;
+  }
+  nav a:hover { color: var(--gold-hi); background: rgba(217,180,91,0.08); }
+
+  /* ---------- Hero ---------- */
+  header {
+    min-height: 88vh;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    text-align: center; padding: 60px 22px 40px;
+  }
+  .kicker {
+    color: var(--gold); letter-spacing: 0.34em; text-transform: uppercase;
+    font-size: 0.78rem; margin-bottom: 22px;
+  }
+  h1 {
+    font-size: clamp(2rem, 6.5vw, 3.8rem);
+    font-weight: 500; letter-spacing: 0.02em; line-height: 1.15;
+    max-width: 15ch;
+  }
+  .version {
+    color: var(--dim); font-size: 0.95rem; margin-top: 14px; letter-spacing: 0.18em;
+  }
+  .axiom {
+    max-width: 620px; margin: 44px auto 0;
+    padding: 26px 30px;
+    border-left: 2px solid var(--gold);
+    background: var(--card);
+    border-radius: 0 10px 10px 0;
+    font-style: italic; font-size: 1.06rem; color: #dcdbd2;
+    text-align: left;
+  }
+  .axiom small { display:block; margin-top: 12px; font-style: normal; color: var(--dim); letter-spacing: 0.1em; }
+  .palette {
+    display: flex; gap: 26px; margin-top: 40px; flex-wrap: wrap; justify-content: center;
+    font-size: 0.85rem; color: var(--dim);
+  }
+  .palette span { display: inline-flex; align-items: center; gap: 8px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .dot.b { background: var(--blue); box-shadow: 0 0 10px rgba(91,155,230,0.7); }
+  .dot.g { background: var(--gold); box-shadow: 0 0 10px rgba(217,180,91,0.7); }
+  .dot.r { background: var(--red); box-shadow: 0 0 10px rgba(224,85,69,0.7); }
+  .dot.w { background: var(--fg); box-shadow: 0 0 8px rgba(240,239,233,0.6); }
+  .scroll-hint { margin-top: 56px; color: var(--dim); font-size: 1.4rem; animation: drift 2.6s ease-in-out infinite; }
+  @keyframes drift { 0%,100% { transform: translateY(0); opacity:.5 } 50% { transform: translateY(9px); opacity:1 } }
+
+  /* ---------- Sections ---------- */
+  section {
+    max-width: 1020px; margin: 0 auto; padding: 90px 18px 30px;
+  }
+  .sec-num {
+    color: var(--gold); font-size: 0.8rem; letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h2 { font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 500; margin-bottom: 14px; }
+  .sec-intro { color: #c9c8bf; max-width: 680px; margin-bottom: 28px; font-size: 0.98rem; }
+
+  .stage {
+    position: relative;
+    background: radial-gradient(900px 500px at 50% 0%, rgba(20,20,30,0.55) 0%, rgba(8,8,12,0.65) 70%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .stage canvas.gl {
+    display: block; width: 100%; height: 100%;
+    touch-action: pan-y;
+  }
+  .ratio { aspect-ratio: 16 / 10; }
+  @media (max-width: 640px) { .ratio { aspect-ratio: 4 / 4.4; } }
+
+  .hud {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: linear-gradient(transparent, rgba(5,5,7,0.85));
+    pointer-events: none;
+  }
+  .hud > * { pointer-events: auto; }
+
+  button.ctl {
+    font-family: var(--serif);
+    background: rgba(240,239,233,0.06);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 16px; font-size: 0.9rem;
+    cursor: pointer; transition: background .2s, border-color .2s, color .2s;
+  }
+  button.ctl:hover { background: rgba(217,180,91,0.14); border-color: var(--gold); }
+  button.ctl.active { background: rgba(217,180,91,0.2); border-color: var(--gold); color: var(--gold-hi); }
+
+  .dots { display: flex; gap: 7px; margin-left: auto; flex-wrap: wrap; }
+  .dots i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: rgba(240,239,233,0.18); cursor: pointer; transition: background .25s, transform .25s;
+  }
+  .dots i.on { background: var(--gold); transform: scale(1.3); box-shadow: 0 0 8px rgba(217,180,91,0.8); }
+
+  .panel {
+    margin-top: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 24px;
+    min-height: 96px;
+  }
+  .panel h3 { font-size: 1.12rem; font-weight: 500; margin-bottom: 6px; }
+  .panel h3 em { font-style: normal; color: var(--gold); }
+  .panel p { color: #c9c8bf; font-size: 0.95rem; }
+  .panel .tag {
+    display: inline-block; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 10px;
+    border: 1px solid var(--line); color: var(--dim);
+  }
+  .panel .tag.chaos { color: var(--fg); border-color: rgba(240,239,233,0.35); }
+  .panel .tag.struktur { color: var(--blue); border-color: var(--blue-dim); }
+  .panel .tag.balance { color: var(--gold); border-color: var(--gold); }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .chips button {
+    font-family: var(--serif);
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(240,239,233,0.05);
+    border: 1px solid var(--line); color: var(--fg);
+    font-size: 1rem; cursor: pointer; transition: all .2s;
+  }
+  .chips button:hover { border-color: var(--gold); }
+  .chips button.sel { border-color: var(--gold); background: rgba(217,180,91,0.18); color: var(--gold-hi); }
+  .chips button[data-p="3"], .chips button[data-p="6"] { color: var(--blue); }
+  .chips button[data-p="9"] { color: var(--gold); border-color: rgba(217,180,91,0.5); }
+
+  /* ---------- Brückenformel ---------- */
+  .calc {
+    display: grid; grid-template-columns: 1fr 1.35fr; gap: 18px; align-items: stretch;
+  }
+  @media (max-width: 760px) { .calc { grid-template-columns: 1fr; } }
+  .calc-in {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 24px;
+  }
+  .formula-display {
+    font-size: clamp(1.1rem, 3.4vw, 1.5rem);
+    text-align: center; margin-bottom: 22px; letter-spacing: 0.04em;
+  }
+  .formula-display .n { color: var(--blue); }
+  .formula-display .m { color: var(--red); }
+  .formula-display .nine { color: var(--gold); }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+  .field label b.n { color: var(--blue); font-weight: 500; }
+  .field label b.m { color: var(--red); font-weight: 500; }
+  .field input {
+    width: 100%; font-family: var(--serif); font-size: 1.15rem;
+    background: rgba(5,5,7,0.6); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; outline: none; transition: border-color .2s;
+  }
+  .field input:focus { border-color: var(--gold); }
+  .result {
+    margin-top: 8px; padding: 16px; border-radius: 10px; text-align: center;
+    border: 1px solid var(--line); font-size: 1.05rem; transition: all .3s;
+  }
+  .result.hit { border-color: var(--gold); background: rgba(217,180,91,0.1); box-shadow: 0 0 24px rgba(217,180,91,0.15) inset; }
+  .result .big { font-size: 1.5rem; display: block; margin-top: 4px; }
+  .result.hit .big { color: var(--gold-hi); text-shadow: 0 0 16px rgba(217,180,91,0.6); }
+  .sol-btns { display: flex; gap: 10px; margin-top: 16px; justify-content: center; flex-wrap: wrap; }
+  .calc-plot {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 12px; display: flex; flex-direction: column;
+  }
+  .calc-plot canvas { width: 100%; flex: 1; min-height: 300px; display: block; }
+  .plot-cap { text-align: center; color: var(--dim); font-size: 0.82rem; padding: 8px 6px 2px; }
+
+  /* ---------- S6 ---------- */
+  .slider-row {
+    display: flex; align-items: center; gap: 16px; margin-top: 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 22px; flex-wrap: wrap;
+  }
+  .slider-row .end { font-size: 0.85rem; letter-spacing: 0.1em; white-space: nowrap; }
+  .slider-row .end.flat { color: var(--blue); }
+  .slider-row .end.deep { color: var(--red); }
+  input[type=range] {
+    flex: 1; min-width: 140px; -webkit-appearance: none; appearance: none;
+    height: 3px; border-radius: 3px; outline: none;
+    background: linear-gradient(90deg, var(--blue), var(--red));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--gold); border: 2px solid #0b0b10;
+    box-shadow: 0 0 12px rgba(217,180,91,0.7); cursor: pointer;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--gold); border: 2px solid #0b0b10;
+    box-shadow: 0 0 12px rgba(217,180,91,0.7); cursor: pointer;
+  }
+  #s6Caption { width: 100%; text-align: center; color: #c9c8bf; font-size: 0.92rem; min-height: 1.5em; }
+
+  /* ---------- Orbits ---------- */
+  .orbit-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; }
+  @media (max-width: 760px) { .orbit-grid { grid-template-columns: 1fr; } }
+  .orbit-stage { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+  .orbit-stage canvas { width: 100%; display: block; }
+  .orbit-side { display: flex; flex-direction: column; gap: 12px; }
+  .legend { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; font-size: 0.92rem; }
+  .legend div { display: flex; align-items: center; gap: 10px; margin: 7px 0; color: #c9c8bf; }
+  .path-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .mono { font-family: 'Cascadia Code', Consolas, monospace; font-size: 0.9em; }
+
+  footer {
+    margin-top: 100px; padding: 48px 20px 60px;
+    border-top: 1px solid var(--line);
+    text-align: center; color: var(--dim); font-size: 0.88rem;
+  }
+  footer a { color: var(--gold); text-decoration: none; }
+  footer .sig { margin-top: 8px; letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.75rem; }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="wrap">
+
+<nav>
+  <a href="index.html">← Chaos ex Ordo</a>
+  <a href="#genesis">Genesis</a>
+  <a href="#master">Geometrie</a>
+  <a href="#bruecke">Brückenformel</a>
+  <a href="#s6">S₆-Achse</a>
+  <a href="#orbits">Orbits</a>
+</nav>
+
+<header>
+  <div class="kicker">Chaos ex Ordo · Vincent Weber</div>
+  <h1>Lehre der Spannungsgeometrie</h1>
+  <div class="version">V13 · Geometrisch-mathematischer Kern</div>
+  <blockquote class="axiom">
+    „Reines Potential existiert als unstrukturierte Ebene, die in Leere bricht, welche sich zu füllen versucht; dieser Spiegelprozess strebt von Asymmetrie zu Symmetrie und erzeugt dabei zwei Potentialgrenzen.“
+    <small>§1 · Das Axiom</small>
+  </blockquote>
+  <div class="palette">
+    <span><i class="dot b"></i> 2D-Fläche</span>
+    <span><i class="dot r"></i> 3D-Tiefe</span>
+    <span><i class="dot g"></i> Balance (9)</span>
+    <span><i class="dot w"></i> Potential</span>
+  </div>
+  <div class="scroll-hint">↓</div>
+</header>
+
+<!-- ================= 1 · GENESIS ================= -->
+<section id="genesis">
+  <div class="sec-num">I · Die Genesis</div>
+  <h2>Die Kette 1 → 11</h2>
+  <p class="sec-intro">
+    Die Zahlen 1–9 sind keine Zahlenfolge, sondern Ebenen — strukturelle Zustände, die durch Brechen entstehen.
+    Arithmetik beginnt erst bei 11. Schritt für Schritt: vom reinen Potential zum Koordinatenraum.
+  </p>
+  <div class="stage ratio">
+    <canvas class="gl" id="genesisCanvas"></canvas>
+    <div class="hud">
+      <button class="ctl" id="gPrev">◀</button>
+      <button class="ctl" id="gNext">▶</button>
+      <button class="ctl" id="gPlay">Auto</button>
+      <div class="dots" id="gDots"></div>
+    </div>
+  </div>
+  <div class="panel" id="gPanel">
+    <h3><em>Schritt 1</em> — Ursprung</h3>
+    <p>Reines Potential, ungeteilt.</p>
+  </div>
+</section>
+
+<!-- ================= 2 · MASTER-GEOMETRIE ================= -->
+<section id="master">
+  <div class="sec-num">II · Master-Geometrie</div>
+  <h2>Kreis · Raute · Dreieck</h2>
+  <p class="sec-intro">
+    Drei konzentrische Grundformen mit gemeinsamem Umkreis. 7 Eckpunkte, davon 6 unterscheidbar (eine Koinzidenz oben).
+    Sequenz 3 – 6 – 9. Tippe auf eine der neun Positionen — oder ziehe, um das Modell zu drehen.
+  </p>
+  <div class="stage ratio">
+    <canvas class="gl" id="masterCanvas"></canvas>
+  </div>
+  <div class="chips" id="mChips"></div>
+  <div class="panel" id="mPanel">
+    <span class="tag">Position wählen</span>
+    <p>Wähle eine der 9 Positionen, um ihre Bedeutung zu sehen. Asymmetrie: 6 Chaos · 2 Struktur · 1 Balance.</p>
+  </div>
+</section>
+
+<!-- ================= 3 · BRÜCKENFORMEL ================= -->
+<section id="bruecke">
+  <div class="sec-num">III · Die Brückenformel</div>
+  <h2>n + m + 7·(m/n) = 9</h2>
+  <p class="sec-intro">
+    Die konstitutive Gleichung der dimensionalen Projektion (Satz 52): <b style="color:var(--blue)">n</b> ist die 2D-Wahrnehmung,
+    <b style="color:var(--red)">m</b> die 3D-Realität, 7 der Vermittlungsoperator (Brücke/Zeit), <b style="color:var(--gold)">9</b> die Balance.
+    Genau zwei ganzzahlige Lösungen: (1, 1) — der Ursprung — und (7, 1) — die Brücke.
+  </p>
+  <div class="calc">
+    <div class="calc-in">
+      <div class="formula-display"><span class="n">n</span> + <span class="m">m</span> + 7·(<span class="m">m</span>/<span class="n">n</span>) = <span class="nine">9</span></div>
+      <div class="field">
+        <label><b class="n">n</b> — 2D-Wahrnehmung</label>
+        <input type="number" id="inN" value="1" step="0.1" min="0.1" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label><b class="m">m</b> — 3D-Realität</label>
+        <input type="number" id="inM" value="1" step="0.1" min="0" inputmode="decimal">
+      </div>
+      <div class="result" id="calcResult"></div>
+      <div class="sol-btns">
+        <button class="ctl" id="sol1">Lösung (1, 1) · Ursprung</button>
+        <button class="ctl" id="sol2">Lösung (7, 1) · Brücke</button>
+      </div>
+    </div>
+    <div class="calc-plot">
+      <canvas id="brueckeCanvas"></canvas>
+      <div class="plot-cap">Lösungskurve m(n) = n·(9−n)/(n+7) · goldene Punkte = ganzzahlige Lösungen</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 4 · S6-ACHSE ================= -->
+<section id="s6">
+  <div class="sec-num">IV · Die S₆-Achse</div>
+  <h2>2 Pole × 3 Achsen = 6 Halbachsen</h2>
+  <p class="sec-intro">
+    Die anormale 6 (2×3) spannt die S₆ auf — das Gerüst für alles Folgende. Bewege den Regler:
+    Beim Kippen zur 7 (Zeitachse) öffnen die sechs Halbachsen den 3D-Raum (Satz 36 &amp; 39).
+  </p>
+  <div class="stage ratio">
+    <canvas class="gl" id="s6Canvas"></canvas>
+  </div>
+  <div class="slider-row">
+    <span class="end flat">2D · S₆</span>
+    <input type="range" id="s6Slider" min="0" max="100" value="0">
+    <span class="end deep">3D · Kipp zur 7</span>
+    <div id="s6Caption">S₆ — sechs Halbachsen in der Fläche. Die Struktur wartet auf den Bruch.</div>
+  </div>
+</section>
+
+<!-- ================= 5 · ORBITS ================= -->
+<section id="orbits">
+  <div class="sec-num">V · Orbits auf ℤ₉*</div>
+  <h2>A = {1, 4, 7} · B = {2, 5, 8} · Achse = {3, 6, 9}</h2>
+  <p class="sec-intro">
+    ℤ₉* — die sechs primen Restklassen mod 9 — zerfällt in zwei Orbits. Die Achse {3, 6, 9} fehlt in ℤ₉*:
+    sie ist der Kern der Projektion. Alle Primzahlen &gt; 3 leben in A oder B, nie auf der Achse.
+  </p>
+  <div class="orbit-grid">
+    <div class="orbit-stage"><canvas id="orbitCanvas"></canvas></div>
+    <div class="orbit-side">
+      <div class="path-btns">
+        <button class="ctl active" id="pathPeriode">1/7-Periode</button>
+        <button class="ctl" id="pathBeta">Forward-Achse β</button>
+      </div>
+      <div class="legend" id="orbitLegend">
+        <div><i class="dot r"></i> Orbit A = {1, 4, 7} — quadratische Reste, ≡ 1 mod 3</div>
+        <div><i class="dot b"></i> Orbit B = {2, 5, 8} — Nichtreste, ≡ 2 mod 3</div>
+        <div><i class="dot g"></i> 9 — Balance, Spitze der Achse</div>
+        <div><i class="dot w"></i> 3, 6 — Achse, fehlt in ℤ₉*</div>
+      </div>
+      <div class="legend" id="orbitInfo">
+        <p class="mono" style="color:var(--gold-hi)">1/7 = 0,142857 142857 …</p>
+        <p style="color:#c9c8bf; margin-top:8px; font-size:0.9rem">
+          Der Puls durchläuft die Ziffern der 1/7-Periode: 1 → 4 → 2 → 8 → 5 → 7.
+          Ziffernmenge = ℤ₉*, Ziffernsumme = 27 = 3³. Es fehlen genau 0, 3, 6, 9.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>Lehre der Spannungsgeometrie · V13 · Stand 28.08.2026</div>
+  <div style="margin-top:6px">Vincent Weber · <a href="index.html">Chaos ex Ordo</a></div>
+  <div class="sig">3 · 6 · 9</div>
+</footer>
+
+</div><!-- /wrap -->
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+} }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   Farben
+============================================================ */
+const C = {
+  fg:   0xf0efe9,
+  gold: 0xd9b45b,
+  red:  0xe05545,
+  blue: 0x5b9be6,
+  dim:  0x8f8f97
+};
+
+/* ============================================================
+   Sternenfeld (2D, fixer Hintergrund)
+============================================================ */
+(() => {
+  const cv = document.getElementById('stars');
+  const ctx = cv.getContext('2d');
+  let stars = [];
+  function resize() {
+    cv.width = innerWidth; cv.height = innerHeight;
+    const n = Math.min(220, Math.floor(innerWidth * innerHeight / 9000));
+    stars = Array.from({length: n}, () => ({
+      x: Math.random() * cv.width,
+      y: Math.random() * cv.height,
+      r: Math.random() * 1.1 + 0.2,
+      p: Math.random() * Math.PI * 2,
+      s: 0.2 + Math.random() * 0.6
+    }));
+  }
+  addEventListener('resize', resize); resize();
+  (function tick(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const s of stars) {
+      const a = 0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * 0.0006 * s + s.p));
+      ctx.fillStyle = `rgba(240,239,233,${a.toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  })(0);
+})();
+
+/* ============================================================
+   Gemeinsame Helfer für Three.js-Bühnen
+============================================================ */
+const scenes = [];
+function makeStage(canvasId, camPos, lookAt) {
+  const canvas = document.getElementById(canvasId);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1.6, 0.1, 100);
+  camera.position.copy(camPos);
+  camera.lookAt(lookAt);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const key = new THREE.DirectionalLight(0xffffff, 1.1);
+  key.position.set(3, 5, 4);
+  scene.add(key);
+  const st = { canvas, renderer, scene, camera, active: false, update: null, lookAt: lookAt.clone() };
+  function fit() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) ||
+        canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+  }
+  st.fit = fit;
+  new IntersectionObserver(es => { for (const e of es) st.active = e.isIntersecting; },
+    { threshold: 0.05 }).observe(canvas);
+  scenes.push(st);
+  return st;
+}
+
+const clock = new THREE.Clock();
+function loop() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  const t = clock.elapsedTime;
+  for (const st of scenes) {
+    if (!st.active) continue;
+    st.fit();
+    if (st.update) st.update(dt, t);
+    st.renderer.render(st.scene, st.camera);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function lineMat(color, opacity = 1) {
+  return new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+}
+function meshMat(color, opacity = 1) {
+  return new THREE.MeshStandardMaterial({
+    color, transparent: true, opacity,
+    emissive: color, emissiveIntensity: 0.35,
+    roughness: 0.4, metalness: 0.1
+  });
+}
+const SPH = new THREE.SphereGeometry(0.07, 18, 18);
+function ball(color, scale = 1) {
+  const m = new THREE.Mesh(SPH, meshMat(color));
+  m.scale.setScalar(scale);
+  return m;
+}
+function textSprite(text, color = '#f0efe9', size = 128) {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = size;
+  const cx = cv.getContext('2d');
+  cx.font = `${size * 0.52}px Palatino, Georgia, serif`;
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.shadowColor = color; cx.shadowBlur = size * 0.09;
+  cx.fillStyle = color;
+  cx.fillText(text, size / 2, size / 2 + size * 0.02);
+  const tex = new THREE.CanvasTexture(cv);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  sp.scale.setScalar(0.42);
+  return sp;
+}
+
+/* ============================================================
+   I · GENESIS  (Schritte 1–11)
+============================================================ */
+(() => {
+  const st = makeStage('genesisCanvas', new THREE.Vector3(0, 2.7, 6.6), new THREE.Vector3(0, 0.35, 0));
+  const root = new THREE.Group(); st.scene.add(root);
+  const tiltG = new THREE.Group(); root.add(tiltG);
+
+  // Potential-Ebene (Partikel)
+  const N = 19, span = 4.6;
+  const pos = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+    pos.push(-span / 2 + span * i / (N - 1), 0, -span / 2 + span * j / (N - 1));
+  const pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const planeMat = new THREE.PointsMaterial({ color: C.blue, size: 0.035, transparent: true, opacity: 0 });
+  tiltG.add(new THREE.Points(pg, planeMat));
+
+  // Objekte
+  const origin = ball(C.fg, 0.001); origin.position.y = 0.05; tiltG.add(origin);
+  const dualA = ball(C.blue, 0.001), dualB = ball(C.blue, 0.001);
+  tiltG.add(dualA, dualB);
+  const third = ball(C.fg, 0.001); third.position.y = 0.06; tiltG.add(third);
+
+  // 2×2-Gitter
+  const gridG = new THREE.Group(); tiltG.add(gridG);
+  const gMat = lineMat(C.blue, 0);
+  const gPts = [];
+  for (let i = 0; i <= 2; i++) {
+    const c = -1 + i;
+    gPts.push(new THREE.Vector3(c, 0, -1), new THREE.Vector3(c, 0, 1));
+    gPts.push(new THREE.Vector3(-1, 0, c), new THREE.Vector3(1, 0, c));
+  }
+  gridG.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gPts), gMat));
+  const gCorners = [[-1,-1],[1,-1],[-1,1],[1,1]].map(([x,z]) => {
+    const b = ball(C.fg, 0.001); b.position.set(x, 0.05, z); gridG.add(b); return b;
+  });
+
+  // Isotop (5) — verlässt die Ebene
+  const iso = ball(C.red, 0.001); tiltG.add(iso);
+
+  // S6-Stern (3 Achsen in der Ebene)
+  const s6G = new THREE.Group(); tiltG.add(s6G);
+  const s6Mat = lineMat(C.fg, 0);
+  for (let k = 0; k < 3; k++) {
+    const a = k * Math.PI / 3;
+    const d = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(1.7);
+    s6G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([d.clone().negate(), d]), s6Mat));
+  }
+
+  // Achse 7 (rot, vertikal) — nicht gekippt
+  const axis7G = new THREE.Group(); root.add(axis7G);
+  const a7Mat = lineMat(C.red, 0);
+  axis7G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)]), a7Mat));
+  const a7Tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 16), meshMat(C.red, 0));
+  axis7G.add(a7Tip);
+  const a7Origin = ball(C.red, 0.001); axis7G.add(a7Origin);
+
+  // Vektor 8 (Zeitstrahl)
+  const vec8G = new THREE.Group(); root.add(vec8G);
+  vec8G.rotation.x = Math.PI / 2 - 0.35; // zeigt schräg nach vorn-oben
+  const v8Mat = lineMat(C.red, 0);
+  vec8G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)]), v8Mat));
+  const v8Tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 16), meshMat(C.red, 0));
+  vec8G.add(v8Tip);
+
+  // Dreieck 9 (gold)
+  const triG = new THREE.Group(); tiltG.add(triG);
+  const triMat = lineMat(C.gold, 0);
+  const triPts = [0, 1, 2].map(k => {
+    const a = Math.PI / 2 + k * 2 * Math.PI / 3;
+    return new THREE.Vector3(Math.cos(a) * 1.15, 0.03, -Math.sin(a) * 1.15);
+  });
+  triG.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(triPts), triMat));
+  const triBalls = triPts.map(p => { const b = ball(C.gold, 0.001); b.position.copy(p); triG.add(b); return b; });
+
+  // Punkt 10 + Koordinaten
+  const pt10 = ball(C.gold, 0.001); pt10.position.y = 0.08; tiltG.add(pt10);
+  const coordMat = lineMat(C.blue, 0);
+  tiltG.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-2.1, 0.01, 0), new THREE.Vector3(2.1, 0.01, 0),
+    new THREE.Vector3(0, 0.01, -2.1), new THREE.Vector3(0, 0.01, 2.1)
+  ]), coordMat));
+
+  // Arithmetik 11 — Zahlenreihe
+  const arithBalls = [];
+  for (let i = 0; i < 8; i++) {
+    const b = ball(C.fg, 0.001);
+    b.position.set(-1.55 + i * 0.44, 0.05, 1.85);
+    tiltG.add(b); arithBalls.push(b);
+  }
+
+  // ---- Schritte ----
+  const STEPS = [
+    { n: 'Ursprung', d: 'Reines Potential, ungeteilt — eine unstrukturierte Ebene ohne Unterschied.',
+      t: { plane: 1, origin: 1 } },
+    { n: 'Dualität', d: 'Das Potential bricht in Leere: Wechselwirkung, Abstoßung — zwei Potentialgrenzen spannen den Rahmen auf (1×1 → 2×2).',
+      t: { plane: 0.55, dual: 1 } },
+    { n: 'Punkt', d: 'Die Dualität wird wieder ein Potential (weil gleich) — ein neuer Punkt entsteht.',
+      t: { plane: 0.45, dual: 0.85, third: 1 } },
+    { n: 'Gleichgewicht', d: 'Suche nach Gleichgewicht: das 2×2-Gitter ist das minimale symmetrische 2D-Gitter. Symmetrischer Bruch wird möglich.',
+      t: { plane: 0.3, grid: 1 } },
+    { n: 'Prim-Muster', d: 'Die 5 ist prim — sie lässt sich nicht in 2er-Faktoren zerlegen. Erstes Isotop: es verlässt die 2D-Ebene.',
+      t: { plane: 0.25, grid: 1, iso: 1 } },
+    { n: 'Anormale 6', d: '6 = 2×3 — die erste Zahl, die 2 UND 3 verbindet. Sie bricht in die 4/2-Achse und spannt die S₆ auf: das Gerüst für alles Folgende.',
+      t: { plane: 0.2, grid: 0.35, iso: 0.55, s6: 1 } },
+    { n: 'Graph-Punkt', d: 'Die Fläche kann nicht mehr 2D brechen — die Ausbreitung kippt nach innen (3D). Die 7 entsteht als 0-Punkt des Graphen: die Brücke.',
+      t: { plane: 0.15, s6: 0.6, tilt: 1, axis7: 1 } },
+    { n: 'Erster Vektor', d: '7 und 8 verbinden sich — der Zeitstrahl bricht nach vorne. Er kann in perfekte Dualität (8/4/2) zurückbrechen und Spannungsbögen bilden.',
+      t: { plane: 0.12, s6: 0.35, tilt: 1, axis7: 0.8, vec8: 1 } },
+    { n: 'Balance', d: 'Aus Spannungsbögen entstehen echte Winkel und Formen — das erste Dreieck. 9 = 3² = Balance der Ebenen.',
+      t: { plane: 0.1, tilt: 1, axis7: 0.5, vec8: 0.35, tri9: 1 } },
+    { n: 'Punkt im Dreieck', d: '10 = 1+0: der Ursprung koppelt an die Leere. Der erste Punkt wird bewusst in einer Fläche wahrgenommen — der Koordinatenraum wird geboren.',
+      t: { plane: 0.1, tilt: 0.5, tri9: 1, pt10: 1, coord: 1 } },
+    { n: 'Arithmetik', d: 'Ab hier gelten Folgen, Reihen, Operationen — die normale Arithmetik beginnt. Die Ebenen 1–9 bleiben ihr ontologisches Fundament.',
+      t: { plane: 0.08, tilt: 0.5, tri9: 0.4, coord: 0.6, arith: 1 } }
+  ];
+  const KEYS = ['plane','origin','dual','third','grid','iso','s6','tilt','axis7','vec8','tri9','pt10','coord','arith'];
+  const P = {}; KEYS.forEach(k => P[k] = 0);
+  let step = 0, auto = false, autoT = 0;
+
+  const panel = document.getElementById('gPanel');
+  const dotsBox = document.getElementById('gDots');
+  const dots = STEPS.map((_, i) => {
+    const d = document.createElement('i');
+    d.addEventListener('click', () => setStep(i));
+    dotsBox.appendChild(d); return d;
+  });
+  function setStep(i) {
+    step = (i + STEPS.length) % STEPS.length;
+    const s = STEPS[step];
+    panel.innerHTML = `<h3><em>Schritt ${step + 1}</em> — ${s.n}</h3><p>${s.d}</p>`;
+    dots.forEach((d, k) => d.classList.toggle('on', k === step));
+    autoT = 0;
+  }
+  document.getElementById('gPrev').addEventListener('click', () => setStep(step - 1));
+  document.getElementById('gNext').addEventListener('click', () => setStep(step + 1));
+  const playBtn = document.getElementById('gPlay');
+  playBtn.addEventListener('click', () => {
+    auto = !auto; playBtn.classList.toggle('active', auto); autoT = 0;
+  });
+  setStep(0);
+
+  st.update = (dt, t) => {
+    if (auto) { autoT += dt; if (autoT > 4.2) setStep(step + 1); }
+    const T = STEPS[step].t;
+    for (const k of KEYS) P[k] += ((T[k] || 0) - P[k]) * Math.min(1, dt * 3.2);
+
+    root.rotation.y = Math.sin(t * 0.11) * 0.22;
+    tiltG.rotation.x = -0.62 * P.tilt;
+
+    planeMat.opacity = P.plane * 0.55;
+    origin.scale.setScalar(Math.max(P.origin, 0.001));
+    origin.position.y = 0.05 + Math.sin(t * 1.4) * 0.03 * P.origin;
+    dualA.position.set(-1.1 * P.dual, 0.05, 0); dualB.position.set(1.1 * P.dual, 0.05, 0);
+    dualA.scale.setScalar(Math.max(P.dual, 0.001)); dualB.scale.setScalar(Math.max(P.dual, 0.001));
+    third.scale.setScalar(Math.max(P.third, 0.001));
+    gMat.opacity = P.grid * 0.8;
+    gCorners.forEach(b => b.scale.setScalar(Math.max(P.grid * 0.8, 0.001)));
+    iso.position.set(0.58, 0.1 + 1.0 * P.iso, 0.58);
+    iso.scale.setScalar(Math.max(P.iso, 0.001));
+    s6Mat.opacity = P.s6 * 0.85;
+    s6G.rotation.y = t * 0.15;
+
+    a7Mat.opacity = P.axis7;
+    axis7G.scale.set(1, Math.max(P.axis7 * 1.9, 0.001), 1);
+    a7Tip.position.y = 1.0; a7Tip.material.opacity = P.axis7;
+    a7Tip.scale.setScalar(1 / Math.max(P.axis7 * 1.9, 0.2));
+    a7Origin.scale.setScalar(Math.max(P.axis7 * 0.55, 0.001) / Math.max(P.axis7 * 1.9, 0.2));
+
+    v8Mat.opacity = P.vec8;
+    vec8G.scale.setScalar(Math.max(P.vec8 * 1.7, 0.001));
+    v8Tip.position.y = 1.0; v8Tip.material.opacity = P.vec8;
+
+    triMat.opacity = P.tri9;
+    triG.scale.setScalar(Math.max(P.tri9, 0.001));
+    triBalls.forEach(b => b.scale.setScalar(Math.max(P.tri9 * 0.9, 0.001)));
+    pt10.scale.setScalar(Math.max(P.pt10, 0.001) * (1 + Math.sin(t * 2.2) * 0.15));
+    coordMat.opacity = P.coord * 0.7;
+    arithBalls.forEach((b, i) => {
+      const v = Math.max(0, Math.min(1, P.arith * 10 - i));
+      b.scale.setScalar(Math.max(v * 0.65, 0.001));
+    });
+  };
+})();
+
+/* ============================================================
+   II · MASTER-GEOMETRIE
+============================================================ */
+(() => {
+  const st = makeStage('masterCanvas', new THREE.Vector3(0, 0.6, 5.4), new THREE.Vector3(0, 0, 0));
+  const G = new THREE.Group(); st.scene.add(G);
+  const R = 1.62;
+
+  function ring(radius, color, opacity, segs = 140) {
+    const pts = [];
+    for (let i = 0; i < segs; i++) {
+      const a = i / segs * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+    }
+    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat(color, opacity));
+  }
+  function poly(angles, color, opacity) {
+    const pts = angles.map(a => new THREE.Vector3(
+      Math.cos(a * Math.PI / 180) * R, Math.sin(a * Math.PI / 180) * R, 0));
+    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), lineMat(color, opacity));
+  }
+  G.add(ring(R, C.fg, 0.85));                       // Kreis (Umkreis)
+  G.add(poly([90, 0, 270, 180], C.blue, 0.9));      // Raute (45° gedrehtes Quadrat)
+  G.add(poly([90, 210, 330], C.red, 0.9));          // Dreieck (Spitze oben → Koinzidenz)
+
+  // Positionen
+  const chaosAngles = { 1: 90, 2: 0, 4: 330, 5: 210, 7: 180, 8: 270 };
+  const markers = {}; // p -> mesh
+  const pickables = [];
+  for (const [p, ang] of Object.entries(chaosAngles)) {
+    const a = ang * Math.PI / 180;
+    const m = ball(C.fg, 1.15);
+    m.position.set(Math.cos(a) * R, Math.sin(a) * R, 0);
+    m.userData.p = +p;
+    G.add(m); markers[p] = m; pickables.push(m);
+    const label = textSprite(p, '#f0efe9');
+    label.position.set(Math.cos(a) * (R + 0.36), Math.sin(a) * (R + 0.36), 0);
+    G.add(label);
+  }
+  // Struktur-Flächen 3 & 6 auf der vertikalen Achse
+  function face(y, flip, p) {
+    const s = 0.3;
+    const sh = new THREE.Shape();
+    sh.moveTo(0, s * (flip ? -1 : 1));
+    sh.lineTo(-s * 0.95, -s * 0.55 * (flip ? -1 : 1));
+    sh.lineTo(s * 0.95, -s * 0.55 * (flip ? -1 : 1));
+    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(sh),
+      new THREE.MeshBasicMaterial({ color: C.blue, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
+    mesh.position.set(0, y, 0.02);
+    mesh.userData.p = p;
+    G.add(mesh); markers[p] = mesh; pickables.push(mesh);
+    const label = textSprite(p, '#5b9be6');
+    label.position.set(0.34, y + (flip ? -0.08 : 0.08), 0.05);
+    G.add(label);
+    return mesh;
+  }
+  face(0.72, false, 3);
+  face(-0.72, true, 6);
+  // 9 — Balance im Zentrum
+  const nine = ball(C.gold, 1.35); nine.userData.p = 9;
+  G.add(nine); markers[9] = nine; pickables.push(nine);
+  const nineLabel = textSprite('9', '#d9b45b');
+  nineLabel.position.set(0.3, 0.26, 0.05); G.add(nineLabel);
+
+  // Info-Daten
+  const INFO = {
+    1: ['chaos', 'Chaos-Punkt', 'Ursprung', 'Reines Potential, ungeteilt — der Anfang der Genesis. Crossover-Partner: 8 (1+8 = 9). Orbit A.'],
+    2: ['chaos', 'Chaos-Punkt', 'Dualität', 'Potential füllt Leere: Wechselwirkung und Abstoßung, der Rahmen entsteht. Crossover-Partner: 7 (2+7 = 9). Orbit B.'],
+    3: ['struktur', 'Struktur-Fläche', 'Punkt / Dreieck', 'Ternäre Ebene — starr, prim, maximale Abstoßung. Keine direkte Kante zur 6: jeder Pfad läuft über die 7 (Satz 38). Crossover-Partner: 6.'],
+    4: ['chaos', 'Chaos-Punkt', 'Gleichgewicht', 'Das 2×2-Gitter — minimales symmetrisches 2D-Gitter, die Bruchgrenze der Genesis. Crossover-Partner: 5 (4+5 = 9). Orbit A.'],
+    5: ['chaos', 'Chaos-Punkt', 'Prim-Muster', 'Erstes Isotop: prim, nicht in 2er-Faktoren zerlegbar — verlässt die 2D-Ebene. Crossover-Partner: 4. Orbit B.'],
+    6: ['struktur', 'Struktur-Fläche', 'S₆-Achse', 'Die anormale 6 = 2×3, erste Verbindung von 2 UND 3. Sie spannt die S₆ auf — ontologisch primär: ζ(2) = π²/6 (Satz 5). Crossover-Partner: 3.'],
+    7: ['chaos', 'Chaos-Punkt', 'Graph-Punkt / Brücke', '0-Punkt des Graphen, Kipp von 2D nach 3D, bidirektionale Vermittlerin (Satz 39). Kettenbruch: π = [3; 7, …]. Crossover-Partner: 2. Orbit A.'],
+    8: ['chaos', 'Chaos-Punkt', 'Erster Vektor', 'Der Zeitstrahl bricht nach vorne — kann in perfekte Dualität (8/4/2) zurückbrechen und Spannungsbögen bilden. Crossover-Partner: 1. Orbit B.'],
+    9: ['balance', 'Balance · emergent', 'Balance', '9 = 3² — Balance der Ebenen, das erste Dreieck. Ziel der Brückenformel und Spiegelung des Anfangs: M(3) = 12−3 = 9. Crossover: (9, 9) — mit sich selbst.']
+  };
+
+  const panel = document.getElementById('mPanel');
+  const chipsBox = document.getElementById('mChips');
+  const chips = {};
+  for (let p = 1; p <= 9; p++) {
+    const b = document.createElement('button');
+    b.textContent = p; b.dataset.p = p;
+    b.addEventListener('click', () => select(p));
+    chipsBox.appendChild(b); chips[p] = b;
+  }
+  let selected = 0;
+  function select(p) {
+    selected = p;
+    const [cls, typ, name, desc] = INFO[p];
+    panel.innerHTML = `<span class="tag ${cls}">${typ}</span><h3><em>Position ${p}</em> — ${name}</h3><p>${desc}</p>`;
+    for (let q = 1; q <= 9; q++) chips[q].classList.toggle('sel', q === p);
+  }
+
+  // Interaktion: Drehen + Klicken
+  const ray = new THREE.Raycaster();
+  ray.params.Points = { threshold: 0.2 };
+  const ptr = new THREE.Vector2();
+  let dragging = false, moved = 0, px = 0, py = 0, idle = 0;
+  const cv = st.canvas;
+  cv.addEventListener('pointerdown', e => {
+    dragging = true; moved = 0; px = e.clientX; py = e.clientY;
+    cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    moved += Math.abs(dx) + Math.abs(dy);
+    px = e.clientX; py = e.clientY;
+    G.rotation.y += dx * 0.006;
+    G.rotation.x = Math.max(-0.7, Math.min(0.7, G.rotation.x + dy * 0.004));
+    idle = 0;
+  });
+  cv.addEventListener('pointerup', e => {
+    dragging = false;
+    if (moved < 8) { // Klick → Raycast
+      const r = cv.getBoundingClientRect();
+      ptr.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+      ptr.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+      ray.setFromCamera(ptr, st.camera);
+      const hits = ray.intersectObjects(pickables, false);
+      if (hits.length) select(hits[0].object.userData.p);
+    }
+  });
+
+  st.update = (dt, t) => {
+    idle += dt;
+    if (!dragging && idle > 3) G.rotation.y += dt * 0.12;
+    nine.scale.setScalar(1.35 + Math.sin(t * 1.8) * 0.12);
+    for (const [p, m] of Object.entries(markers)) {
+      const on = +p === selected;
+      if (m.geometry === SPH) {
+        const base = +p === 9 ? 1.35 + Math.sin(t * 1.8) * 0.12 : 1.15;
+        m.scale.setScalar(base * (on ? 1.5 : 1));
+        m.material.emissiveIntensity = on ? 1.1 : 0.35;
+      } else {
+        m.material.opacity = on ? 0.65 : 0.3;
+      }
+    }
+  };
+})();
+
+/* ============================================================
+   III · BRÜCKENFORMEL-RECHNER
+============================================================ */
+(() => {
+  const inN = document.getElementById('inN');
+  const inM = document.getElementById('inM');
+  const out = document.getElementById('calcResult');
+  const cv = document.getElementById('brueckeCanvas');
+  const ctx = cv.getContext('2d');
+  const fmt = x => x.toLocaleString('de-DE', { maximumFractionDigits: 4 });
+
+  const NMAX = 9.6, MMAX = 2.6;
+  function curveM(n) { return n * (9 - n) / (n + 7); }
+
+  function draw() {
+    const w = cv.clientWidth, h = cv.clientHeight;
+    const dpr = Math.min(devicePixelRatio, 2);
+    cv.width = w * dpr; cv.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const L = 44, Rp = 14, T = 16, B = 34;
+    const X = n => L + (w - L - Rp) * n / NMAX;
+    const Y = m => h - B - (h - T - B) * m / MMAX;
+
+    // Gitter + Achsen
+    ctx.strokeStyle = 'rgba(240,239,233,0.07)';
+    ctx.fillStyle = '#8f8f97';
+    ctx.font = '11px Palatino, Georgia, serif';
+    ctx.textAlign = 'center'; ctx.lineWidth = 1;
+    for (let n = 0; n <= 9; n++) {
+      ctx.beginPath(); ctx.moveTo(X(n), T); ctx.lineTo(X(n), h - B); ctx.stroke();
+      ctx.fillText(n, X(n), h - B + 16);
+    }
+    ctx.textAlign = 'right';
+    for (let m = 0; m <= 2.5; m += 0.5) {
+      ctx.beginPath(); ctx.moveTo(L, Y(m)); ctx.lineTo(w - Rp, Y(m)); ctx.stroke();
+      ctx.fillText(m.toLocaleString('de-DE'), L - 7, Y(m) + 4);
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#5b9be6'; ctx.fillText('n (2D-Wahrnehmung)', (L + w - Rp) / 2, h - 4);
+    ctx.save();
+    ctx.translate(12, (T + h - B) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#e05545'; ctx.fillText('m (3D-Realität)', 0, 0);
+    ctx.restore();
+
+    // Lösungskurve
+    ctx.strokeStyle = 'rgba(240,239,233,0.85)';
+    ctx.lineWidth = 1.8; ctx.beginPath();
+    let first = true;
+    for (let n = 0.02; n <= 9; n += 0.02) {
+      const m = curveM(n);
+      if (m < 0 || m > MMAX) { first = true; continue; }
+      if (first) { ctx.moveTo(X(n), Y(m)); first = false; }
+      else ctx.lineTo(X(n), Y(m));
+    }
+    ctx.stroke();
+
+    // Ganzzahlige Lösungen
+    for (const [sn, sm, lbl] of [[1, 1, '(1|1) Ursprung'], [7, 1, '(7|1) Brücke']]) {
+      ctx.fillStyle = '#d9b45b';
+      ctx.shadowColor = '#d9b45b'; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(X(sn), Y(sm), 6, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#f0d998';
+      ctx.fillText(lbl, X(sn), Y(sm) - 14);
+    }
+
+    // Nutzer-Punkt
+    const n = parseFloat(inN.value), m = parseFloat(inM.value);
+    if (isFinite(n) && isFinite(m) && n > 0 && n <= NMAX && m >= 0 && m <= MMAX) {
+      const hit = Math.abs(n + m + 7 * m / n - 9) < 0.01;
+      ctx.strokeStyle = hit ? '#d9b45b' : '#5b9be6';
+      ctx.fillStyle = hit ? 'rgba(217,180,91,0.9)' : 'rgba(91,155,230,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X(n), Y(m), 8, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(X(n), Y(m), 3.5, 0, 7); ctx.fill();
+    }
+  }
+
+  function update() {
+    const n = parseFloat(inN.value), m = parseFloat(inM.value);
+    if (!isFinite(n) || !isFinite(m) || n <= 0) {
+      out.className = 'result';
+      out.innerHTML = 'Bitte gib n &gt; 0 und ein m ein.';
+      draw(); return;
+    }
+    const val = n + m + 7 * m / n;
+    const delta = val - 9;
+    const hit = Math.abs(delta) < 0.005;
+    out.className = 'result' + (hit ? ' hit' : '');
+    out.innerHTML =
+      `${fmt(n)} + ${fmt(m)} + 7·(${fmt(m)}/${fmt(n)}) = <span class="big">${fmt(val)}</span>` +
+      (hit
+        ? `<div style="color:var(--gold-hi); margin-top:6px">✦ Balance erreicht — die Gleichung ist erfüllt.</div>`
+        : `<div style="color:var(--dim); margin-top:6px">Abstand zur Balance: Δ = ${fmt(delta)}</div>`);
+    draw();
+  }
+  inN.addEventListener('input', update);
+  inM.addEventListener('input', update);
+  document.getElementById('sol1').addEventListener('click', () => { inN.value = 1; inM.value = 1; update(); });
+  document.getElementById('sol2').addEventListener('click', () => { inN.value = 7; inM.value = 1; update(); });
+  addEventListener('resize', draw);
+  new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) draw(); }, { threshold: 0.05 }).observe(cv);
+  update();
+})();
+
+/* ============================================================
+   IV · S6-ACHSE  (Kipp 2D → 3D)
+============================================================ */
+(() => {
+  const st = makeStage('s6Canvas', new THREE.Vector3(0, 1.9, 5.2), new THREE.Vector3(0, 0.35, 0));
+  const G = new THREE.Group(); st.scene.add(G);
+
+  // 2D-Fläche (blau)
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.85, 72),
+    new THREE.MeshBasicMaterial({ color: C.blue, transparent: true, opacity: 0.14, side: THREE.DoubleSide }));
+  disc.rotation.x = -Math.PI / 2; G.add(disc);
+  const discRing = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(Array.from({ length: 90 }, (_, i) => {
+      const a = i / 90 * Math.PI * 2;
+      return new THREE.Vector3(Math.cos(a) * 1.85, 0, Math.sin(a) * 1.85);
+    })), lineMat(C.blue, 0.5));
+  G.add(discRing);
+
+  // 3 Achsen = 6 Halbachsen
+  const L = 1.7, S = Math.sqrt(2 / 3), Yc = 1 / Math.sqrt(3);
+  const axes = [];
+  for (let k = 0; k < 3; k++) {
+    const a = k * 2 * Math.PI / 3;
+    const flat = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+    const deep = new THREE.Vector3(S * Math.cos(a), Yc, S * Math.sin(a));
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const line = new THREE.Line(geo, lineMat(C.fg, 0.9));
+    const end1 = ball(C.fg, 0.75), end2 = ball(C.fg, 0.75);
+    G.add(line, end1, end2);
+    axes.push({ flat, deep, geo, end1, end2 });
+  }
+
+  // Rote Zeitachse (7)
+  const a7Mat = lineMat(C.red, 0);
+  const a7 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+    [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)]), a7Mat);
+  G.add(a7);
+  const a7Tip = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 16), meshMat(C.red, 0));
+  G.add(a7Tip);
+  const lbl7 = textSprite('7', '#e05545'); lbl7.material.opacity = 0; G.add(lbl7);
+
+  // Balance-Zentrum (gold)
+  const center = ball(C.gold, 0.9); G.add(center);
+
+  const slider = document.getElementById('s6Slider');
+  const caption = document.getElementById('s6Caption');
+  let target = 0, cur = 0;
+  slider.addEventListener('input', () => { target = slider.value / 100; });
+
+  st.update = (dt, t) => {
+    cur += (target - cur) * Math.min(1, dt * 4);
+    G.rotation.y = t * 0.18;
+    const tmp = new THREE.Vector3();
+    for (const ax of axes) {
+      tmp.lerpVectors(ax.flat, ax.deep, cur).normalize().multiplyScalar(L);
+      const p = ax.geo.attributes.position;
+      p.setXYZ(0, -tmp.x, -tmp.y, -tmp.z);
+      p.setXYZ(1, tmp.x, tmp.y, tmp.z);
+      p.needsUpdate = true;
+      ax.end1.position.copy(tmp);
+      ax.end2.position.copy(tmp).negate();
+    }
+    disc.material.opacity = 0.14 * (1 - cur) + 0.02;
+    discRing.material.opacity = 0.5 * (1 - cur) + 0.06;
+    const len = 2.15 * cur;
+    a7.scale.set(1, Math.max(len, 0.001), 1);
+    a7Mat.opacity = cur;
+    a7Tip.position.y = len; a7Tip.material.opacity = cur;
+    lbl7.position.set(0.26, len + 0.18, 0); lbl7.material.opacity = cur;
+    center.scale.setScalar(0.9 + Math.sin(t * 1.8) * 0.1);
+
+    caption.textContent =
+      cur < 0.12 ? 'S₆ — sechs Halbachsen in der Fläche. Die Struktur wartet auf den Bruch.' :
+      cur > 0.88 ? 'Der Kipp ist vollzogen: 3 Raumachsen stehen, die 7 trägt die Zeit — 2D wurde 3D.' :
+      'Übergang: die Fläche kann nicht mehr 2D brechen — die Ausbreitung kippt nach innen …';
+  };
+})();
+
+/* ============================================================
+   V · ORBITS AUF ℤ₉*
+============================================================ */
+(() => {
+  const cv = document.getElementById('orbitCanvas');
+  const ctx = cv.getContext('2d');
+  const PATHS = {
+    periode: { seq: [1, 4, 2, 8, 5, 7], color: '#d9b45b' },
+    beta:    { seq: [1, 5, 7, 2, 4, 8], color: '#f0d998' }
+  };
+  let mode = 'periode', prog = 0, visible = false;
+
+  const infoBox = document.getElementById('orbitInfo');
+  const btnP = document.getElementById('pathPeriode');
+  const btnB = document.getElementById('pathBeta');
+  function setMode(m) {
+    mode = m; prog = 0;
+    btnP.classList.toggle('active', m === 'periode');
+    btnB.classList.toggle('active', m === 'beta');
+    infoBox.innerHTML = m === 'periode'
+      ? `<p class="mono" style="color:var(--gold-hi)">1/7 = 0,142857 142857 …</p>
+         <p style="color:#c9c8bf; margin-top:8px; font-size:0.9rem">Der Puls durchläuft die Ziffern der 1/7-Periode: 1 → 4 → 2 → 8 → 5 → 7. Ziffernmenge = ℤ₉*, Ziffernsumme = 27 = 3³. Es fehlen genau 0, 3, 6, 9.</p>`
+      : `<p class="mono" style="color:var(--gold-hi)">β: 1 → 5 → 7 → 2 → 4 → 8 → 1</p>
+         <p style="color:#c9c8bf; margin-top:8px; font-size:0.9rem">Die Forward-Achse β (Shifts +4/+2, σ² = +6 mod 9) — der einzige Forward-konforme Hamiltonsche Zyklus auf ℤ₉* (Forward-Achsen-Lemma). Sie alterniert zwischen Orbit A und B.</p>`;
+  }
+  btnP.addEventListener('click', () => setMode('periode'));
+  btnB.addEventListener('click', () => setMode('beta'));
+
+  const posOf = (k, cx, cy, r) => {
+    const a = (-90 + k * 40) * Math.PI / 180;
+    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  };
+  const A = [1, 4, 7], B = [2, 5, 8];
+  const colorOf = k => A.includes(k) ? '#e05545' : B.includes(k) ? '#5b9be6' : k === 9 ? '#d9b45b' : '#8f8f97';
+
+  let last = 0;
+  function draw(ts) {
+    requestAnimationFrame(draw);
+    if (!visible) { last = ts; return; }
+    const dt = Math.min((ts - last) / 1000 || 0, 0.05); last = ts;
+    prog += dt * 0.55;
+
+    const w = cv.clientWidth, h = Math.min(w, 520);
+    const dpr = Math.min(devicePixelRatio, 2);
+    if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    cv.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.36;
+
+    // Ring
+    ctx.strokeStyle = 'rgba(240,239,233,0.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+
+    // Orbit-Dreiecke
+    for (const [set, col] of [[A, 'rgba(224,85,69,0.4)'], [B, 'rgba(91,155,230,0.4)']]) {
+      ctx.strokeStyle = col; ctx.lineWidth = 1.2; ctx.beginPath();
+      set.forEach((k, i) => {
+        const [x, y] = posOf(k, cx, cy, r);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.closePath(); ctx.stroke();
+    }
+    // Achse 3-6-9 (gestrichelt, dezent)
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(217,180,91,0.25)';
+    ctx.beginPath();
+    [3, 6, 9].forEach((k, i) => {
+      const [x, y] = posOf(k, cx, cy, r);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.closePath(); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Puls-Pfad
+    const { seq, color } = PATHS[mode];
+    const i0 = Math.floor(prog) % seq.length;
+    const i1 = (i0 + 1) % seq.length;
+    const f = prog % 1;
+    const [x0, y0] = posOf(seq[i0], cx, cy, r);
+    const [x1, y1] = posOf(seq[i1], cx, cy, r);
+    // Spur (bisherige Kanten schwach)
+    ctx.strokeStyle = 'rgba(217,180,91,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i < seq.length; i++) {
+      const [xa, ya] = posOf(seq[i], cx, cy, r);
+      const [xb, yb] = posOf(seq[(i + 1) % seq.length], cx, cy, r);
+      ctx.moveTo(xa, ya); ctx.lineTo(xb, yb);
+    }
+    ctx.stroke();
+    // aktiver Puls
+    const pxx = x0 + (x1 - x0) * f, pyy = y0 + (y1 - y0) * f;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(pxx, pyy); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.shadowColor = color; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.arc(pxx, pyy, 6, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Knoten
+    ctx.font = `${Math.max(15, r * 0.14)}px Palatino, Georgia, serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let k = 1; k <= 9; k++) {
+      const [x, y] = posOf(k, cx, cy, r);
+      const col = colorOf(k);
+      const inGroup = A.includes(k) || B.includes(k);
+      const rad = k === 9 ? 17 : inGroup ? 15 : 12;
+      ctx.fillStyle = '#0b0b10';
+      ctx.strokeStyle = col; ctx.lineWidth = k === 9 ? 2.2 : 1.6;
+      if (k === 9) { ctx.shadowColor = col; ctx.shadowBlur = 14; }
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = col;
+      ctx.fillText(k, x, y + 1);
+    }
+    // Titel
+    ctx.fillStyle = 'rgba(240,239,233,0.55)';
+    ctx.font = `13px Palatino, Georgia, serif`;
+    ctx.fillText('ℤ₉* = {1, 2, 4, 5, 7, 8}', cx, h - 14);
+  }
+  new IntersectionObserver(es => { visible = es.some(e => e.isIntersecting); },
+    { threshold: 0.05 }).observe(cv);
+  setMode('periode');
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
