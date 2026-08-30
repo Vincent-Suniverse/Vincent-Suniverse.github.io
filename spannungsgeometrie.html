@@ -616,13 +616,17 @@ function textSprite(text, color = '#f0efe9', size = 128) {
   // Isotop (5) — verlässt die Ebene
   const iso = ball(C.red, 0.001); tiltG.add(iso);
 
-  // S6-Stern (3 Achsen in der Ebene)
+  // S6-Stern (3 Achsen, flach in der Ebene — XYZ ruht, bis die Zeit kommt)
   const s6G = new THREE.Group(); tiltG.add(s6G);
   const s6Mat = lineMat(C.fg, 0);
+  const s6Balls = [];
   for (let k = 0; k < 3; k++) {
     const a = k * Math.PI / 3;
     const d = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(1.7);
     s6G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([d.clone().negate(), d]), s6Mat));
+    for (const p of [d, d.clone().negate()]) {
+      const b = ball(C.fg, 0.001); b.position.copy(p); s6G.add(b); s6Balls.push(b);
+    }
   }
 
   // Achse 7 (rot, vertikal) — nicht gekippt
@@ -634,27 +638,36 @@ function textSprite(text, color = '#f0efe9', size = 128) {
   axis7G.add(a7Tip);
   const a7Origin = ball(C.red, 0.001); axis7G.add(a7Origin);
 
-  // Vektor 8 (Zeitstrahl)
-  const vec8G = new THREE.Group(); root.add(vec8G);
-  vec8G.rotation.x = Math.PI / 2 - 0.35; // zeigt schräg nach vorn-oben
+  // Punkt der 7 — weg von der Achse, im gedehnten Raum
+  const P7 = new THREE.Vector3(1.05, 1.15, 0.55);
+  const p7Ball = ball(C.red, 0.001); p7Ball.position.copy(P7); root.add(p7Ball);
+
+  // Vektor 8 — der erste Vektor im Raum: verbindet Ursprung und 7-Punkt
   const v8Mat = lineMat(C.red, 0);
+  const vec8G = new THREE.Group(); root.add(vec8G);
   vec8G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
     [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)]), v8Mat));
   const v8Tip = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 16), meshMat(C.red, 0));
-  vec8G.add(v8Tip);
+  v8Tip.position.y = 1; vec8G.add(v8Tip);
+  vec8G.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), P7.clone().normalize());
 
-  // Dreieck 9 (gold)
-  const triG = new THREE.Group(); tiltG.add(triG);
+  // Dreieck 9 (gold) — das erste Dreieck, das im Raum MIT der Achse existiert
+  const triA = new THREE.Vector3(0, 0, 0);
+  const triB = new THREE.Vector3(0, 1.7, 0);   // Spitze der Zeitachse
+  const triC = P7.clone();
+  const triG = new THREE.Group(); root.add(triG);
   const triMat = lineMat(C.gold, 0);
-  const triPts = [0, 1, 2].map(k => {
-    const a = Math.PI / 2 + k * 2 * Math.PI / 3;
-    return new THREE.Vector3(Math.cos(a) * 1.15, 0.03, -Math.sin(a) * 1.15);
-  });
+  const triPts = [triA, triB, triC];
   triG.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(triPts), triMat));
   const triBalls = triPts.map(p => { const b = ball(C.gold, 0.001); b.position.copy(p); triG.add(b); return b; });
 
-  // Punkt 10 + Koordinaten
-  const pt10 = ball(C.gold, 0.001); pt10.position.y = 0.08; tiltG.add(pt10);
+  // Punkt 10 — im Dreieck, wo die Winkel wohnen
+  const centroid = triA.clone().add(triB).add(triC).multiplyScalar(1 / 3);
+  const pt10 = ball(C.gold, 0.001); pt10.position.copy(centroid); root.add(pt10);
+  const innerMat = lineMat(C.gold, 0);
+  root.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+    centroid, triA, centroid, triB, centroid, triC
+  ]), innerMat));
   const coordMat = lineMat(C.blue, 0);
   tiltG.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(-2.1, 0.01, 0), new THREE.Vector3(2.1, 0.01, 0),
@@ -681,20 +694,20 @@ function textSprite(text, color = '#f0efe9', size = 128) {
       t: { plane: 0.3, grid: 1 } },
     { n: 'Prim-Muster', d: 'Die 5 ist prim — sie lässt sich nicht in 2er-Faktoren zerlegen. Erstes Isotop: es verlässt die 2D-Ebene.',
       t: { plane: 0.25, grid: 1, iso: 1 } },
-    { n: 'Anormale 6', d: '6 = 2×3 — die erste Zahl, die 2 UND 3 verbindet. Sie bricht in die 4/2-Achse und spannt die S₆ auf: das Gerüst für alles Folgende.',
-      t: { plane: 0.2, grid: 0.35, iso: 0.55, s6: 1 } },
-    { n: 'Graph-Punkt', d: 'Die Fläche kann nicht mehr 2D brechen — die Ausbreitung kippt nach innen (3D). Die 7 entsteht als 0-Punkt des Graphen: die Brücke.',
-      t: { plane: 0.15, s6: 0.6, tilt: 1, axis7: 1 } },
-    { n: 'Erster Vektor', d: '7 und 8 verbinden sich — der Zeitstrahl bricht nach vorne. Er kann in perfekte Dualität (8/4/2) zurückbrechen und Spannungsbögen bilden.',
-      t: { plane: 0.12, s6: 0.35, tilt: 1, axis7: 0.8, vec8: 1 } },
-    { n: 'Balance', d: 'Aus Spannungsbögen entstehen echte Winkel und Formen — das erste Dreieck. 9 = 3² = Balance der Ebenen.',
-      t: { plane: 0.1, tilt: 1, axis7: 0.5, vec8: 0.35, tri9: 1 } },
-    { n: 'Punkt im Dreieck', d: '10 = 1+0: der Ursprung koppelt an die Leere. Der erste Punkt wird bewusst in einer Fläche wahrgenommen — der Koordinatenraum wird geboren.',
-      t: { plane: 0.1, tilt: 0.5, tri9: 1, pt10: 1, coord: 1 } },
-    { n: 'Arithmetik', d: 'Ab hier gelten Folgen, Reihen, Operationen — die normale Arithmetik beginnt. Die Ebenen 1–9 bleiben ihr ontologisches Fundament.',
-      t: { plane: 0.08, tilt: 0.5, tri9: 0.4, coord: 0.6, arith: 1 } }
+    { n: 'Anormale 6', d: '6 = 2×3 — die erste Zahl, die 2 UND 3 verbindet. Sie spannt die S₆ auf: sechs Halbachsen, die flach in der Ebene liegen. Noch gibt es keine Tiefe und keine Zeit — die Struktur ruht.',
+      t: { plane: 0.22, grid: 0.25, s6: 1 } },
+    { n: 'Graph-Punkt', d: 'Die Zeit kommt dazu — der Raum dehnt sich. Weg von der Achse bildet sich ein Punkt: die 7, der 0-Punkt des Graphen, die Brücke von 2D nach 3D.',
+      t: { plane: 0.15, s6: 1, axis7: 1, p7: 1 } },
+    { n: 'Erster Vektor', d: '7 und 8 verbinden sich — der erste Vektor im Raum entsteht: vom Ursprung zum neuen Punkt. Der Zeitstrahl bricht nach vorne und kann Spannungsbögen bilden.',
+      t: { plane: 0.12, s6: 0.5, axis7: 1, p7: 1, vec8: 1 } },
+    { n: 'Balance', d: 'Das erste Dreieck, das im Raum mit der Achse existiert: Ursprung, Achsenspitze und der 7-Punkt spannen es auf. 9 = 3² = Balance der Ebenen.',
+      t: { plane: 0.1, s6: 0.3, axis7: 1, p7: 1, vec8: 0.3, tri9: 1 } },
+    { n: 'Punkt im Dreieck', d: 'Der erste Punkt im Dreieck — im Inneren entstehen die Winkel. 10 = 1+0: der Ursprung koppelt an die Leere, der Koordinatenraum wird geboren.',
+      t: { plane: 0.1, axis7: 0.6, p7: 0.6, tri9: 1, pt10: 1, coord: 1 } },
+    { n: 'Arithmetik', d: 'Der erste Additionsschritt: Punkt reiht sich an Punkt. Ab hier gelten Folgen, Reihen, Operationen — die Ebenen 1–9 bleiben das ontologische Fundament.',
+      t: { plane: 0.08, tri9: 0.4, coord: 0.6, arith: 1 } }
   ];
-  const KEYS = ['plane','origin','dual','third','grid','iso','s6','tilt','axis7','vec8','tri9','pt10','coord','arith'];
+  const KEYS = ['plane','origin','dual','third','grid','iso','s6','axis7','p7','vec8','tri9','pt10','coord','arith'];
   const P = {}; KEYS.forEach(k => P[k] = 0);
   let step = 0, auto = false, autoT = 0;
 
@@ -726,7 +739,6 @@ function textSprite(text, color = '#f0efe9', size = 128) {
     for (const k of KEYS) P[k] += ((T[k] || 0) - P[k]) * Math.min(1, dt * 3.2);
 
     root.rotation.y = Math.sin(t * 0.11) * 0.22;
-    tiltG.rotation.x = -0.62 * P.tilt;
 
     planeMat.opacity = P.plane * 0.55;
     origin.scale.setScalar(Math.max(P.origin, 0.001));
@@ -740,6 +752,8 @@ function textSprite(text, color = '#f0efe9', size = 128) {
     iso.scale.setScalar(Math.max(P.iso, 0.001));
     s6Mat.opacity = P.s6 * 0.85;
     s6G.rotation.y = t * 0.15;
+    s6G.scale.setScalar(1 + 0.22 * P.axis7); // die Zeit dehnt den Raum
+    s6Balls.forEach(b => b.scale.setScalar(Math.max(P.s6 * 0.6, 0.001)));
 
     a7Mat.opacity = P.axis7;
     axis7G.scale.set(1, Math.max(P.axis7 * 1.9, 0.001), 1);
@@ -747,14 +761,18 @@ function textSprite(text, color = '#f0efe9', size = 128) {
     a7Tip.scale.setScalar(1 / Math.max(P.axis7 * 1.9, 0.2));
     a7Origin.scale.setScalar(Math.max(P.axis7 * 0.55, 0.001) / Math.max(P.axis7 * 1.9, 0.2));
 
+    p7Ball.scale.setScalar(Math.max(P.p7, 0.001) * (1 + Math.sin(t * 2.4) * 0.1));
+
     v8Mat.opacity = P.vec8;
-    vec8G.scale.setScalar(Math.max(P.vec8 * 1.7, 0.001));
-    v8Tip.position.y = 1.0; v8Tip.material.opacity = P.vec8;
+    vec8G.scale.setScalar(Math.max(P.vec8 * P7.length(), 0.001));
+    v8Tip.material.opacity = P.vec8;
+    v8Tip.scale.setScalar(1 / Math.max(P.vec8 * P7.length(), 0.2));
 
     triMat.opacity = P.tri9;
     triG.scale.setScalar(Math.max(P.tri9, 0.001));
     triBalls.forEach(b => b.scale.setScalar(Math.max(P.tri9 * 0.9, 0.001)));
     pt10.scale.setScalar(Math.max(P.pt10, 0.001) * (1 + Math.sin(t * 2.2) * 0.15));
+    innerMat.opacity = P.pt10 * 0.45;
     coordMat.opacity = P.coord * 0.7;
     arithBalls.forEach((b, i) => {
       const v = Math.max(0, Math.min(1, P.arith * 10 - i));
