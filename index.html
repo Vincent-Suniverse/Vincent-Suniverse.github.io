@@ -374,6 +374,51 @@
   .link-item:hover .link-arrow,
   .link-item:focus-visible .link-arrow { opacity: 1; transform: translateX(0); }
 
+  /* ── Latest: neuestes pro Kanal ───────── */
+
+  .latest-item { padding: 12px 16px 12px 12px; }
+
+  .latest-cover {
+    width: 52px; height: 52px; flex-shrink: 0;
+    border-radius: 4px; overflow: hidden;
+    background: linear-gradient(160deg, #2a2130, #18131b);
+    border: 1px solid rgba(207,171,94,0.22);
+    display: grid; place-items: center;
+  }
+  .latest-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .latest-cover svg { width: 22px; height: 22px; fill: var(--gold); opacity: 0.75; }
+
+  .latest-kicker {
+    font-size: 0.58rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--teal); margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .latest-item .link-title {
+    font-size: 0.9rem; letter-spacing: 1.5px; text-transform: none;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase;
+    padding: 3px 7px 3px 9px; border-radius: 2px;
+    color: var(--bg-deep); background: linear-gradient(120deg, var(--gold-hi), var(--gold));
+    vertical-align: middle; margin-left: 8px;
+  }
+  .badge-red { color: var(--cream); background: linear-gradient(120deg, #d43a3a, var(--red)); }
+
+  /* CeCla: noch nicht veroeffentlicht */
+  .link-item.soon {
+    cursor: default;
+    border-style: dashed;
+    border-color: rgba(207,171,94,0.30);
+    background:
+      radial-gradient(120% 140% at 0% 0%, rgba(196,34,34,0.08) 0%, transparent 55%),
+      var(--card);
+  }
+  .link-item.soon:hover { transform: none !important; }
+  .link-item.soon .link-icon { opacity: 0.8; }
+
   /* ── Footer ───────────────────────────── */
 
   .footer { margin-top: 44px; text-align: center; }
@@ -433,7 +478,8 @@
     .section:nth-of-type(2) { animation-delay: 1.55s; }
     .section:nth-of-type(3) { animation-delay: 1.7s; }
     .section:nth-of-type(4) { animation-delay: 1.85s; }
-    .footer      { animation-delay: 2.0s; animation-duration: 1.4s; }
+    .section:nth-of-type(5) { animation-delay: 2.0s; }
+    .footer      { animation-delay: 2.15s; animation-duration: 1.4s; }
 
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes revealUp {
@@ -594,6 +640,12 @@
     </span>
   </a>
 
+  <div class="section" id="latest-section">
+    <div class="section-divider"></div>
+    <div class="section-label" data-i18n="sl_latest">Latest</div>
+    <div class="links" id="latest"></div>
+  </div>
+
   <div class="section">
     <div class="section-divider"></div>
     <div class="section-label" data-i18n="sl_music">Music</div>
@@ -601,11 +653,26 @@
       <a href="https://open.spotify.com/artist/3LQ3n2HV0Dm8On9TpZfQSS" target="_blank" rel="noopener" class="link-item">
         <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></div>
         <div class="link-content">
-          <div class="link-title">Spotify</div>
-          <div class="link-subtitle" data-i18n="sub_spotify">Chaos ex Ordo &middot; All Releases</div>
+          <div class="link-title">Chaos ex Ordo</div>
+          <div class="link-subtitle" data-i18n="sub_spotify">Spotify &middot; Main channel &middot; All Releases</div>
         </div>
         <span class="link-arrow" aria-hidden="true">&rarr;</span>
       </a>
+      <a href="https://open.spotify.com/artist/6IAuHIgkoV6BDWO3SDHquc" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></div>
+        <div class="link-content">
+          <div class="link-title">Vincexo369<span class="badge" data-i18n="isnew">New</span></div>
+          <div class="link-subtitle" data-i18n="sub_vincexo">Spotify &middot; Techno channel</div>
+        </div>
+        <span class="link-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+      <div class="link-item soon" aria-label="CeCla, coming soon">
+        <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 1.5 1.6 19.5h20.8L12 1.5zm0 3 7.8 13.5H4.2L12 4.5z" opacity=".55"/><path d="M13.2 7.5v6.3a2.4 2.4 0 1 0 1.2 2.1V10l2.4.9V9.2l-3.6-1.7z"/></svg></div>
+        <div class="link-content">
+          <div class="link-title">CeCla<span class="badge badge-red" data-i18n="soon">Coming soon</span></div>
+          <div class="link-subtitle" data-i18n="sub_cecla">Classical channel &middot; 20+ pieces in the making</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -617,7 +684,7 @@
         <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 3a2 2 0 0 0-1 3.73V21h2V6.73A2 2 0 0 0 12 3zM6.34 5.34 4.93 3.93a9 9 0 0 0 0 12.73l1.41-1.41a7 7 0 0 1 0-9.9zm11.32 0a7 7 0 0 1 0 9.9l1.41 1.41a9 9 0 0 0 0-12.73l-1.41 1.41zM8.46 7.46 7.05 6.05a5 5 0 0 0 0 7.07l1.41-1.41a3 3 0 0 1 0-4.25zm7.08 0a3 3 0 0 1 0 4.25l1.41 1.41a5 5 0 0 0 0-7.07l-1.41 1.41z"/></svg></div>
         <div class="link-content">
           <div class="link-title">UVB-76 Register</div>
-          <div class="link-subtitle" data-i18n="sub_uvb">Live-Datenbank &middot; Sendungen der &bdquo;Buzzer&ldquo;-Station</div>
+          <div class="link-subtitle" data-i18n="sub_uvb">Live database &middot; 1,300+ transmissions since 2020</div>
         </div>
         <span class="link-arrow" aria-hidden="true">&rarr;</span>
       </a>
@@ -683,6 +750,14 @@
         </div>
         <span class="link-arrow" aria-hidden="true">&rarr;</span>
       </a>
+      <a href="https://www.instagram.com/vincexo369" target="_blank" rel="noopener" class="link-item">
+        <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></div>
+        <div class="link-content">
+          <div class="link-title">Instagram</div>
+          <div class="link-subtitle" data-i18n="sub_instagram2">@vincexo369 &middot; Geometry, Patterns &amp; Techno</div>
+        </div>
+        <span class="link-arrow" aria-hidden="true">&rarr;</span>
+      </a>
     </div>
   </div>
 
@@ -699,29 +774,86 @@ window.I18N = {
     tagline:'27 Konstanten. 1 Formel. Null freie Parameter.',
     feld_title:'Das Feld', feld_sub:'Begehbare Geometrie · Experiment',
     sl_music:'Musik', sl_research:'Forschung & Code',
-    sub_spotify:'Chaos ex Ordo · Alle Releases',
-    sub_uvb:'Live-Datenbank · Sendungen der „Buzzer"-Station',
+    sl_latest:'Neu', soon:'Bald', isnew:'Neu',
+    sub_spotify:'Spotify · Hauptkanal · Alle Releases',
+    sub_vincexo:'Spotify · Techno-Kanal',
+    sub_cecla:'Klassik-Kanal · 20+ Stücke in Arbeit',
+    sub_uvb:'Live-Datenbank · 1.300+ Sendungen seit 2020',
     sub_github:'Open Source · Öffentliche Repositories',
     sub_community:'Freedom Anarchy Union · Mitreden & connecten',
     sub_news:'Chaos ex Ordo · Updates & Durchbrüche',
     sub_x:'@FAU_Vince · Gedanken & Framework',
-    sub_instagram:'@chaos_ex_ordo · Hinter den Kulissen'
+    sub_instagram:'@chaos_ex_ordo · Hinter den Kulissen',
+    sub_instagram2:'@vincexo369 · Geometrie, Muster & Techno'
   },
   en:{
     tagline:'27 Constants. 1 Formula. Zero free parameters.',
     feld_title:'The Field', feld_sub:'Walkable Geometry · Experiment',
     sl_music:'Music', sl_research:'Research & Code',
-    sub_spotify:'Chaos ex Ordo · All Releases',
-    sub_uvb:'Live database · transmissions of the "Buzzer" station',
+    sl_latest:'Latest', soon:'Coming soon', isnew:'New',
+    sub_spotify:'Spotify · Main channel · All Releases',
+    sub_vincexo:'Spotify · Techno channel',
+    sub_cecla:'Classical channel · 20+ pieces in the making',
+    sub_uvb:'Live database · 1,300+ transmissions since 2020',
     sub_github:'Open Source · Public Repositories',
     sub_community:'Freedom Anarchy Union · Join & connect',
     sub_news:'Chaos ex Ordo · Updates & Breakthroughs',
     sub_x:'@FAU_Vince · Thoughts & Framework',
-    sub_instagram:'@chaos_ex_ordo · Behind the Scenes'
+    sub_instagram:'@chaos_ex_ordo · Behind the Scenes',
+    sub_instagram2:'@vincexo369 · Geometry, Patterns & Techno'
   }
 };
 </script>
 <script src="lang.js"></script>
+
+<script src="latest.js"></script>
+<script>
+/* Latest-Karten aus latest.js bauen; Sprache folgt dem Umschalter */
+(function(){
+  'use strict';
+  var box = document.getElementById('latest');
+  var data = window.CXO_LATEST || [];
+  if (!box || !data.length) { var sec = document.getElementById('latest-section'); if (sec) sec.style.display = 'none'; return; }
+  var ICON = {
+    spotify: document.querySelector('a[href*="open.spotify.com/artist"] .link-icon').innerHTML,
+    instagram: document.querySelector('a[href*="instagram.com"] .link-icon').innerHTML
+  };
+  var MON = {
+    de:['Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'],
+    en:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  };
+  function esc(x){ return String(x).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmt(d, l){
+    if (!d) return '';
+    var p = d.split('-'), m = (MON[l] || MON.en)[+p[1]-1];
+    return l === 'de' ? (+p[2]) + '. ' + m + ' ' + p[0] : m + ' ' + (+p[2]) + ', ' + p[0];
+  }
+  function render(){
+    var l = (window.getLang && window.getLang()) || 'en';
+    var now = Date.now();
+    box.innerHTML = data.map(function(it){
+      var type = (it.type && (it.type[l] || it.type.en)) || '';
+      var fresh = it.date && (now - Date.parse(it.date)) < 14*864e5;
+      var cover = it.cover
+        ? '<img src="' + esc(it.cover) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+        : (ICON[it.kind] || '');
+      var meta = [type, fmt(it.date, l)].filter(Boolean).join(' · ');
+      return '<a href="' + esc(it.url) + '" target="_blank" rel="noopener" class="link-item latest-item">' +
+        '<div class="latest-cover">' + cover + '</div>' +
+        '<div class="link-content">' +
+          '<div class="latest-kicker">' + esc(it.channel) + '</div>' +
+          '<div class="link-title">' + esc(it.title) +
+            (fresh ? '<span class="badge">' + esc(window.t ? window.t('isnew') : 'New') + '</span>' : '') + '</div>' +
+          '<div class="link-subtitle">' + esc(meta) + '</div>' +
+        '</div>' +
+        '<span class="link-arrow" aria-hidden="true">&rarr;</span></a>';
+    }).join('');
+  }
+  render();
+  var prev = window.onLangChange;
+  window.onLangChange = function(l){ if (prev) prev(l); render(); };
+})();
+</script>
 
 <script>
 (function(){
