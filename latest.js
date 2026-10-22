@@ -2,7 +2,7 @@
    Zum Aktualisieren nur diese Liste ändern (neuester Eintrag zuerst).
    Felder:
      channel  Kanalname (wird oben klein angezeigt)
-     kind     'spotify' | 'instagram' | 'youtube'  (Icon + Linkfarbe)
+     kind     'spotify' | 'instagram'  (Icon + Linkfarbe)
      type     Release / Reel / Video … (de/en)
      title    Titel
      date     JJJJ-MM-TT  (bis 14 Tage alt bekommt es das NEW-Zeichen)
@@ -43,14 +43,5 @@ window.CXO_LATEST = [
     title: 'Epstein, Epstein (Pt.2) out now',
     date: '2026-08-14',
     url: 'https://www.instagram.com/p/DcBdHb8M853/'
-  },
-  {
-    channel: '369Art by VW',
-    kind: 'youtube',
-    type: { de: 'Video', en: 'Video' },
-    title: 'Hymn of the Common Ground',
-    date: '',
-    url: 'https://www.youtube.com/watch?v=fPmExSpr370',
-    cover: 'https://i.ytimg.com/vi/fPmExSpr370/hqdefault.jpg'
   }
 ];

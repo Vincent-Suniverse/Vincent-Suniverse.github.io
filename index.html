@@ -666,14 +666,6 @@
         </div>
         <span class="link-arrow" aria-hidden="true">&rarr;</span>
       </a>
-      <a href="https://www.youtube.com/@369artV" target="_blank" rel="noopener" class="link-item">
-        <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg></div>
-        <div class="link-content">
-          <div class="link-title">369Art by VW</div>
-          <div class="link-subtitle" data-i18n="sub_youtube">YouTube &middot; 3-6-9 Ternary Art</div>
-        </div>
-        <span class="link-arrow" aria-hidden="true">&rarr;</span>
-      </a>
       <div class="link-item soon" aria-label="CeCla, coming soon">
         <div class="link-icon"><svg viewBox="0 0 24 24"><path d="M12 1.5 1.6 19.5h20.8L12 1.5zm0 3 7.8 13.5H4.2L12 4.5z" opacity=".55"/><path d="M13.2 7.5v6.3a2.4 2.4 0 1 0 1.2 2.1V10l2.4.9V9.2l-3.6-1.7z"/></svg></div>
         <div class="link-content">
@@ -785,7 +777,6 @@ window.I18N = {
     sl_latest:'Neu', soon:'Bald', isnew:'Neu',
     sub_spotify:'Spotify · Hauptkanal · Alle Releases',
     sub_vincexo:'Spotify · Techno-Kanal',
-    sub_youtube:'YouTube · 3-6-9 Ternary Art',
     sub_cecla:'Klassik-Kanal · 20+ Stücke in Arbeit',
     sub_uvb:'Live-Datenbank · 1.300+ Sendungen seit 2020',
     sub_github:'Open Source · Öffentliche Repositories',
@@ -802,7 +793,6 @@ window.I18N = {
     sl_latest:'Latest', soon:'Coming soon', isnew:'New',
     sub_spotify:'Spotify · Main channel · All Releases',
     sub_vincexo:'Spotify · Techno channel',
-    sub_youtube:'YouTube · 3-6-9 Ternary Art',
     sub_cecla:'Classical channel · 20+ pieces in the making',
     sub_uvb:'Live database · 1,300+ transmissions since 2020',
     sub_github:'Open Source · Public Repositories',
@@ -826,7 +816,6 @@ window.I18N = {
   if (!box || !data.length) { var sec = document.getElementById('latest-section'); if (sec) sec.style.display = 'none'; return; }
   var ICON = {
     spotify: document.querySelector('a[href*="open.spotify.com/artist"] .link-icon').innerHTML,
-    youtube: document.querySelector('a[href*="youtube.com"] .link-icon').innerHTML,
     instagram: document.querySelector('a[href*="instagram.com"] .link-icon').innerHTML
   };
   var MON = {
