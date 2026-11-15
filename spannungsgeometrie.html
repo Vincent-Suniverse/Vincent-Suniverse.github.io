@@ -444,33 +444,34 @@
   <div class="sec-num">VI · Funde aus dem Axiom</div>
   <h2>12.–15. November 2026</h2>
   <p class="sec-intro">
-    Vier Ergebnisse, in Lean 4 geprüft, und der Stand der Zählung. Fakt ist, was Lean beweist
-    (Log mit <span class="mono">#print axioms</span>: nur propext, Classical.choice, Quot.sound; kein sorry).
-    Lesart bleibt Lesart und ist so markiert.
+    Die Zahlen und Schritte kommen aus dem Axiom (Satz 9) und der Genesis-Kette, nicht aus einer Zahlentabelle:
+    in Lean 4 ist das Axiom (<span class="mono">A : GenesisAxiom</span>) die Voraussetzung, und
+    <span class="mono">#print axioms</span> zeigt nur propext, Classical.choice und Quot.sound, kein sorry.
+    Die bekannten Namen sind Einordnung, nicht Herkunft. Fakt ist, was Lean beweist; Lesart ist als Lesart markiert.
   </p>
     <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
-      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Kaprekar · Satz 155</h3>
-      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Jede vierstellige Zahl (führende Nullen erlaubt), deren Ziffern nicht alle gleich sind, erreicht 6174 in höchstens sieben Schritten.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Die Basis ist Zehn = 9 + 1 (Balance + Ursprung), die Schranke Sieben ist die Verbindung der Genesis-Kette. 6174 selbst bleibt gesetzt. Beweis ohne <span class="mono">native_decide</span>: Rechenlemma <span class="mono">K(n) = 999·(a−d) + 90·(b−c)</span> und Fallprüfung über 55 Paare.</p>
-      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · der Satz selbst ist klassisch (Kaprekar), neu ist die Anbindung an Zehn = 9 + 1</p>
-    </div>
-    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
-      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Zsigmondy für 2ⁿ − 1</h3>
-      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Für jedes n ≥ 13 außer n = 18 gibt es eine Primzahl q, die 2ⁿ − 1 teilt und bei der 2 genau die Ordnung n mod q hat.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Der klassische Satz von Zsigmondy, hier in fünf Schritten in Lean aufgebaut. Der geprüfte Bereich ist n ≥ 13, n ≠ 18; die kleineren n sind in dieser Datei nicht abgedeckt.</p>
-      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · klassischer Satz, hier formalisiert</p>
-    </div>
-    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
-      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">24 Pole im 15°-Schritt</h3>
-      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dreht man einen Pol in Schritten η von 15° um das Zentrum, hat η die Ordnung 24, und die Punkte c + (z − c)·ηʲ für j &lt; 24 sind genau 24 verschiedene Punkte. Mittelpunktswinkel: 360°/24 = 15°.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Gezeigt unter der Voraussetzung des Axioms (<span class="mono">A : GenesisAxiom</span>).</p>
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Zehn = 9 + 1 trägt Kaprekar · Satz 155</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Aus der Kette folgt: Die Basis ist Zehn = Balance + Ursprung (9 + 1), und die Schrittzahl Sieben ist die Verbindung (Ursprung + Paar + Vierer). Damit erreicht jede vierstellige Zahl (führende Nullen erlaubt), deren Ziffern nicht alle gleich sind, 6174 in höchstens sieben Schritten.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Beweisweg ohne <span class="mono">native_decide</span>: <span class="mono">K(n) = 999·(a−d) + 90·(b−c)</span> und eine Fallprüfung über 55 Paare. 6174 selbst bleibt gesetzt. Einordnung: Das Verfahren kennt man als Kaprekar-Konstante; hier sind Basis und Schranke aus dem Axiom abgeleitet.</p>
       <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen, mit dem Axiom als Voraussetzung</p>
     </div>
     <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
-      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">φ im Ikosaeder</h3>
-      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Das Oktaeder hat sechs Spitzen (±x, ±y, ±z) und zwölf Kanten. Teilt man jede Kante gleichsinnig verdreht im Verhältnis a : b, sind alle Nachbarabstände genau dann gleich, wenn a = φ·b mit φ = (1 + √5)/2. Das ist das regelmäßige Ikosaeder.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Lesart: In der Raumlesung der Genesis (Tausch in jeder der drei Ebenen durch die Mitte) ist der goldene Schnitt damit erzwungen, nicht gewählt.</p>
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Die Achse 12 und der Bruch der Deckung · Satz 367</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Die Achse 12 (zwölf Pole) kommt aus dem Axiom. Oberhalb von 12 bricht die Deckung der Primteiler von 2ⁿ − 1 beweisbar, wenn n ungerade ist, wenn n + 1 keine Primzahl ist oder wenn n = 18 ist. Offen bleibt nur: n gerade und n + 1 prim. Deshalb ist 367 Beleg, mit benannter Lücke.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dafür brauchte es einen Satz, den Mathlib nicht hat: In Lean bewiesen, dass 2ⁿ − 1 für alle n ≥ 13 außer n = 18 einen Primteiler q mit Ordnung n hat (Zsigmondys Satz, hier für Basis 2 selbst aufgebaut). Bei n = 18 trägt die Größenabschätzung des Beweises nicht; direkt nachgerechnet ist 19 der neue Primteiler (2¹⁸ − 1 = 3³·7·19·73).</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · Satz 367 bleibt BELEG (Lücke: n gerade, n + 1 prim)</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">24 Pole im 15°-Schritt</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dreht man einen Pol z in Schritten η von 15° um das Zentrum c des Axioms, hat η die Ordnung 24, und die Punkte c + (z − c)·ηʲ für j &lt; 24 sind genau 24 verschiedene Punkte. Mittelpunktswinkel: 360°/24 = 15°.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen, mit dem Axiom als Voraussetzung</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">φ im Ikosaeder · in der Raumlesung</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Das Oktaeder hat sechs Spitzen (±x, ±y, ±z) und zwölf Kanten. Teilt man jede Kante gleichsinnig verdreht im Verhältnis a : b, sind alle Nachbarabstände genau dann gleich, wenn a = φ·b mit φ = (1 + √5)/2. Das ist das regelmäßige Ikosaeder.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Lesart: In der Raumlesung der Genesis (Bewegung in alle Richtungen, die drei Ebenen durch die Mitte) ist der goldene Schnitt damit erzwungen, nicht gewählt. Diese Raumsätze zählen als eigene Gruppe, getrennt von der Hauptzahl.</p>
       <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT (die Rechnung, Lean) · LESART (Raumlesung)</p>
     </div>
     <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
       <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Stand der Zählung</h3>
-      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Sätze 1 bis 364: 254 zwingend, 46 Beleg, 64 ohne Lean-Satz (Deutungen und Setzungen). Stand 13.11.2026, nach Runde 5 und Gegenprüfung. Zwingend heißt: ein Lean-Beweis, der das Axiom als Voraussetzung nutzt. Die Sätze 365 bis 425 sind in Arbeit; die Zahlen ändern sich mit jedem grünen Lauf.</p>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Sätze 1 bis 364: 254 zwingend, 46 Beleg, 64 ohne Lean-Satz (Deutungen und Setzungen), Stand 13.11.2026 nach Runde 5. Zwingend heißt: ein Lean-Beweis, der das Axiom als Voraussetzung nutzt. Seitdem sind weitere Sätze dazugekommen; der aktuelle Stand wird hier nachgeführt, sobald er in der Stand-Datei steht.</p>
       <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">STAND 13.11.2026 · wird fortgeschrieben</p>
     </div>
 </section>
