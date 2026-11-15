@@ -294,15 +294,16 @@
   <a href="#bruecke">Brückenformel</a>
   <a href="#s6">S₆-Achse</a>
   <a href="#orbits">Orbits</a>
+  <a href="#funde">Funde</a>
 </nav>
 
 <header>
   <div class="kicker">Chaos ex Ordo · Vincent Weber</div>
   <h1>Lehre der Spannungsgeometrie</h1>
-  <div class="version">V13 · Geometrisch-mathematischer Kern</div>
+  <div class="version">V13 · Geometrisch-mathematischer Kern · Axiom nach Satz 9 (V16)</div>
   <blockquote class="axiom">
-    „Reines Potential existiert als unstrukturierte Ebene, die in Leere bricht, welche sich zu füllen versucht; dieser Spiegelprozess strebt von Asymmetrie zu Symmetrie und erzeugt dabei zwei Potentialgrenzen.“
-    <small>§1 · Das Axiom</small>
+    „Vollständiges Potential existiert als unstrukturierte Ebene, die sich von ihrem Zentrum entfernt.“
+    <small>§1 · Das Axiom (Satz 9)</small>
   </blockquote>
   <div class="palette">
     <span><i class="dot b"></i> 2D-Fläche</span>
@@ -438,8 +439,44 @@
   </div>
 </section>
 
+<!-- ================= 6 · FUNDE AUS DEM AXIOM ================= -->
+<section id="funde">
+  <div class="sec-num">VI · Funde aus dem Axiom</div>
+  <h2>12.–15. November 2026</h2>
+  <p class="sec-intro">
+    Vier Ergebnisse, in Lean 4 geprüft, und der Stand der Zählung. Fakt ist, was Lean beweist
+    (Log mit <span class="mono">#print axioms</span>: nur propext, Classical.choice, Quot.sound; kein sorry).
+    Lesart bleibt Lesart und ist so markiert.
+  </p>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Kaprekar · Satz 155</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Jede vierstellige Zahl (führende Nullen erlaubt), deren Ziffern nicht alle gleich sind, erreicht 6174 in höchstens sieben Schritten.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Die Basis ist Zehn = 9 + 1 (Balance + Ursprung), die Schranke Sieben ist die Verbindung der Genesis-Kette. 6174 selbst bleibt gesetzt. Beweis ohne <span class="mono">native_decide</span>: Rechenlemma <span class="mono">K(n) = 999·(a−d) + 90·(b−c)</span> und Fallprüfung über 55 Paare.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · der Satz selbst ist klassisch (Kaprekar), neu ist die Anbindung an Zehn = 9 + 1</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Zsigmondy für 2ⁿ − 1</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Für jedes n ≥ 13 außer n = 18 gibt es eine Primzahl q, die 2ⁿ − 1 teilt und bei der 2 genau die Ordnung n mod q hat.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Der klassische Satz von Zsigmondy, hier in fünf Schritten in Lean aufgebaut. Der geprüfte Bereich ist n ≥ 13, n ≠ 18; die kleineren n sind in dieser Datei nicht abgedeckt.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · klassischer Satz, hier formalisiert</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">24 Pole im 15°-Schritt</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dreht man einen Pol in Schritten η von 15° um das Zentrum, hat η die Ordnung 24, und die Punkte c + (z − c)·ηʲ für j &lt; 24 sind genau 24 verschiedene Punkte. Mittelpunktswinkel: 360°/24 = 15°.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Gezeigt unter der Voraussetzung des Axioms (<span class="mono">A : GenesisAxiom</span>).</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen, mit dem Axiom als Voraussetzung</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">φ im Ikosaeder</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Das Oktaeder hat sechs Spitzen (±x, ±y, ±z) und zwölf Kanten. Teilt man jede Kante gleichsinnig verdreht im Verhältnis a : b, sind alle Nachbarabstände genau dann gleich, wenn a = φ·b mit φ = (1 + √5)/2. Das ist das regelmäßige Ikosaeder.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Lesart: In der Raumlesung der Genesis (Tausch in jeder der drei Ebenen durch die Mitte) ist der goldene Schnitt damit erzwungen, nicht gewählt.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT (die Rechnung, Lean) · LESART (Raumlesung)</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Stand der Zählung</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Sätze 1 bis 364: 254 zwingend, 46 Beleg, 64 ohne Lean-Satz (Deutungen und Setzungen). Stand 13.11.2026, nach Runde 5 und Gegenprüfung. Zwingend heißt: ein Lean-Beweis, der das Axiom als Voraussetzung nutzt. Die Sätze 365 bis 425 sind in Arbeit; die Zahlen ändern sich mit jedem grünen Lauf.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">STAND 13.11.2026 · wird fortgeschrieben</p>
+    </div>
+</section>
+
 <footer>
-  <div>Lehre der Spannungsgeometrie · V13 · Stand 28.08.2026</div>
+  <div>Lehre der Spannungsgeometrie · V13 · Axiom nach Satz 9 · Funde Stand 15.11.2026</div>
   <div style="margin-top:6px">Vincent Weber · <a href="index.html">Chaos ex Ordo</a></div>
   <div class="sig">3 · 6 · 9</div>
 </footer>
