@@ -294,15 +294,16 @@
   <a href="#bruecke">Brückenformel</a>
   <a href="#s6">S₆-Achse</a>
   <a href="#orbits">Orbits</a>
+  <a href="#funde">Funde</a>
 </nav>
 
 <header>
   <div class="kicker">Chaos ex Ordo · Vincent Weber</div>
   <h1>Lehre der Spannungsgeometrie</h1>
-  <div class="version">V13 · Geometrisch-mathematischer Kern</div>
+  <div class="version">V13 · Geometrisch-mathematischer Kern · Axiom nach Satz 9 (V16)</div>
   <blockquote class="axiom">
-    „Reines Potential existiert als unstrukturierte Ebene, die in Leere bricht, welche sich zu füllen versucht; dieser Spiegelprozess strebt von Asymmetrie zu Symmetrie und erzeugt dabei zwei Potentialgrenzen.“
-    <small>§1 · Das Axiom</small>
+    „Vollständiges Potential existiert als unstrukturierte Ebene, die sich von ihrem Zentrum entfernt.“
+    <small>§1 · Das Axiom (Satz 9)</small>
   </blockquote>
   <div class="palette">
     <span><i class="dot b"></i> 2D-Fläche</span>
@@ -438,8 +439,45 @@
   </div>
 </section>
 
+<!-- ================= 6 · FUNDE AUS DEM AXIOM ================= -->
+<section id="funde">
+  <div class="sec-num">VI · Funde aus dem Axiom</div>
+  <h2>12.–15. November 2026</h2>
+  <p class="sec-intro">
+    Die Zahlen und Schritte kommen aus dem Axiom (Satz 9) und der Genesis-Kette, nicht aus einer Zahlentabelle:
+    in Lean 4 ist das Axiom (<span class="mono">A : GenesisAxiom</span>) die Voraussetzung, und
+    <span class="mono">#print axioms</span> zeigt nur propext, Classical.choice und Quot.sound, kein sorry.
+    Die bekannten Namen sind Einordnung, nicht Herkunft. Fakt ist, was Lean beweist; Lesart ist als Lesart markiert.
+  </p>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Zehn = 9 + 1 trägt Kaprekar · Satz 155</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Aus der Kette folgt: Die Basis ist Zehn = Balance + Ursprung (9 + 1), und die Schrittzahl Sieben ist die Verbindung (Ursprung + Paar + Vierer). Damit erreicht jede vierstellige Zahl (führende Nullen erlaubt), deren Ziffern nicht alle gleich sind, 6174 in höchstens sieben Schritten.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Beweisweg ohne <span class="mono">native_decide</span>: <span class="mono">K(n) = 999·(a−d) + 90·(b−c)</span> und eine Fallprüfung über 55 Paare. 6174 selbst bleibt gesetzt. Einordnung: Das Verfahren kennt man als Kaprekar-Konstante; hier sind Basis und Schranke aus dem Axiom abgeleitet.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen, mit dem Axiom als Voraussetzung</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Die Achse 12 und der Bruch der Deckung · Satz 367</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Die Achse 12 (zwölf Pole) kommt aus dem Axiom. Oberhalb von 12 bricht die Deckung der Primteiler von 2ⁿ − 1 beweisbar, wenn n ungerade ist, wenn n + 1 keine Primzahl ist oder wenn n = 18 ist. Offen bleibt nur: n gerade und n + 1 prim. Deshalb ist 367 Beleg, mit benannter Lücke.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dafür brauchte es einen Satz, den Mathlib nicht hat: In Lean bewiesen, dass 2ⁿ − 1 für alle n ≥ 13 außer n = 18 einen Primteiler q mit Ordnung n hat (Zsigmondys Satz, hier für Basis 2 selbst aufgebaut). Bei n = 18 trägt die Größenabschätzung des Beweises nicht; direkt nachgerechnet ist 19 der neue Primteiler (2¹⁸ − 1 = 3³·7·19·73).</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen · Satz 367 bleibt BELEG (Lücke: n gerade, n + 1 prim)</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">24 Pole im 15°-Schritt</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Dreht man einen Pol z in Schritten η von 15° um das Zentrum c des Axioms, hat η die Ordnung 24, und die Punkte c + (z − c)·ηʲ für j &lt; 24 sind genau 24 verschiedene Punkte. Mittelpunktswinkel: 360°/24 = 15°.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT · in Lean bewiesen, mit dem Axiom als Voraussetzung</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">φ im Ikosaeder · in der Raumlesung</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Das Oktaeder hat sechs Spitzen (±x, ±y, ±z) und zwölf Kanten. Teilt man jede Kante gleichsinnig verdreht im Verhältnis a : b, sind alle Nachbarabstände genau dann gleich, wenn a = φ·b mit φ = (1 + √5)/2. Das ist das regelmäßige Ikosaeder.</p><p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Lesart: In der Raumlesung der Genesis (Bewegung in alle Richtungen, die drei Ebenen durch die Mitte) ist der goldene Schnitt damit erzwungen, nicht gewählt. Diese Raumsätze zählen als eigene Gruppe, getrennt von der Hauptzahl.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">FAKT (die Rechnung, Lean) · LESART (Raumlesung)</p>
+    </div>
+    <div style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:18px 20px;margin-bottom:16px">
+      <h3 style="color:var(--gold-hi);font-weight:normal;font-size:1.05rem;margin-bottom:8px">Stand der Zählung</h3>
+      <p style="color:#c9c8bf;font-size:0.92rem;margin-bottom:6px">Sätze 1 bis 364: 273 zwingend, 48 Beleg, 43 Deutung; dazu 15 zwingende unter den Sätzen 365 bis 425. Stand 15.11.2026. Zwingend heißt: ein Lean-Beweis, der das Axiom als Voraussetzung nutzt. Die Raumsätze (Dreibeine, Quader, Punkt 7 = 3 + 4, φ am Ikosaeder) zählen als eigene Gruppe, „zwingend in der Raumlesung", getrennt von der Hauptzahl. Der Stand wird nachgeführt.</p>
+      <p class="mono" style="color:var(--dim);font-size:0.78rem;margin-top:8px">STAND 15.11.2026 · wird fortgeschrieben</p>
+    </div>
+</section>
+
 <footer>
-  <div>Lehre der Spannungsgeometrie · V13 · Stand 28.08.2026</div>
+  <div>Lehre der Spannungsgeometrie · V13 · Axiom nach Satz 9 · Funde Stand 15.11.2026</div>
   <div style="margin-top:6px">Vincent Weber · <a href="index.html">Chaos ex Ordo</a></div>
   <div class="sig">3 · 6 · 9</div>
 </footer>
